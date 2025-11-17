@@ -1,6 +1,5 @@
 """Tests for Sophia client."""
 
-
 from apollo.client.sophia_client import SophiaClient, SophiaResponse
 from apollo.config.settings import SophiaConfig
 
