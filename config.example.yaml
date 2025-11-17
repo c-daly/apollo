@@ -1,0 +1,16 @@
+# Apollo Configuration Example
+# Copy this file to config.yaml and customize as needed
+
+sophia:
+  host: localhost
+  port: 8080
+  timeout: 30
+
+hcg:
+  neo4j:
+    uri: bolt://localhost:7687
+    user: neo4j
+    password: password
+  milvus:
+    host: localhost
+    port: 19530
