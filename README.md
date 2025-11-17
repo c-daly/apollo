@@ -30,9 +30,17 @@ Apollo consists of two main components:
 
 ### Prerequisites
 
-- Node.js 18+ (for web dashboard)
-- Python 3.9+ (for CLI tool)
-- Docker (for connecting to LOGOS infrastructure)
+- **Node.js 18+** (for web dashboard) - [Download](https://nodejs.org/)
+- **npm 9+** (comes with Node.js)
+- **Python 3.9+** (for CLI tool)
+- **Docker** (for connecting to LOGOS infrastructure)
+
+Verify your installation:
+```bash
+node --version  # Should be v18.x or higher
+npm --version   # Should be 9.x or higher
+python --version  # Should be 3.9 or higher
+```
 
 ### Install CLI Tool
 
@@ -44,12 +52,14 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-### Install Web Dashboard
+### Install Web Dashboard Dependencies
 
 ```bash
 cd webapp
 npm install
 ```
+
+This will install all JavaScript/TypeScript dependencies defined in `webapp/package.json`. The lock file (`package-lock.json`) ensures reproducible builds across all environments.
 
 ## Quick Start
 
@@ -103,19 +113,42 @@ hcg:
 
 ## Development
 
+### Dependency Management
+
+Apollo uses two dependency management systems:
+
+#### Python Dependencies (CLI)
+- **Manager**: pip with pyproject.toml
+- **Lock file**: Not used (standard Python practice)
+- **Install**: `pip install -e ".[dev]"`
+- **Configuration**: `pyproject.toml`
+
+#### JavaScript/TypeScript Dependencies (Web Dashboard)
+- **Manager**: npm
+- **Lock file**: `package-lock.json` (committed to repository)
+- **Install**: `cd webapp && npm install`
+- **Configuration**: `webapp/package.json`
+
 ### Running Tests
 
 ```bash
 # Python CLI tests
 pytest
 
-# Web dashboard tests
+# Web dashboard tests (when implemented)
 cd webapp
 npm test
+
+# Web dashboard tests with UI
+npm run test:ui
+
+# Generate test coverage
+npm run coverage
 ```
 
 ### Code Quality
 
+#### Python (CLI)
 ```bash
 # Format Python code
 black src tests
@@ -125,13 +158,37 @@ ruff check src tests
 
 # Type checking
 mypy src
+```
 
-# Format JavaScript/React code
+#### JavaScript/TypeScript (Web Dashboard)
+```bash
 cd webapp
+
+# Lint code
+npm run lint
+
+# Fix linting issues automatically
+npm run lint:fix
+
+# Format code with Prettier
 npm run format
 
-# Lint JavaScript/React code
-npm run lint
+# Check formatting
+npm run format:check
+
+# Type checking
+npm run type-check
+```
+
+### Building
+
+```bash
+# Build web dashboard for production
+cd webapp
+npm run build
+
+# Preview production build
+npm run preview
 ```
 
 ## Project Structure
