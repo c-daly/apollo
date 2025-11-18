@@ -1,81 +1,200 @@
 """Apollo CLI - Command-line interface for Project LOGOS."""
 
+from pathlib import Path
 from typing import Optional
 
 import click
 from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich.syntax import Syntax
+import yaml
+
+from apollo.client.sophia_client import SophiaClient
+from apollo.config.settings import ApolloConfig
 
 console = Console()
 
 
 @click.group()
 @click.version_option(version="0.1.0", prog_name="apollo-cli")
-def cli() -> None:
+@click.option(
+    "--config",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to config file (default: config.yaml or defaults)",
+)
+@click.pass_context
+def cli(ctx: click.Context, config: Optional[Path]) -> None:
     """Apollo CLI - Command interface for Project LOGOS.
 
     Apollo provides a command-line interface for interacting with
     Sophia (the cognitive core), visualizing agent state, and
     monitoring plan execution.
     """
-    pass
+    # Load configuration and store in context
+    ctx.ensure_object(dict)
+    ctx.obj["config"] = ApolloConfig.load(config)
+    ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
 
 
 @cli.command()
-def status() -> None:
+@click.pass_context
+def status(ctx: click.Context) -> None:
     """Display current connection status."""
+    config: ApolloConfig = ctx.obj["config"]
+    client: SophiaClient = ctx.obj["client"]
+
     console.print("[bold green]Apollo CLI v0.1.0[/bold green]")
-    console.print("Status: Ready (infrastructure setup complete)")
-    console.print(
-        "\n[yellow]Note:[/yellow] Full integration with Sophia coming in Epoch 3"
-    )
+    console.print("\n[bold]Sophia Configuration:[/bold]")
+    console.print(f"  Host: {config.sophia.host}")
+    console.print(f"  Port: {config.sophia.port}")
+    console.print(f"  URL: {client.base_url}")
+
+    console.print("\n[bold]Connection Status:[/bold]")
+    if client.health_check():
+        console.print("  [green]✓[/green] Sophia is accessible")
+    else:
+        console.print(
+            "  [yellow]✗[/yellow] Cannot connect to Sophia " f"at {client.base_url}"
+        )
+        console.print(
+            "\n[dim]Tip: Make sure Sophia service is running "
+            "or check your config[/dim]"
+        )
 
 
 @cli.command()
-def state() -> None:
+@click.pass_context
+def state(ctx: click.Context) -> None:
     """Display current agent state."""
-    console.print("[bold blue]Agent State[/bold blue]")
-    console.print("State visualization will be implemented in Epoch 3 (Task C4)")
-    console.print("\n[dim]This will show:[/dim]")
-    console.print("  • Current world model state")
-    console.print("  • Active plans and goals")
-    console.print("  • Recent actions and outcomes")
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print("[bold blue]Agent State[/bold blue]\n")
+
+    response = client.get_state()
+
+    if response.success and response.data:
+        # Format and display the state data
+        if isinstance(response.data, dict):
+            # Create a formatted panel with state information
+            state_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(state_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Current State", border_style="blue")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
+        )
 
 
 @cli.command()
 @click.argument("command", required=False)
-def send(command: Optional[str]) -> None:
+@click.pass_context
+def send(ctx: click.Context, command: Optional[str]) -> None:
     """Send a command to Sophia cognitive core.
 
     Args:
-        command: The command to send (optional for now)
+        command: The command to send
     """
-    if command:
-        console.print(f"[bold]Command:[/bold] {command}")
-        console.print(
-            "[yellow]Command execution will be implemented in Epoch 3 (Task C4)[/yellow]"
-        )
-    else:
+    if not command:
         console.print("[yellow]Usage:[/yellow] apollo-cli send '<your command>'")
         console.print("\n[dim]Example:[/dim] apollo-cli send 'pick up the red block'")
+        return
+
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print(f"[bold]Sending command:[/bold] {command}\n")
+
+    response = client.send_command(command)
+
+    if response.success and response.data:
+        # Format and display the response
+        console.print("[green]✓[/green] Command sent successfully\n")
+
+        if isinstance(response.data, dict):
+            # Display formatted response
+            response_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Response", border_style="green")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
+        )
 
 
 @cli.command()
 @click.option("--recent", default=10, help="Number of recent plans to show")
-def plans(recent: int) -> None:
+@click.pass_context
+def plans(ctx: click.Context, recent: int) -> None:
     """Show recent plans generated by Sophia.
 
     Args:
         recent: Number of recent plans to display
     """
-    console.print(f"[bold blue]Recent Plans[/bold blue] (last {recent})")
-    console.print("Plan history will be implemented in Epoch 3 (Task C4)")
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print(f"[bold blue]Recent Plans[/bold blue] (last {recent})\n")
+
+    response = client.get_plans(limit=recent)
+
+    if response.success and response.data:
+        # Format and display plans
+        if isinstance(response.data, dict) and "plans" in response.data:
+            plans_list = response.data["plans"]
+            if not plans_list:
+                console.print("[dim]No plans found[/dim]")
+            else:
+                # Create a table for plans
+                table = Table(show_header=True, header_style="bold cyan")
+                table.add_column("ID", style="dim")
+                table.add_column("Status", justify="center")
+                table.add_column("Goal", style="green")
+                table.add_column("Created", style="dim")
+
+                for plan in plans_list:
+                    table.add_row(
+                        str(plan.get("id", "N/A")),
+                        plan.get("status", "unknown"),
+                        plan.get("goal", "N/A"),
+                        plan.get("created_at", "N/A"),
+                    )
+
+                console.print(table)
+        elif isinstance(response.data, dict):
+            # Fallback: display raw YAML
+            plans_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(plans_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Plans", border_style="blue")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
+        )
 
 
 @cli.command()
 def history() -> None:
     """Display command history."""
     console.print("[bold blue]Command History[/bold blue]")
-    console.print("Command logging will be implemented in Epoch 3 (Task C4)")
+    console.print(
+        "\n[dim]Command history tracking will be implemented in a future iteration[/dim]"
+    )
 
 
 def main() -> None:

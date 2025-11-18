@@ -15,7 +15,7 @@ def test_sophia_client_initialization() -> None:
 
 
 def test_sophia_client_send_command() -> None:
-    """Test sending command (placeholder)."""
+    """Test sending command returns connection error when service unavailable."""
     config = SophiaConfig()
     client = SophiaClient(config)
 
@@ -23,11 +23,11 @@ def test_sophia_client_send_command() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "not yet implemented" in response.error.lower()
+    assert "cannot connect" in response.error.lower()
 
 
 def test_sophia_client_get_state() -> None:
-    """Test getting state (placeholder)."""
+    """Test getting state returns connection error when service unavailable."""
     config = SophiaConfig()
     client = SophiaClient(config)
 
@@ -35,11 +35,11 @@ def test_sophia_client_get_state() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "not yet implemented" in response.error.lower()
+    assert "cannot connect" in response.error.lower()
 
 
 def test_sophia_client_get_plans() -> None:
-    """Test getting plans (placeholder)."""
+    """Test getting plans returns connection error when service unavailable."""
     config = SophiaConfig()
     client = SophiaClient(config)
 
@@ -47,11 +47,11 @@ def test_sophia_client_get_plans() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "not yet implemented" in response.error.lower()
+    assert "cannot connect" in response.error.lower()
 
 
 def test_sophia_client_health_check() -> None:
-    """Test health check (placeholder)."""
+    """Test health check returns False when service unavailable."""
     config = SophiaConfig()
     client = SophiaClient(config)
 
