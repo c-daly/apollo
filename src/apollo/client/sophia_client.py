@@ -2,6 +2,7 @@
 
 from typing import Any, Dict, Optional
 
+import requests
 from pydantic import BaseModel
 
 from apollo.config.settings import SophiaConfig
@@ -18,8 +19,7 @@ class SophiaResponse(BaseModel):
 class SophiaClient:
     """Client for Sophia cognitive core API.
 
-    This client will be fully implemented in Epoch 3 (Task C4)
-    when the Apollo command interface is built.
+    Prototype implementation for wiring Apollo CLI to Sophia services.
     """
 
     def __init__(self, config: SophiaConfig) -> None:
@@ -44,12 +44,29 @@ class SophiaClient:
         Raises:
             requests.RequestException: If request fails
         """
-        # Placeholder implementation
-        # Full implementation in Epoch 3
-        return SophiaResponse(
-            success=False,
-            error="Sophia integration not yet implemented (Epoch 3)",
-        )
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/command",
+                json={"command": command},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
 
     def get_state(self) -> SophiaResponse:
         """Get current agent state from Sophia.
@@ -60,12 +77,28 @@ class SophiaClient:
         Raises:
             requests.RequestException: If request fails
         """
-        # Placeholder implementation
-        # Full implementation in Epoch 3
-        return SophiaResponse(
-            success=False,
-            error="State retrieval not yet implemented (Epoch 3)",
-        )
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/state",
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
 
     def get_plans(self, limit: int = 10) -> SophiaResponse:
         """Get recent plans from Sophia.
@@ -79,12 +112,29 @@ class SophiaClient:
         Raises:
             requests.RequestException: If request fails
         """
-        # Placeholder implementation
-        # Full implementation in Epoch 3
-        return SophiaResponse(
-            success=False,
-            error="Plan retrieval not yet implemented (Epoch 3)",
-        )
+        try:
+            response = requests.get(
+                f"{self.base_url}/api/plans",
+                params={"limit": limit},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
 
     def health_check(self) -> bool:
         """Check if Sophia is accessible.
@@ -92,6 +142,11 @@ class SophiaClient:
         Returns:
             True if Sophia is healthy, False otherwise
         """
-        # Placeholder implementation
-        # Full implementation in Epoch 3
-        return False
+        try:
+            response = requests.get(
+                f"{self.base_url}/health",
+                timeout=5,
+            )
+            return response.status_code == 200
+        except Exception:
+            return False
