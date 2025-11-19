@@ -69,6 +69,12 @@ This will install all JavaScript/TypeScript dependencies defined in `webapp/pack
 # Start the Apollo CLI
 apollo-cli
 
+# Create a goal
+apollo-cli goal "Navigate to the kitchen"
+
+# Create a goal with priority
+apollo-cli goal "Pick up the red block" --priority high
+
 # Send a command to Sophia
 apollo-cli send "pick up the red block"
 
@@ -134,6 +140,9 @@ Apollo uses two dependency management systems:
 ```bash
 # Python CLI tests
 pytest
+
+# Run M4 E2E test (verifies goal creation flow)
+./PHASE1_VERIFY/scripts/m4_test.py
 
 # Web dashboard tests (when implemented)
 cd webapp
@@ -204,8 +213,20 @@ apollo/
 │   └── public/        # Static assets
 ├── tests/             # Test suite for CLI
 ├── examples/          # Example usage and scripts
-└── docs/              # Documentation
+├── docs/              # Documentation
+└── PHASE1_VERIFY/     # Phase 1 verification scripts
+    └── scripts/       # E2E test scripts and documentation
 ```
+
+## Verification & E2E Testing
+
+Apollo includes end-to-end verification scripts in `PHASE1_VERIFY/scripts/`:
+
+- **M4 Test**: Verifies the complete goal creation flow through Apollo CLI
+- Demonstrates proper architecture (CLI → API → Sophia → Neo4j)
+- Replaces direct database operations with proper API calls
+
+See [PHASE1_VERIFY/scripts/README.md](PHASE1_VERIFY/scripts/README.md) for detailed documentation on verification scripts and commands.
 
 ## Epoch 1: Infrastructure & Knowledge Foundation
 
@@ -216,9 +237,11 @@ This implementation provides the foundational infrastructure for Apollo:
 - ✅ React web dashboard scaffolding
 - ✅ Development environment configuration
 - ✅ Testing framework setup
-- ⏳ Basic command interface (Epoch 3)
+- ✅ Basic command interface (CLI + API integration)
+- ✅ Goal creation and state fetching commands
+- ✅ E2E verification scripts
 - ⏳ State visualization (Epoch 3)
-- ⏳ Integration with Sophia (Epoch 3)
+- ⏳ Full integration with Sophia (Epoch 3)
 
 ## Integration with LOGOS Components
 

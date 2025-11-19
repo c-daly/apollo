@@ -136,6 +136,49 @@ class SophiaClient:
         except Exception as e:
             return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
 
+    def create_goal(
+        self, goal: str, metadata: Optional[Dict[str, Any]] = None
+    ) -> SophiaResponse:
+        """Create a goal in Sophia.
+
+        Args:
+            goal: Goal description
+            metadata: Optional metadata for the goal
+
+        Returns:
+            Response from Sophia
+
+        Raises:
+            requests.RequestException: If request fails
+        """
+        try:
+            payload = {"goal": goal}
+            if metadata:
+                payload["metadata"] = metadata
+
+            response = requests.post(
+                f"{self.base_url}/api/goals",
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
+
     def health_check(self) -> bool:
         """Check if Sophia is accessible.
 
