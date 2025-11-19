@@ -155,6 +155,8 @@ npm run test:ui
 npm run coverage
 ```
 
+See [E2E Test Documentation](tests/e2e/README.md) for detailed information on end-to-end testing.
+
 ### Code Quality
 
 #### Python (CLI)
@@ -211,7 +213,10 @@ apollo/
 ├── webapp/             # React web dashboard
 │   ├── src/           # React components and pages
 │   └── public/        # Static assets
-├── tests/             # Test suite for CLI
+├── tests/             # Test suite
+│   ├── e2e/          # End-to-end functional tests
+│   ├── test_*.py     # Unit tests for CLI
+│   └── ...
 ├── examples/          # Example usage and scripts
 ├── docs/              # Documentation
 └── PHASE1_VERIFY/     # Phase 1 verification scripts
