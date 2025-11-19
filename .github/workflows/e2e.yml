@@ -1,0 +1,62 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description: 'Skip E2E tests'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-test:
+    runs-on: ubuntu-latest
+    # Allow skipping via workflow dispatch
+    if: ${{ github.event.inputs.skip_e2e != 'true' }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+    
+    - name: Install docker-compose
+      run: |
+        # docker-compose should be pre-installed on GitHub runners
+        docker-compose version
+    
+    - name: Run E2E tests
+      run: |
+        cd tests/e2e
+        python test_e2e_flow.py
+      timeout-minutes: 10
+    
+    - name: Show service logs on failure
+      if: failure()
+      run: |
+        cd tests/e2e
+        docker-compose -f docker-compose.e2e.yml logs
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        cd tests/e2e
+        docker-compose -f docker-compose.e2e.yml down -v || true
