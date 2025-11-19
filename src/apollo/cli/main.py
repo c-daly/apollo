@@ -238,6 +238,102 @@ def goal(ctx: click.Context, description: Optional[str], priority: str) -> None:
 
 
 @cli.command()
+@click.argument("goal_id", required=False)
+@click.pass_context
+def plan(ctx: click.Context, goal_id: Optional[str]) -> None:
+    """Invoke planner to generate a plan for a goal.
+
+    Args:
+        goal_id: ID of the goal to plan for
+    """
+    if not goal_id:
+        console.print("[yellow]Usage:[/yellow] apollo-cli plan '<goal_id>'")
+        console.print(
+            "\n[dim]Example:[/dim] apollo-cli plan 'goal_12345'"
+        )
+        console.print(
+            "\n[dim]Tip:[/dim] Create a goal first with 'apollo-cli goal'"
+        )
+        return
+
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print(f"[bold]Invoking planner for goal:[/bold] {goal_id}\n")
+
+    response = client.invoke_planner(goal_id)
+
+    if response.success and response.data:
+        console.print("[green]✓[/green] Plan generated successfully\n")
+
+        if isinstance(response.data, dict):
+            # Display formatted response
+            response_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Plan Details", border_style="green")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and the goal exists[/dim]"
+        )
+
+
+@cli.command()
+@click.argument("plan_id", required=False)
+@click.option("--step", default=0, help="Step index to execute (default: 0)")
+@click.pass_context
+def execute(ctx: click.Context, plan_id: Optional[str], step: int) -> None:
+    """Execute a single step from a plan.
+
+    Args:
+        plan_id: ID of the plan to execute
+        step: Index of the step to execute
+    """
+    if not plan_id:
+        console.print("[yellow]Usage:[/yellow] apollo-cli execute '<plan_id>'")
+        console.print(
+            "\n[dim]Example:[/dim] apollo-cli execute 'plan_12345'"
+        )
+        console.print(
+            "\n[dim]Options:[/dim]"
+        )
+        console.print("  --step <index>  Step index to execute (default: 0)")
+        console.print(
+            "\n[dim]Tip:[/dim] Generate a plan first with 'apollo-cli plan'"
+        )
+        return
+
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print(f"[bold]Executing step {step} of plan:[/bold] {plan_id}\n")
+
+    response = client.execute_step(plan_id, step)
+
+    if response.success and response.data:
+        console.print(f"[green]✓[/green] Step {step} executed successfully\n")
+
+        if isinstance(response.data, dict):
+            # Display formatted response
+            response_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Execution Result", border_style="green")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and the plan exists[/dim]"
+        )
+
+
+@cli.command()
 def history() -> None:
     """Display command history."""
     console.print("[bold blue]Command History[/bold blue]")

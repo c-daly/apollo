@@ -179,6 +179,79 @@ class SophiaClient:
         except Exception as e:
             return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
 
+    def invoke_planner(self, goal_id: str) -> SophiaResponse:
+        """Invoke planner to generate a plan for a goal.
+
+        Args:
+            goal_id: ID of the goal to plan for
+
+        Returns:
+            Response with plan data
+
+        Raises:
+            requests.RequestException: If request fails
+        """
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/planner/invoke",
+                json={"goal_id": goal_id},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
+
+    def execute_step(self, plan_id: str, step_index: int = 0) -> SophiaResponse:
+        """Execute a single step from a plan.
+
+        Args:
+            plan_id: ID of the plan to execute
+            step_index: Index of the step to execute (default: 0 for first step)
+
+        Returns:
+            Response with execution result
+
+        Raises:
+            requests.RequestException: If request fails
+        """
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/executor/step",
+                json={"plan_id": plan_id, "step_index": step_index},
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")
+
     def health_check(self) -> bool:
         """Check if Sophia is accessible.
 

@@ -70,3 +70,27 @@ def test_sophia_client_create_goal() -> None:
     assert isinstance(response, SophiaResponse)
     assert response.success is False
     assert "cannot connect" in response.error.lower()
+
+
+def test_sophia_client_invoke_planner() -> None:
+    """Test invoking planner returns connection error when service unavailable."""
+    config = SophiaConfig()
+    client = SophiaClient(config)
+
+    response = client.invoke_planner("goal_12345")
+
+    assert isinstance(response, SophiaResponse)
+    assert response.success is False
+    assert "cannot connect" in response.error.lower()
+
+
+def test_sophia_client_execute_step() -> None:
+    """Test executing step returns connection error when service unavailable."""
+    config = SophiaConfig()
+    client = SophiaClient(config)
+
+    response = client.execute_step("plan_12345", step_index=0)
+
+    assert isinstance(response, SophiaResponse)
+    assert response.success is False
+    assert "cannot connect" in response.error.lower()
