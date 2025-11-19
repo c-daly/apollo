@@ -75,8 +75,11 @@ apollo-cli goal "Navigate to the kitchen"
 # Create a goal with priority
 apollo-cli goal "Pick up the red block" --priority high
 
-# Send a command to Sophia
-apollo-cli send "pick up the red block"
+# Invoke planner to generate a plan (Phase 1)
+apollo-cli plan "goal_12345"
+
+# Execute a plan step (Phase 1)
+apollo-cli execute "plan_456" --step 0
 
 # View current agent state
 apollo-cli state
@@ -84,8 +87,26 @@ apollo-cli state
 # Show recent plans
 apollo-cli plans --recent 5
 
+# Send a command to Sophia
+apollo-cli send "pick up the red block"
+
 # Display command history
 apollo-cli history
+```
+
+**Phase 1 Goal→Plan→Execute→State Loop**:
+```bash
+# 1. Create a goal
+apollo-cli goal "Navigate to kitchen" --priority high
+
+# 2. Generate a plan for the goal
+apollo-cli plan <goal_id>
+
+# 3. Execute the first step
+apollo-cli execute <plan_id> --step 0
+
+# 4. Check updated state
+apollo-cli state
 ```
 
 ### Running the Web Dashboard
@@ -227,7 +248,8 @@ apollo/
 
 Apollo includes end-to-end verification scripts in `PHASE1_VERIFY/scripts/`:
 
-- **M4 Test**: Verifies the complete goal creation flow through Apollo CLI
+- **M4 Test**: Verifies the complete Phase 1 goal→plan→execute→state loop
+- Tests the full workflow: create goal → invoke planner → execute step → fetch state
 - Demonstrates proper architecture (CLI → API → Sophia → Neo4j)
 - Replaces direct database operations with proper API calls
 
@@ -244,7 +266,9 @@ This implementation provides the foundational infrastructure for Apollo:
 - ✅ Testing framework setup
 - ✅ Basic command interface (CLI + API integration)
 - ✅ Goal creation and state fetching commands
-- ✅ E2E verification scripts
+- ✅ Phase 1 prototype: planner and executor CLI commands
+- ✅ Complete goal→plan→execute→state loop
+- ✅ E2E verification scripts (M4 test)
 - ⏳ State visualization (Epoch 3)
 - ⏳ Full integration with Sophia (Epoch 3)
 
