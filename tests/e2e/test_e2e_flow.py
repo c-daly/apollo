@@ -73,7 +73,7 @@ class E2ETestRunner:
         try:
             # Start services
             subprocess.run(
-                ["docker-compose", "-f", str(COMPOSE_FILE), "up", "-d"],
+                ["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d"],
                 check=True,
                 capture_output=True,
                 text=True
@@ -247,7 +247,11 @@ class E2ETestRunner:
             return False
     
     def verify_state_updates(self):
-        """Verify state updates in HCG after plan execution."""
+        """Verify state updates in HCG after plan execution.
+        
+        Note: These are internal Neo4j consistency checks. The actual acceptance
+        criteria (Apollo reflects updated state) is validated in Test 4.
+        """
         logger.info("\n" + "=" * 80)
         logger.info("TEST 3: VERIFY HCG STATE UPDATES (TALOS SHIM EXECUTION)")
         logger.info("=" * 80)
@@ -409,7 +413,7 @@ class E2ETestRunner:
         # Stop docker-compose services
         try:
             subprocess.run(
-                ["docker-compose", "-f", str(COMPOSE_FILE), "down", "-v"],
+                ["docker", "compose", "-f", str(COMPOSE_FILE), "down", "-v"],
                 check=True,
                 capture_output=True,
                 text=True

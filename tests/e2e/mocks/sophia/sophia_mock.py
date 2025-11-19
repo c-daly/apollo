@@ -176,7 +176,7 @@ def send_command():
             # Simulate Talos shim execution - update agent state
             # 1. Update agent to be grasping the object
             update_grasp_query = """
-            MERGE (agent:Agent {id: 'agent-1'})
+            MATCH (agent:Agent {id: 'agent-1'})
             MERGE (obj:Object {name: $obj_name})
             MERGE (agent)-[:GRASPING]->(obj)
             SET agent.last_updated = $timestamp
@@ -186,25 +186,45 @@ def send_command():
                 "timestamp": datetime.utcnow().isoformat()
             })
             
-            # 2. Update agent position
-            update_position_query = """
-            MERGE (agent:Agent {id: 'agent-1'})
-            MERGE (pos:Position {x: 1.0, y: 1.0, z: 0.5})
-            MERGE (agent)-[:AT_POSITION]->(pos)
+            # 2. Update agent position - first delete old, then create new
+            # Delete old position
+            delete_old_pos_query = """
+            MATCH (agent:Agent {id: 'agent-1'})-[r:AT_POSITION]->(old_pos:Position)
+            DETACH DELETE old_pos
+            """
+            execute_cypher(delete_old_pos_query, {})
+            
+            # Create new position
+            create_new_pos_query = """
+            MATCH (agent:Agent {id: 'agent-1'})
+            CREATE (pos:Position {x: $x, y: $y, z: $z})
+            CREATE (agent)-[:AT_POSITION]->(pos)
             SET agent.last_updated = $timestamp
             """
-            execute_cypher(update_position_query, {
+            execute_cypher(create_new_pos_query, {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 0.5,
                 "timestamp": datetime.utcnow().isoformat()
             })
             
-            # 3. Update state to completed
-            update_state_query = """
-            MERGE (agent:Agent {id: 'agent-1'})
-            MERGE (state:State {status: 'completed'})
-            MERGE (agent)-[:HAS_STATE]->(state)
+            # 3. Update state - first delete old, then create new
+            # Delete old state
+            delete_old_state_query = """
+            MATCH (agent:Agent {id: 'agent-1'})-[r:HAS_STATE]->(old_state:State)
+            DETACH DELETE old_state
+            """
+            execute_cypher(delete_old_state_query, {})
+            
+            # Create new state
+            create_new_state_query = """
+            MATCH (agent:Agent {id: 'agent-1'})
+            CREATE (state:State {status: $status})
+            CREATE (agent)-[:HAS_STATE]->(state)
             SET agent.last_updated = $timestamp
             """
-            execute_cypher(update_state_query, {
+            execute_cypher(create_new_state_query, {
+                "status": "completed",
                 "timestamp": datetime.utcnow().isoformat()
             })
             

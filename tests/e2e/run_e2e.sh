@@ -35,14 +35,14 @@ function print_usage() {
 
 function start_services() {
     echo -e "${BLUE}Starting E2E test services...${NC}"
-    docker-compose -f "${COMPOSE_FILE}" up -d
+    docker compose -f "${COMPOSE_FILE}" up -d
     
     echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
     sleep 5
     
     # Check Neo4j
     echo -n "Neo4j: "
-    if docker-compose -f "${COMPOSE_FILE}" exec -T neo4j cypher-shell -u neo4j -p testpassword "RETURN 1" > /dev/null 2>&1; then
+    if docker compose -f "${COMPOSE_FILE}" exec -T neo4j cypher-shell -u neo4j -p testpassword "RETURN 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Ready${NC}"
     else
         echo -e "${RED}✗ Not ready${NC}"
@@ -59,12 +59,12 @@ function start_services() {
 
 function stop_services() {
     echo -e "${BLUE}Stopping E2E test services...${NC}"
-    docker-compose -f "${COMPOSE_FILE}" down
+    docker compose -f "${COMPOSE_FILE}" down
     echo -e "${GREEN}Services stopped${NC}"
 }
 
 function show_logs() {
-    docker-compose -f "${COMPOSE_FILE}" logs "$@"
+    docker compose -f "${COMPOSE_FILE}" logs "$@"
 }
 
 function seed_data() {
@@ -77,13 +77,13 @@ function seed_data() {
 
 function check_status() {
     echo -e "${BLUE}Service Status:${NC}"
-    docker-compose -f "${COMPOSE_FILE}" ps
+    docker compose -f "${COMPOSE_FILE}" ps
     
     echo ""
     echo -e "${BLUE}Health Checks:${NC}"
     
     echo -n "Neo4j (bolt://localhost:7687): "
-    if docker-compose -f "${COMPOSE_FILE}" exec -T neo4j cypher-shell -u neo4j -p testpassword "RETURN 1" > /dev/null 2>&1; then
+    if docker compose -f "${COMPOSE_FILE}" exec -T neo4j cypher-shell -u neo4j -p testpassword "RETURN 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"
@@ -104,7 +104,7 @@ function run_test() {
 
 function clean_all() {
     echo -e "${YELLOW}Cleaning up all E2E test resources...${NC}"
-    docker-compose -f "${COMPOSE_FILE}" down -v
+    docker compose -f "${COMPOSE_FILE}" down -v
     echo -e "${GREEN}Cleanup complete${NC}"
 }
 

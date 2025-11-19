@@ -59,10 +59,10 @@ If you want to manually interact with the test environment:
 ```bash
 # Start services
 cd tests/e2e
-docker-compose -f docker-compose.e2e.yml up -d
+docker compose -f docker-compose.e2e.yml up -d
 
 # Wait for services to be healthy (check logs)
-docker-compose -f docker-compose.e2e.yml logs -f
+docker compose -f docker-compose.e2e.yml logs -f
 
 # Seed data
 export NEO4J_URI=bolt://localhost:7687
@@ -82,7 +82,7 @@ apollo-cli plans --recent 5
 # Run queries: MATCH (n) RETURN n
 
 # Clean up
-docker-compose -f docker-compose.e2e.yml down -v
+docker compose -f docker-compose.e2e.yml down -v
 ```
 
 ## Test Coverage
@@ -177,7 +177,7 @@ e2e-test:
 
 ```bash
 # Check service logs
-docker-compose -f tests/e2e/docker-compose.e2e.yml logs
+docker compose -f tests/e2e/docker-compose.e2e.yml logs
 
 # Verify Docker is running
 docker ps
@@ -187,7 +187,7 @@ docker ps
 
 ```bash
 # Wait for Neo4j to be ready (can take 20-30 seconds)
-docker-compose -f tests/e2e/docker-compose.e2e.yml logs neo4j
+docker compose -f tests/e2e/docker-compose.e2e.yml logs neo4j
 
 # Test connection manually
 cypher-shell -a bolt://localhost:7687 -u neo4j -p testpassword
@@ -199,7 +199,7 @@ If ports 7474, 7687, or 8080 are already in use:
 
 ```bash
 # Stop conflicting services or modify ports in docker-compose.e2e.yml
-docker-compose -f tests/e2e/docker-compose.e2e.yml down
+docker compose -f tests/e2e/docker-compose.e2e.yml down
 # Edit docker-compose.e2e.yml to use different ports
 ```
 
@@ -207,7 +207,7 @@ docker-compose -f tests/e2e/docker-compose.e2e.yml down
 
 ```bash
 # Complete cleanup including volumes
-docker-compose -f tests/e2e/docker-compose.e2e.yml down -v
+docker compose -f tests/e2e/docker-compose.e2e.yml down -v
 docker system prune -f
 ```
 
