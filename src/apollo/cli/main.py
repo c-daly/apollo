@@ -189,6 +189,55 @@ def plans(ctx: click.Context, recent: int) -> None:
 
 
 @cli.command()
+@click.argument("description", required=False)
+@click.option("--priority", default="normal", help="Goal priority (high, normal, low)")
+@click.pass_context
+def goal(ctx: click.Context, description: Optional[str], priority: str) -> None:
+    """Create a new goal in Sophia.
+
+    Args:
+        description: Goal description
+        priority: Priority level for the goal
+    """
+    if not description:
+        console.print("[yellow]Usage:[/yellow] apollo-cli goal '<goal description>'")
+        console.print("\n[dim]Example:[/dim] apollo-cli goal 'Navigate to the kitchen'")
+        console.print("\n[dim]Options:[/dim]")
+        console.print(
+            "  --priority [high|normal|low]  Set goal priority (default: normal)"
+        )
+        return
+
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print(f"[bold]Creating goal:[/bold] {description}\n")
+    console.print(f"[dim]Priority: {priority}[/dim]\n")
+
+    # Create metadata with priority
+    metadata = {"priority": priority}
+    response = client.create_goal(description, metadata)
+
+    if response.success and response.data:
+        console.print("[green]✓[/green] Goal created successfully\n")
+
+        if isinstance(response.data, dict):
+            # Display formatted response
+            response_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Goal Details", border_style="green")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
+        )
+
+
+@cli.command()
 def history() -> None:
     """Display command history."""
     console.print("[bold blue]Command History[/bold blue]")

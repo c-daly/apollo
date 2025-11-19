@@ -58,3 +58,15 @@ def test_sophia_client_health_check() -> None:
     health = client.health_check()
 
     assert health is False
+
+
+def test_sophia_client_create_goal() -> None:
+    """Test creating goal returns connection error when service unavailable."""
+    config = SophiaConfig()
+    client = SophiaClient(config)
+
+    response = client.create_goal("Navigate to kitchen", {"priority": "high"})
+
+    assert isinstance(response, SophiaResponse)
+    assert response.success is False
+    assert "cannot connect" in response.error.lower()
