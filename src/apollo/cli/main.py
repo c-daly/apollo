@@ -248,12 +248,8 @@ def plan(ctx: click.Context, goal_id: Optional[str]) -> None:
     """
     if not goal_id:
         console.print("[yellow]Usage:[/yellow] apollo-cli plan '<goal_id>'")
-        console.print(
-            "\n[dim]Example:[/dim] apollo-cli plan 'goal_12345'"
-        )
-        console.print(
-            "\n[dim]Tip:[/dim] Create a goal first with 'apollo-cli goal'"
-        )
+        console.print("\n[dim]Example:[/dim] apollo-cli plan 'goal_12345'")
+        console.print("\n[dim]Tip:[/dim] Create a goal first with 'apollo-cli goal'")
         return
 
     client: SophiaClient = ctx.obj["client"]
@@ -295,16 +291,10 @@ def execute(ctx: click.Context, plan_id: Optional[str], step: int) -> None:
     """
     if not plan_id:
         console.print("[yellow]Usage:[/yellow] apollo-cli execute '<plan_id>'")
-        console.print(
-            "\n[dim]Example:[/dim] apollo-cli execute 'plan_12345'"
-        )
-        console.print(
-            "\n[dim]Options:[/dim]"
-        )
+        console.print("\n[dim]Example:[/dim] apollo-cli execute 'plan_12345'")
+        console.print("\n[dim]Options:[/dim]")
         console.print("  --step <index>  Step index to execute (default: 0)")
-        console.print(
-            "\n[dim]Tip:[/dim] Generate a plan first with 'apollo-cli plan'"
-        )
+        console.print("\n[dim]Tip:[/dim] Generate a plan first with 'apollo-cli plan'")
         return
 
     client: SophiaClient = ctx.obj["client"]
