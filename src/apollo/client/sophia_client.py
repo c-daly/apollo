@@ -152,7 +152,7 @@ class SophiaClient:
             requests.RequestException: If request fails
         """
         try:
-            payload = {"goal": goal}
+            payload: Dict[str, Any] = {"goal": goal}
             if metadata:
                 payload["metadata"] = metadata
 
