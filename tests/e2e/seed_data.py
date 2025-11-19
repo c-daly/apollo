@@ -25,7 +25,7 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "testpassword")
 def wait_for_neo4j(max_retries=30, delay=2):
     """Wait for Neo4j to be ready."""
     logger.info("Waiting for Neo4j to be ready...")
-    
+
     for attempt in range(max_retries):
         try:
             driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
@@ -35,10 +35,14 @@ def wait_for_neo4j(max_retries=30, delay=2):
             return True
         except Exception as e:
             if attempt < max_retries - 1:
-                logger.info(f"Attempt {attempt + 1}/{max_retries}: Neo4j not ready yet, waiting...")
+                logger.info(
+                    f"Attempt {attempt + 1}/{max_retries}: Neo4j not ready yet, waiting..."
+                )
                 time.sleep(delay)
             else:
-                logger.error(f"Failed to connect to Neo4j after {max_retries} attempts: {e}")
+                logger.error(
+                    f"Failed to connect to Neo4j after {max_retries} attempts: {e}"
+                )
                 return False
     return False
 
@@ -46,28 +50,31 @@ def wait_for_neo4j(max_retries=30, delay=2):
 def seed_data():
     """Seed initial data into Neo4j."""
     logger.info("Starting data seeding...")
-    
+
     driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-    
+
     try:
         with driver.session() as session:
             # Clear existing data
             logger.info("Clearing existing data...")
             session.run("MATCH (n) DETACH DELETE n")
-            
+
             # Create agent
             logger.info("Creating agent entity...")
-            session.run("""
+            session.run(
+                """
                 CREATE (agent:Agent {
                     id: 'agent-1',
                     name: 'LOGOS Agent',
                     created_at: datetime()
                 })
-            """)
-            
+            """
+            )
+
             # Create initial position
             logger.info("Creating initial position...")
-            session.run("""
+            session.run(
+                """
                 MATCH (agent:Agent {id: 'agent-1'})
                 CREATE (pos:Position {
                     x: 0.0,
@@ -75,29 +82,54 @@ def seed_data():
                     z: 0.0
                 })
                 CREATE (agent)-[:AT_POSITION]->(pos)
-            """)
-            
+            """
+            )
+
             # Create initial state
             logger.info("Creating initial state...")
-            session.run("""
+            session.run(
+                """
                 MATCH (agent:Agent {id: 'agent-1'})
                 CREATE (state:State {
                     status: 'idle',
                     created_at: datetime()
                 })
                 CREATE (agent)-[:HAS_STATE]->(state)
-            """)
-            
+            """
+            )
+
             # Create test objects
             logger.info("Creating test objects...")
             objects = [
-                {"name": "red_block", "color": "red", "type": "block", "x": 0.5, "y": 0.5, "z": 0.0},
-                {"name": "blue_block", "color": "blue", "type": "block", "x": 0.7, "y": 0.3, "z": 0.0},
-                {"name": "green_cube", "color": "green", "type": "cube", "x": 0.3, "y": 0.7, "z": 0.0},
+                {
+                    "name": "red_block",
+                    "color": "red",
+                    "type": "block",
+                    "x": 0.5,
+                    "y": 0.5,
+                    "z": 0.0,
+                },
+                {
+                    "name": "blue_block",
+                    "color": "blue",
+                    "type": "block",
+                    "x": 0.7,
+                    "y": 0.3,
+                    "z": 0.0,
+                },
+                {
+                    "name": "green_cube",
+                    "color": "green",
+                    "type": "cube",
+                    "x": 0.3,
+                    "y": 0.7,
+                    "z": 0.0,
+                },
             ]
-            
+
             for obj in objects:
-                session.run("""
+                session.run(
+                    """
                     CREATE (obj:Object {
                         name: $name,
                         color: $color,
@@ -107,38 +139,46 @@ def seed_data():
                         position_z: $z,
                         created_at: datetime()
                     })
-                """, obj)
+                """,
+                    obj,
+                )
                 logger.info(f"  - Created object: {obj['name']}")
-            
+
             # Create workspace
             logger.info("Creating workspace...")
-            session.run("""
+            session.run(
+                """
                 CREATE (workspace:Workspace {
                     name: 'main_workspace',
                     width: 2.0,
                     height: 2.0,
                     created_at: datetime()
                 })
-            """)
-            
+            """
+            )
+
             # Link objects to workspace
             logger.info("Linking objects to workspace...")
-            session.run("""
+            session.run(
+                """
                 MATCH (obj:Object), (workspace:Workspace {name: 'main_workspace'})
                 CREATE (workspace)-[:CONTAINS]->(obj)
-            """)
-            
+            """
+            )
+
             # Verify data
-            result = session.run("""
+            result = session.run(
+                """
                 MATCH (n)
                 RETURN labels(n)[0] as label, count(*) as count
                 ORDER BY label
-            """)
-            
+            """
+            )
+
             logger.info("Data seeding complete! Summary:")
             for record in result:
                 logger.info(f"  - {record['label']}: {record['count']} node(s)")
-                
+
     except Exception as e:
         logger.error(f"Failed to seed data: {e}")
         sys.exit(1)
@@ -150,6 +190,6 @@ if __name__ == "__main__":
     if not wait_for_neo4j():
         logger.error("Cannot proceed without Neo4j connection")
         sys.exit(1)
-    
+
     seed_data()
     logger.info("Seed data script completed successfully!")

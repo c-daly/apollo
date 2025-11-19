@@ -71,30 +71,44 @@ def get_state():
         LIMIT 1
         """
         result = execute_cypher(query)
-        
+
         if result:
             state_data = result[0]
-            return jsonify({
-                "agent_id": state_data.get("agent_id", "agent-1"),
-                "status": state_data.get("status", "idle"),
-                "grasped_object": state_data.get("grasped_object"),
-                "position": {
-                    "x": state_data.get("x", 0.0),
-                    "y": state_data.get("y", 0.0),
-                    "z": state_data.get("z", 0.0)
-                } if state_data.get("x") is not None else None,
-                "timestamp": datetime.utcnow().isoformat()
-            }), 200
+            return (
+                jsonify(
+                    {
+                        "agent_id": state_data.get("agent_id", "agent-1"),
+                        "status": state_data.get("status", "idle"),
+                        "grasped_object": state_data.get("grasped_object"),
+                        "position": (
+                            {
+                                "x": state_data.get("x", 0.0),
+                                "y": state_data.get("y", 0.0),
+                                "z": state_data.get("z", 0.0),
+                            }
+                            if state_data.get("x") is not None
+                            else None
+                        ),
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                ),
+                200,
+            )
         else:
             # Return default state if no agent found
-            return jsonify({
-                "agent_id": "agent-1",
-                "status": "idle",
-                "grasped_object": None,
-                "position": None,
-                "timestamp": datetime.utcnow().isoformat()
-            }), 200
-            
+            return (
+                jsonify(
+                    {
+                        "agent_id": "agent-1",
+                        "status": "idle",
+                        "grasped_object": None,
+                        "position": None,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                ),
+                200,
+            )
+
     except Exception as e:
         logger.error(f"Failed to get state: {e}")
         return jsonify({"error": str(e)}), 500
@@ -106,9 +120,9 @@ def send_command():
     try:
         data = request.get_json()
         command = data.get("command", "")
-        
+
         logger.info(f"Received command: {command}")
-        
+
         # Parse command for pick-and-place operations
         if "pick" in command.lower() and "place" in command.lower():
             # Extract object name (simple parsing for demo)
@@ -121,7 +135,7 @@ def send_command():
                         if i + 2 < len(parts):
                             obj_name += "_" + parts[i + 2]
                         break
-            
+
             # Generate plan
             plan_id = f"plan-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
             plan = {
@@ -133,29 +147,25 @@ def send_command():
                         "step": 1,
                         "action": "move_to_object",
                         "target": obj_name,
-                        "status": "completed"
+                        "status": "completed",
                     },
                     {
                         "step": 2,
                         "action": "grasp",
                         "target": obj_name,
-                        "status": "completed"
+                        "status": "completed",
                     },
                     {
                         "step": 3,
                         "action": "move_to_position",
                         "target_position": {"x": 1.0, "y": 1.0, "z": 0.5},
-                        "status": "completed"
+                        "status": "completed",
                     },
-                    {
-                        "step": 4,
-                        "action": "release",
-                        "status": "completed"
-                    }
+                    {"step": 4, "action": "release", "status": "completed"},
                 ],
-                "created_at": datetime.utcnow().isoformat()
+                "created_at": datetime.utcnow().isoformat(),
             }
-            
+
             # Store plan in Neo4j
             store_plan_query = """
             CREATE (p:Plan {
@@ -166,13 +176,16 @@ def send_command():
             })
             RETURN p
             """
-            execute_cypher(store_plan_query, {
-                "plan_id": plan_id,
-                "goal": command,
-                "status": "completed",
-                "created_at": plan["created_at"]
-            })
-            
+            execute_cypher(
+                store_plan_query,
+                {
+                    "plan_id": plan_id,
+                    "goal": command,
+                    "status": "completed",
+                    "created_at": plan["created_at"],
+                },
+            )
+
             # Simulate Talos shim execution - update agent state
             # 1. Update agent to be grasping the object
             update_grasp_query = """
@@ -181,11 +194,11 @@ def send_command():
             MERGE (agent)-[:GRASPING]->(obj)
             SET agent.last_updated = $timestamp
             """
-            execute_cypher(update_grasp_query, {
-                "obj_name": obj_name,
-                "timestamp": datetime.utcnow().isoformat()
-            })
-            
+            execute_cypher(
+                update_grasp_query,
+                {"obj_name": obj_name, "timestamp": datetime.utcnow().isoformat()},
+            )
+
             # 2. Update agent position - first delete old, then create new
             # Delete old position
             delete_old_pos_query = """
@@ -193,7 +206,7 @@ def send_command():
             DETACH DELETE old_pos
             """
             execute_cypher(delete_old_pos_query, {})
-            
+
             # Create new position
             create_new_pos_query = """
             MATCH (agent:Agent {id: 'agent-1'})
@@ -201,13 +214,16 @@ def send_command():
             CREATE (agent)-[:AT_POSITION]->(pos)
             SET agent.last_updated = $timestamp
             """
-            execute_cypher(create_new_pos_query, {
-                "x": 1.0,
-                "y": 1.0,
-                "z": 0.5,
-                "timestamp": datetime.utcnow().isoformat()
-            })
-            
+            execute_cypher(
+                create_new_pos_query,
+                {
+                    "x": 1.0,
+                    "y": 1.0,
+                    "z": 0.5,
+                    "timestamp": datetime.utcnow().isoformat(),
+                },
+            )
+
             # 3. Update state - first delete old, then create new
             # Delete old state
             delete_old_state_query = """
@@ -215,7 +231,7 @@ def send_command():
             DETACH DELETE old_state
             """
             execute_cypher(delete_old_state_query, {})
-            
+
             # Create new state
             create_new_state_query = """
             MATCH (agent:Agent {id: 'agent-1'})
@@ -223,24 +239,34 @@ def send_command():
             CREATE (agent)-[:HAS_STATE]->(state)
             SET agent.last_updated = $timestamp
             """
-            execute_cypher(create_new_state_query, {
-                "status": "completed",
-                "timestamp": datetime.utcnow().isoformat()
-            })
-            
+            execute_cypher(
+                create_new_state_query,
+                {"status": "completed", "timestamp": datetime.utcnow().isoformat()},
+            )
+
             logger.info(f"Plan {plan_id} executed, HCG state updated")
-            
-            return jsonify({
-                "success": True,
-                "plan": plan,
-                "message": "Plan generated and executed via Talos shim"
-            }), 200
+
+            return (
+                jsonify(
+                    {
+                        "success": True,
+                        "plan": plan,
+                        "message": "Plan generated and executed via Talos shim",
+                    }
+                ),
+                200,
+            )
         else:
-            return jsonify({
-                "success": False,
-                "error": "Unsupported command type. This mock only supports pick-and-place."
-            }), 400
-            
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Unsupported command type. This mock only supports pick-and-place.",
+                    }
+                ),
+                400,
+            )
+
     except Exception as e:
         logger.error(f"Failed to process command: {e}")
         return jsonify({"error": str(e)}), 500
@@ -251,7 +277,7 @@ def get_plans():
     """Get recent plans from HCG."""
     try:
         limit = request.args.get("limit", 10, type=int)
-        
+
         # Query plans from Neo4j
         query = """
         MATCH (p:Plan)
@@ -260,19 +286,19 @@ def get_plans():
         LIMIT $limit
         """
         result = execute_cypher(query, {"limit": limit})
-        
+
         plans = [
             {
                 "id": record["id"],
                 "goal": record["goal"],
                 "status": record["status"],
-                "created_at": record["created_at"]
+                "created_at": record["created_at"],
             }
             for record in result
         ]
-        
+
         return jsonify({"plans": plans}), 200
-        
+
     except Exception as e:
         logger.error(f"Failed to get plans: {e}")
         return jsonify({"error": str(e)}), 500

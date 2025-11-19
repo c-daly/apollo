@@ -135,6 +135,13 @@ Apollo uses two dependency management systems:
 # Python CLI tests
 pytest
 
+# E2E functional tests (requires Docker)
+python tests/e2e/test_e2e_flow.py
+
+# Or use the convenience script
+cd tests/e2e
+./run_e2e.sh test
+
 # Web dashboard tests (when implemented)
 cd webapp
 npm test
@@ -145,6 +152,8 @@ npm run test:ui
 # Generate test coverage
 npm run coverage
 ```
+
+See [E2E Test Documentation](tests/e2e/README.md) for detailed information on end-to-end testing.
 
 ### Code Quality
 
@@ -202,7 +211,10 @@ apollo/
 ├── webapp/             # React web dashboard
 │   ├── src/           # React components and pages
 │   └── public/        # Static assets
-├── tests/             # Test suite for CLI
+├── tests/             # Test suite
+│   ├── e2e/          # End-to-end functional tests
+│   ├── test_*.py     # Unit tests for CLI
+│   └── ...
 ├── examples/          # Example usage and scripts
 └── docs/              # Documentation
 ```
@@ -216,6 +228,7 @@ This implementation provides the foundational infrastructure for Apollo:
 - ✅ React web dashboard scaffolding
 - ✅ Development environment configuration
 - ✅ Testing framework setup
+- ✅ E2E functional test suite
 - ⏳ Basic command interface (Epoch 3)
 - ⏳ State visualization (Epoch 3)
 - ⏳ Integration with Sophia (Epoch 3)
