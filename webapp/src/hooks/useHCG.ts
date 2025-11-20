@@ -144,14 +144,16 @@ export function useHCGHealth(): UseQueryResult<boolean, Error> {
 /**
  * Hook to fetch persona diary entries
  */
-export function usePersonaEntries(filters: {
-  entry_type?: string
-  sentiment?: string
-  related_process_id?: string
-  related_goal_id?: string
-  limit?: number
-  offset?: number
-} = {}): UseQueryResult<import('../types/hcg').PersonaEntry[], Error> {
+export function usePersonaEntries(
+  filters: {
+    entry_type?: string
+    sentiment?: string
+    related_process_id?: string
+    related_goal_id?: string
+    limit?: number
+    offset?: number
+  } = {}
+): UseQueryResult<import('../types/hcg').PersonaEntry[], Error> {
   return useQuery({
     queryKey: ['persona', 'entries', filters],
     queryFn: () => hcgClient.getPersonaEntries(filters),

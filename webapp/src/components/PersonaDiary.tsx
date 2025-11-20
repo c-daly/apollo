@@ -10,7 +10,12 @@ function PersonaDiary() {
   const [searchTerm, setSearchTerm] = useState<string>('')
 
   // Fetch persona entries from API
-  const { data: apiEntries, refetch, isLoading, error } = usePersonaEntries({
+  const {
+    data: apiEntries,
+    refetch,
+    isLoading,
+    error,
+  } = usePersonaEntries({
     entry_type: filterType || undefined,
     sentiment: filterSentiment || undefined,
     limit: 100,
@@ -38,10 +43,16 @@ function PersonaDiary() {
           const newEntry: PersonaEntry = {
             id: `ws-${Date.now()}`,
             timestamp: new Date().toISOString(),
-            entry_type: (data.entry_type as 'belief' | 'decision' | 'observation' | 'reflection'),
-            content: (data.content as string),
+            entry_type: data.entry_type as
+              | 'belief'
+              | 'decision'
+              | 'observation'
+              | 'reflection',
+            content: data.content as string,
             summary: data.summary as string | undefined,
-            sentiment: data.sentiment as ('positive' | 'negative' | 'neutral' | 'mixed') | undefined,
+            sentiment: data.sentiment as
+              | ('positive' | 'negative' | 'neutral' | 'mixed')
+              | undefined,
             confidence: data.confidence as number | undefined,
             related_process_ids: (data.related_process_ids as string[]) || [],
             related_goal_ids: (data.related_goal_ids as string[]) || [],
@@ -123,7 +134,9 @@ function PersonaDiary() {
       <div className="persona-diary">
         <div className="diary-header">
           <h2>Persona Diary</h2>
-          <p className="diary-error">Error loading diary entries: {error.message}</p>
+          <p className="diary-error">
+            Error loading diary entries: {error.message}
+          </p>
         </div>
       </div>
     )
@@ -136,20 +149,20 @@ function PersonaDiary() {
         <p className="diary-subtitle">
           Agent's internal reasoning and decision-making process
         </p>
-        
+
         {/* Filters and Search */}
         <div className="diary-controls">
           <input
             type="text"
             placeholder="Search entries..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             className="diary-search"
           />
-          
+
           <select
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+            onChange={e => setFilterType(e.target.value)}
             className="diary-filter"
           >
             <option value="">All Types</option>
@@ -158,10 +171,10 @@ function PersonaDiary() {
             <option value="observation">Observations</option>
             <option value="reflection">Reflections</option>
           </select>
-          
+
           <select
             value={filterSentiment}
-            onChange={(e) => setFilterSentiment(e.target.value)}
+            onChange={e => setFilterSentiment(e.target.value)}
             className="diary-filter"
           >
             <option value="">All Sentiments</option>
@@ -170,7 +183,7 @@ function PersonaDiary() {
             <option value="neutral">Neutral</option>
             <option value="mixed">Mixed</option>
           </select>
-          
+
           <button onClick={() => refetch()} className="diary-refresh">
             ↻ Refresh
           </button>
@@ -193,8 +206,9 @@ function PersonaDiary() {
           <div className="diary-empty">
             <p>No diary entries found.</p>
             <p className="diary-help">
-              Use the CLI command <code>apollo-cli diary</code> to create entries,
-              or entries will be created automatically from agent activities.
+              Use the CLI command <code>apollo-cli diary</code> to create
+              entries, or entries will be created automatically from agent
+              activities.
             </p>
           </div>
         ) : (
@@ -204,7 +218,9 @@ function PersonaDiary() {
                 className="entry-marker"
                 style={{ backgroundColor: getTypeColor(entry.entry_type) }}
               >
-                <span className="entry-icon">{getTypeIcon(entry.entry_type)}</span>
+                <span className="entry-icon">
+                  {getTypeIcon(entry.entry_type)}
+                </span>
               </div>
               <div className="entry-content">
                 <div className="entry-header">
@@ -212,22 +228,23 @@ function PersonaDiary() {
                     className="entry-type"
                     style={{ color: getTypeColor(entry.entry_type) }}
                   >
-                    {entry.entry_type.charAt(0).toUpperCase() + entry.entry_type.slice(1)}
+                    {entry.entry_type.charAt(0).toUpperCase() +
+                      entry.entry_type.slice(1)}
                   </span>
                   <span className="entry-timestamp">
                     {new Date(entry.timestamp).toLocaleString()}
                   </span>
                 </div>
-                
+
                 {entry.summary && (
                   <div className="entry-summary">{entry.summary}</div>
                 )}
-                
+
                 <div className="entry-text">{entry.content}</div>
-                
+
                 <div className="entry-metadata">
                   {entry.sentiment && (
-                    <span 
+                    <span
                       className="entry-sentiment"
                       style={{ color: getSentimentColor(entry.sentiment) }}
                     >
@@ -242,11 +259,14 @@ function PersonaDiary() {
                   {entry.emotion_tags.length > 0 && (
                     <div className="entry-emotions">
                       {entry.emotion_tags.map(tag => (
-                        <span key={tag} className="emotion-tag">{tag}</span>
+                        <span key={tag} className="emotion-tag">
+                          {tag}
+                        </span>
                       ))}
                     </div>
                   )}
-                  {(entry.related_process_ids.length > 0 || entry.related_goal_ids.length > 0) && (
+                  {(entry.related_process_ids.length > 0 ||
+                    entry.related_goal_ids.length > 0) && (
                     <div className="entry-links">
                       {entry.related_process_ids.length > 0 && (
                         <span className="link-info">
