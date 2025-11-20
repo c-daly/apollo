@@ -11,6 +11,7 @@ from rich.syntax import Syntax
 import yaml
 
 from apollo.client.sophia_client import SophiaClient
+from apollo.client.hermes_client import HermesClient
 from apollo.config.settings import ApolloConfig
 
 console = Console()
@@ -35,6 +36,7 @@ def cli(ctx: click.Context, config: Optional[Path]) -> None:
     ctx.ensure_object(dict)
     ctx.obj["config"] = ApolloConfig.load(config)
     ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
+    ctx.obj["hermes"] = HermesClient(ctx.obj["config"].hermes)
 
 
 @cli.command()
@@ -330,6 +332,111 @@ def history() -> None:
     console.print(
         "\n[dim]Command history tracking will be implemented in a future iteration[/dim]"
     )
+
+
+@cli.command()
+@click.argument("plan_id", required=False)
+@click.pass_context
+def simulate(ctx: click.Context, plan_id: Optional[str]) -> None:
+    """Simulate plan execution without committing changes.
+
+    Args:
+        plan_id: ID of the plan to simulate
+    """
+    if not plan_id:
+        console.print("[yellow]Usage:[/yellow] apollo-cli simulate '<plan_id>'")
+        console.print("\n[dim]Example:[/dim] apollo-cli simulate 'plan_12345'")
+        console.print("\n[dim]Tip:[/dim] Generate a plan first with 'apollo-cli plan'")
+        return
+
+    client: SophiaClient = ctx.obj["client"]
+
+    console.print(f"[bold]Simulating plan:[/bold] {plan_id}\n")
+
+    response = client.simulate_plan(plan_id)
+
+    if response.success and response.data:
+        console.print("[green]✓[/green] Simulation completed successfully\n")
+
+        if isinstance(response.data, dict):
+            # Display formatted response
+            response_text = yaml.dump(
+                response.data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Simulation Results", border_style="green")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Sophia service is running and the plan exists[/dim]"
+        )
+
+
+@cli.command()
+@click.argument("text", required=False)
+@click.option(
+    "--model",
+    default="sentence-transformers",
+    help="Embedding model to use",
+)
+@click.pass_context
+def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
+    """Generate text embedding using Hermes.
+
+    Args:
+        text: Text to embed
+        model: Embedding model to use
+    """
+    if not text:
+        console.print("[yellow]Usage:[/yellow] apollo-cli embed '<text>'")
+        console.print(
+            "\n[dim]Example:[/dim] apollo-cli embed 'Navigate to the kitchen'"
+        )
+        console.print("\n[dim]Options:[/dim]")
+        console.print(
+            "  --model <name>  Embedding model (default: sentence-transformers)"
+        )
+        return
+
+    hermes: HermesClient = ctx.obj["hermes"]
+
+    console.print(f"[bold]Generating embedding for:[/bold] {text}\n")
+    console.print(f"[dim]Model: {model}[/dim]\n")
+
+    response = hermes.embed_text(text, model=model)
+
+    if response.success and response.data:
+        console.print("[green]✓[/green] Embedding generated successfully\n")
+
+        if isinstance(response.data, dict):
+            # Display formatted response (truncate embedding vector for readability)
+            display_data = response.data.copy()
+            if "embedding" in display_data and isinstance(
+                display_data["embedding"], list
+            ):
+                embedding = display_data["embedding"]
+                if len(embedding) > 10:
+                    display_data["embedding"] = embedding[:5] + ["..."] + embedding[-5:]
+                    display_data["_note"] = (
+                        f"Full embedding has {len(embedding)} dimensions"
+                    )
+
+            response_text = yaml.dump(
+                display_data, default_flow_style=False, sort_keys=False
+            )
+            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
+            panel = Panel(syntax, title="Embedding Result", border_style="green")
+            console.print(panel)
+        else:
+            console.print(response.data)
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error}")
+        console.print(
+            "\n[dim]Tip: Ensure Hermes service is running and accessible[/dim]"
+        )
 
 
 def main() -> None:

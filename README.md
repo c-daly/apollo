@@ -109,24 +109,66 @@ apollo-cli execute <plan_id> --step 0
 apollo-cli state
 ```
 
+### Using Phase 2 Commands
+
+**Simulate Plan Execution:**
+```bash
+# Simulate a plan without committing changes
+apollo-cli simulate "plan_12345"
+```
+
+**Generate Text Embeddings:**
+```bash
+# Generate embeddings with Hermes
+apollo-cli embed "Navigate to the kitchen"
+
+# Use specific model
+apollo-cli embed "Pick up the red block" --model sentence-transformers
+```
+
 ### Running the Web Dashboard
 
 ```bash
 cd webapp
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your API configuration
+# VITE_SOPHIA_API_URL=http://localhost:8080
+# VITE_HERMES_API_URL=http://localhost:8081
+
+# Start development server
 npm run dev
 ```
 
-The dashboard will be available at `http://localhost:3000`
+The dashboard will be available at `http://localhost:5173`
+
+**Web Dashboard Features:**
+- **Chat Panel**: Conversational interface for natural language commands
+- **Graph Viewer**: Interactive visualization of HCG (goals, plans, steps)
+- **Diagnostics**: System logs, execution timeline, and telemetry metrics
+- **Persona Diary**: Agent's internal reasoning and decision-making trace
 
 ## Configuration
 
-Apollo requires connection details for the Sophia cognitive core and HCG infrastructure:
+Apollo supports configuration through YAML files and environment variables.
+
+### Python CLI Configuration
+
+Create a `config.yaml` file or use environment variables:
 
 ```yaml
 # config.yaml
 sophia:
   host: localhost
   port: 8080
+  timeout: 30
+
+hermes:
+  host: localhost
+  port: 8081
+  timeout: 30
   
 hcg:
   neo4j:
@@ -136,6 +178,38 @@ hcg:
   milvus:
     host: localhost
     port: 19530
+```
+
+**Environment Variables:**
+```bash
+# Optional API keys
+export SOPHIA_API_KEY=your_sophia_key
+export HERMES_API_KEY=your_hermes_key
+```
+
+### Web Dashboard Configuration
+
+Copy `.env.example` to `.env` in the `webapp` directory:
+
+```bash
+cd webapp
+cp .env.example .env
+```
+
+Edit `.env` with your configuration:
+
+```env
+# Sophia API
+VITE_SOPHIA_API_URL=http://localhost:8080
+VITE_SOPHIA_API_KEY=
+
+# Hermes API
+VITE_HERMES_API_URL=http://localhost:8081
+VITE_HERMES_API_KEY=
+
+# Features
+VITE_ENABLE_CHAT=true
+VITE_ENABLE_DIAGNOSTICS=true
 ```
 
 ## Development
@@ -255,22 +329,39 @@ Apollo includes end-to-end verification scripts in `PHASE1_VERIFY/scripts/`:
 
 See [PHASE1_VERIFY/scripts/README.md](PHASE1_VERIFY/scripts/README.md) for detailed documentation on verification scripts and commands.
 
-## Epoch 1: Infrastructure & Knowledge Foundation
+## Development Status
 
-This implementation provides the foundational infrastructure for Apollo:
+### Phase 1: Infrastructure & Core Commands ✅
 
 - ✅ Repository structure and configuration
 - ✅ Python CLI package setup
-- ✅ React web dashboard scaffolding
 - ✅ Development environment configuration
 - ✅ Testing framework setup
 - ✅ Basic command interface (CLI + API integration)
 - ✅ Goal creation and state fetching commands
-- ✅ Phase 1 prototype: planner and executor CLI commands
+- ✅ Planner and executor CLI commands
 - ✅ Complete goal→plan→execute→state loop
 - ✅ E2E verification scripts (M4 test)
-- ⏳ State visualization (Epoch 3)
-- ⏳ Full integration with Sophia (Epoch 3)
+
+### Phase 2: Dual Surfaces ✅
+
+- ✅ OpenAPI specifications for Sophia and Hermes
+- ✅ Hermes client for text embedding
+- ✅ CLI commands: `simulate` and `embed`
+- ✅ React web dashboard with Vite
+- ✅ Chat panel (LLM-backed interface)
+- ✅ Graph viewer (Cytoscape visualization)
+- ✅ Diagnostics panel (logs, timeline, telemetry)
+- ✅ Persona diary (agent reasoning trace)
+- ✅ Environment configuration (.env support)
+- ✅ CI workflow for web app
+
+### Future Phases
+
+- ⏳ Real-time WebSocket connections
+- ⏳ SDK generation from OpenAPI specs
+- ⏳ Enhanced authentication and security
+- ⏳ Production deployment configurations
 
 ## Integration with LOGOS Components
 

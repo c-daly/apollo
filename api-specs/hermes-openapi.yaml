@@ -1,0 +1,312 @@
+openapi: 3.0.3
+info:
+  title: Hermes Language & Embedding API
+  description: |
+    REST API for Hermes, the language and embedding utilities service of Project LOGOS.
+    Provides text embedding, semantic search, and natural language processing.
+  version: 0.2.0
+  contact:
+    name: Project LOGOS Team
+
+servers:
+  - url: http://localhost:8081
+    description: Local development server
+  - url: http://hermes:8081
+    description: Docker compose service
+
+tags:
+  - name: Health
+    description: Service health and status
+  - name: Embeddings
+    description: Text embedding generation
+  - name: Search
+    description: Semantic search operations
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if Hermes service is running and healthy
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/embed_text:
+    post:
+      summary: Generate text embeddings
+      description: Generate vector embeddings for input text using specified model
+      operationId: embedText
+      tags:
+        - Embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedTextRequest'
+      responses:
+        '200':
+          description: Embeddings generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmbeddingResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/embed_batch:
+    post:
+      summary: Generate batch embeddings
+      description: Generate embeddings for multiple texts in a single request
+      operationId: embedBatch
+      tags:
+        - Embeddings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmbedBatchRequest'
+      responses:
+        '200':
+          description: Batch embeddings generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchEmbeddingResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/search:
+    post:
+      summary: Semantic search
+      description: Perform semantic search using query embeddings
+      operationId: semanticSearch
+      tags:
+        - Search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SearchRequest'
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: "ok"
+        version:
+          type: string
+          example: "0.2.0"
+        models:
+          type: array
+          description: Available embedding models
+          items:
+            type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: object
+          description: Additional error details
+          additionalProperties: true
+
+    EmbedTextRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Text to embed
+          minLength: 1
+          maxLength: 10000
+        model:
+          type: string
+          description: Embedding model to use
+          default: "sentence-transformers"
+          enum:
+            - sentence-transformers
+            - openai-ada
+            - custom
+        normalize:
+          type: boolean
+          description: Whether to normalize embeddings
+          default: true
+
+    EmbeddingResponse:
+      type: object
+      required:
+        - embedding
+        - dimension
+      properties:
+        embedding:
+          type: array
+          description: Vector embedding
+          items:
+            type: number
+            format: float
+        dimension:
+          type: integer
+          description: Embedding dimension
+          example: 768
+        model:
+          type: string
+          description: Model used for embedding
+        processing_time_ms:
+          type: integer
+          description: Processing time in milliseconds
+
+    EmbedBatchRequest:
+      type: object
+      required:
+        - texts
+      properties:
+        texts:
+          type: array
+          description: Texts to embed
+          items:
+            type: string
+          minItems: 1
+          maxItems: 100
+        model:
+          type: string
+          description: Embedding model to use
+          default: "sentence-transformers"
+        normalize:
+          type: boolean
+          description: Whether to normalize embeddings
+          default: true
+
+    BatchEmbeddingResponse:
+      type: object
+      required:
+        - embeddings
+        - dimension
+      properties:
+        embeddings:
+          type: array
+          description: Vector embeddings
+          items:
+            type: array
+            items:
+              type: number
+              format: float
+        dimension:
+          type: integer
+          description: Embedding dimension
+        model:
+          type: string
+          description: Model used for embedding
+        processing_time_ms:
+          type: integer
+          description: Total processing time in milliseconds
+
+    SearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: Search query text
+        limit:
+          type: integer
+          description: Maximum number of results
+          default: 10
+          minimum: 1
+          maximum: 100
+        threshold:
+          type: number
+          format: float
+          description: Minimum similarity threshold
+          default: 0.7
+          minimum: 0
+          maximum: 1
+        model:
+          type: string
+          description: Embedding model to use
+          default: "sentence-transformers"
+
+    SearchResponse:
+      type: object
+      required:
+        - results
+      properties:
+        results:
+          type: array
+          description: Search results
+          items:
+            $ref: '#/components/schemas/SearchResult'
+        query_embedding:
+          type: array
+          description: Query embedding used
+          items:
+            type: number
+            format: float
+        processing_time_ms:
+          type: integer
+          description: Processing time in milliseconds
+
+    SearchResult:
+      type: object
+      required:
+        - id
+        - score
+      properties:
+        id:
+          type: string
+          description: Result identifier
+        score:
+          type: number
+          format: float
+          description: Similarity score
+          minimum: 0
+          maximum: 1
+        text:
+          type: string
+          description: Result text
+        metadata:
+          type: object
+          description: Additional metadata
+          additionalProperties: true
