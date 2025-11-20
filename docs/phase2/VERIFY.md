@@ -614,6 +614,27 @@ curl "http://localhost:8082/api/persona/entries?entry_type=decision"
 curl "http://localhost:8082/api/persona/entries?sentiment=positive"
 ```
 
+### Configuration Note
+
+The HCG client in the webapp defaults to port 8080. To use the persona diary API on port 8082, either:
+1. Configure the HCG client base URL in the webapp
+2. Or run apollo-api on port 8080 instead
+
+Future enhancement: Make the API port configurable via environment variables.
+
+## Screenshots
+
+### Persona Diary UI
+![Persona Diary UI](https://github.com/user-attachments/assets/30787637-a81c-4002-909c-28f8c96d2ec6)
+
+The screenshot shows the Persona Diary tab in the Apollo web interface with:
+- Tab navigation (Chat, Graph Viewer, Diagnostics, Persona Diary)
+- Persona Diary heading
+- Error state display (connection to API server)
+- Clean, responsive design
+
+Note: The error shown is due to port mismatch - the UI expects API on port 8080 but apollo-api runs on 8082 by default. This can be resolved by configuration.
+
 ## Conclusion
 
 All acceptance criteria for P2-M2 have been successfully implemented and verified. The diagnostics interface provides comprehensive real-time visibility into LOGOS behavior through:
