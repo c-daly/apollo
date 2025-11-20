@@ -67,7 +67,7 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["neo4j", "neo4j.*", "websockets", "websockets.*"]
+module = ["neo4j", "neo4j.*", "websockets", "websockets.*", "fastapi", "fastapi.*", "uvicorn", "uvicorn.*", "pydantic", "pydantic.*", "yaml", "yaml.*"]
 ignore_missing_imports = true
 ignore_errors = true
 

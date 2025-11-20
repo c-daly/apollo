@@ -5,7 +5,7 @@ stream telemetry, and serve real-time diagnostics.
 """
 
 from datetime import datetime
-from typing import List, Optional
+from typing import AsyncIterator, List, Optional
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
@@ -30,7 +30,7 @@ hcg_client: Optional[HCGClient] = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan context manager."""
     global hcg_client
 
@@ -75,7 +75,7 @@ class HealthResponse(BaseModel):
 
 
 @app.get("/api/hcg/health", response_model=HealthResponse)
-async def health_check():
+async def health_check() -> HealthResponse:
     """Health check endpoint."""
     neo4j_connected = False
     if hcg_client:
@@ -93,7 +93,7 @@ async def get_entities(
     type: Optional[str] = Query(None, description="Filter by entity type"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of entities"),
     offset: int = Query(0, ge=0, description="Number of entities to skip"),
-):
+) -> List[Entity]:
     """Get entities from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -112,7 +112,7 @@ async def get_entities(
 
 
 @app.get("/api/hcg/entities/{entity_id}", response_model=Entity)
-async def get_entity(entity_id: str):
+async def get_entity(entity_id: str) -> Entity:
     """Get a specific entity by ID."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -132,7 +132,7 @@ async def get_entity(entity_id: str):
 async def get_states(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of states"),
     offset: int = Query(0, ge=0, description="Number of states to skip"),
-):
+) -> List[State]:
     """Get state entities from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -149,7 +149,7 @@ async def get_processes(
     status: Optional[str] = Query(None, description="Filter by process status"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of processes"),
     offset: int = Query(0, ge=0, description="Number of processes to skip"),
-):
+) -> List[Process]:
     """Get process entities from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -174,7 +174,7 @@ async def get_causal_edges(
     ),
     edge_type: Optional[str] = Query(None, description="Filter by edge type"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of edges"),
-):
+) -> List[CausalEdge]:
     """Get causal edges from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -194,7 +194,7 @@ async def get_causal_edges(
 async def get_plan_history(
     goal_id: Optional[str] = Query(None, description="Filter by goal ID"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of plans"),
-):
+) -> List[PlanHistory]:
     """Get plan history from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -214,7 +214,7 @@ async def get_state_history(
     limit: int = Query(
         50, ge=1, le=200, description="Maximum number of history records"
     ),
-):
+) -> List[StateHistory]:
     """Get state change history from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -234,7 +234,7 @@ async def get_graph_snapshot(
         None, description="Comma-separated list of entity types"
     ),
     limit: int = Query(200, ge=1, le=1000, description="Maximum number of entities"),
-):
+) -> GraphSnapshot:
     """Get a snapshot of the HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
@@ -252,7 +252,7 @@ async def get_graph_snapshot(
         )
 
 
-def main():
+def main() -> None:
     """Main entry point for apollo-api CLI command."""
     import uvicorn
 
