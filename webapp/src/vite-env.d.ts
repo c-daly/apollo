@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_HERMES_TIMEOUT: string
   readonly VITE_ENABLE_CHAT: string
   readonly VITE_ENABLE_DIAGNOSTICS: string
+  readonly VITE_MOCK_DATA_MODE: string
 }
 
 interface ImportMeta {
