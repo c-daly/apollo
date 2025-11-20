@@ -140,3 +140,35 @@ export function useHCGHealth(): UseQueryResult<boolean, Error> {
     refetchInterval: 30000,
   })
 }
+
+/**
+ * Hook to fetch persona diary entries
+ */
+export function usePersonaEntries(filters: {
+  entry_type?: string
+  sentiment?: string
+  related_process_id?: string
+  related_goal_id?: string
+  limit?: number
+  offset?: number
+} = {}): UseQueryResult<import('../types/hcg').PersonaEntry[], Error> {
+  return useQuery({
+    queryKey: ['persona', 'entries', filters],
+    queryFn: () => hcgClient.getPersonaEntries(filters),
+    staleTime: 5000,
+  })
+}
+
+/**
+ * Hook to fetch a specific persona entry by ID
+ */
+export function usePersonaEntry(
+  entryId: string
+): UseQueryResult<import('../types/hcg').PersonaEntry | null, Error> {
+  return useQuery({
+    queryKey: ['persona', 'entry', entryId],
+    queryFn: () => hcgClient.getPersonaEntry(entryId),
+    staleTime: 5000,
+    enabled: !!entryId,
+  })
+}

@@ -439,6 +439,105 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
         )
 
 
+@cli.command()
+@click.argument("content", required=False)
+@click.option(
+    "--type",
+    "entry_type",
+    default="observation",
+    help="Entry type: belief, decision, observation, reflection",
+)
+@click.option("--summary", help="Brief summary of the entry")
+@click.option(
+    "--sentiment",
+    help="Sentiment: positive, negative, neutral, mixed",
+)
+@click.option("--confidence", type=float, help="Confidence level (0.0-1.0)")
+@click.option("--process", multiple=True, help="Related process IDs")
+@click.option("--goal", multiple=True, help="Related goal IDs")
+@click.option("--emotion", multiple=True, help="Emotion tags")
+@click.pass_context
+def diary(
+    ctx: click.Context,
+    content: Optional[str],
+    entry_type: str,
+    summary: Optional[str],
+    sentiment: Optional[str],
+    confidence: Optional[float],
+    process: tuple,
+    goal: tuple,
+    emotion: tuple,
+) -> None:
+    """Create a persona diary entry.
+
+    Args:
+        content: The main content of the diary entry
+        entry_type: Type of entry (belief, decision, observation, reflection)
+        summary: Brief summary for quick reference
+        sentiment: Sentiment of the entry
+        confidence: Confidence level for beliefs/decisions
+        process: Related process IDs
+        goal: Related goal IDs
+        emotion: Emotion tags
+    """
+    if not content:
+        console.print("[yellow]Usage:[/yellow] apollo-cli diary '<content>'")
+        console.print(
+            "\n[dim]Example:[/dim] apollo-cli diary 'Successfully navigated to kitchen' --type decision --sentiment positive"
+        )
+        console.print("\n[dim]Options:[/dim]")
+        console.print("  --type [belief|decision|observation|reflection]")
+        console.print("  --summary '<brief summary>'")
+        console.print("  --sentiment [positive|negative|neutral|mixed]")
+        console.print("  --confidence <0.0-1.0>")
+        console.print("  --process <process_id>  (can be used multiple times)")
+        console.print("  --goal <goal_id>  (can be used multiple times)")
+        console.print("  --emotion <tag>  (can be used multiple times)")
+        return
+
+    import requests
+
+    config: ApolloConfig = ctx.obj["config"]
+
+    # Build the API URL (assuming apollo-api server is running on port 8082)
+    api_url = f"http://{config.sophia.host}:8082/api/persona/entries"
+
+    console.print(f"[bold]Creating persona diary entry:[/bold]\n")
+    console.print(f"[dim]Type: {entry_type}[/dim]")
+    console.print(f"[dim]Content: {content}[/dim]\n")
+
+    # Prepare request data
+    data = {
+        "entry_type": entry_type,
+        "content": content,
+        "summary": summary,
+        "sentiment": sentiment,
+        "confidence": confidence,
+        "related_process_ids": list(process),
+        "related_goal_ids": list(goal),
+        "emotion_tags": list(emotion),
+        "metadata": {},
+    }
+
+    try:
+        response = requests.post(api_url, json=data, timeout=10)
+        response.raise_for_status()
+
+        entry = response.json()
+        console.print("[green]✓[/green] Diary entry created successfully\n")
+
+        # Display formatted response
+        entry_text = yaml.dump(entry, default_flow_style=False, sort_keys=False)
+        syntax = Syntax(entry_text, "yaml", theme="monokai", line_numbers=False)
+        panel = Panel(syntax, title="Diary Entry", border_style="green")
+        console.print(panel)
+    except requests.exceptions.RequestException as e:
+        console.print(f"[red]✗ Error:[/red] {str(e)}")
+        console.print(
+            "\n[dim]Tip: Ensure apollo-api server is running (apollo-api command)[/dim]"
+        )
+
+
 def main() -> None:
     """Entry point for the CLI."""
     cli()

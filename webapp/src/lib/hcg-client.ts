@@ -230,6 +230,78 @@ export class HCGAPIClient {
       return false
     }
   }
+
+  // Persona Entry API methods
+  async createPersonaEntry(
+    request: import('../types/hcg').CreatePersonaEntryRequest
+  ): Promise<import('../types/hcg').PersonaEntry> {
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}/api/persona/entries`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+      }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to create persona entry: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  async getPersonaEntries(
+    filters: {
+      entry_type?: string
+      sentiment?: string
+      related_process_id?: string
+      related_goal_id?: string
+      limit?: number
+      offset?: number
+    } = {}
+  ): Promise<import('../types/hcg').PersonaEntry[]> {
+    const params = new URLSearchParams()
+
+    if (filters.entry_type) params.append('entry_type', filters.entry_type)
+    if (filters.sentiment) params.append('sentiment', filters.sentiment)
+    if (filters.related_process_id)
+      params.append('related_process_id', filters.related_process_id)
+    if (filters.related_goal_id)
+      params.append('related_goal_id', filters.related_goal_id)
+    params.append('limit', (filters.limit || 100).toString())
+    params.append('offset', (filters.offset || 0).toString())
+
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}/api/persona/entries?${params}`
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch persona entries: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  async getPersonaEntry(
+    entryId: string
+  ): Promise<import('../types/hcg').PersonaEntry | null> {
+    const response = await this.fetchWithTimeout(
+      `${this.baseUrl}/api/persona/entries/${entryId}`
+    )
+
+    if (response.status === 404) {
+      return null
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch persona entry: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
 }
 
 // Default client instance
