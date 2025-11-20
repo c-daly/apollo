@@ -33,16 +33,16 @@ hcg_client: Optional[HCGClient] = None
 async def lifespan(app: FastAPI):
     """FastAPI lifespan context manager."""
     global hcg_client
-    
+
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
     if config.hcg and config.hcg.neo4j:
         hcg_client = HCGClient(config.hcg.neo4j)
         hcg_client.connect()
         print("HCG client connected to Neo4j")
-    
+
     yield
-    
+
     # Shutdown: Close HCG client
     if hcg_client:
         hcg_client.close()
@@ -68,6 +68,7 @@ app.add_middleware(
 
 class HealthResponse(BaseModel):
     """Health check response."""
+
     status: str
     timestamp: str
     neo4j_connected: bool
@@ -79,7 +80,7 @@ async def health_check():
     neo4j_connected = False
     if hcg_client:
         neo4j_connected = hcg_client.health_check()
-    
+
     return HealthResponse(
         status="healthy" if neo4j_connected else "degraded",
         timestamp=datetime.now().isoformat(),
@@ -96,7 +97,7 @@ async def get_entities(
     """Get entities from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         entities = hcg_client.get_entities(
             entity_type=type,
@@ -105,7 +106,9 @@ async def get_entities(
         )
         return entities
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch entities: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch entities: {str(e)}"
+        )
 
 
 @app.get("/api/hcg/entities/{entity_id}", response_model=Entity)
@@ -113,7 +116,7 @@ async def get_entity(entity_id: str):
     """Get a specific entity by ID."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         entity = hcg_client.get_entity_by_id(entity_id)
         if not entity:
@@ -133,7 +136,7 @@ async def get_states(
     """Get state entities from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         states = hcg_client.get_states(limit=limit, offset=offset)
         return states
@@ -150,7 +153,7 @@ async def get_processes(
     """Get process entities from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         processes = hcg_client.get_processes(
             status=status,
@@ -159,19 +162,23 @@ async def get_processes(
         )
         return processes
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch processes: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch processes: {str(e)}"
+        )
 
 
 @app.get("/api/hcg/edges", response_model=List[CausalEdge])
 async def get_causal_edges(
-    entity_id: Optional[str] = Query(None, description="Filter by source or target entity"),
+    entity_id: Optional[str] = Query(
+        None, description="Filter by source or target entity"
+    ),
     edge_type: Optional[str] = Query(None, description="Filter by edge type"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of edges"),
 ):
     """Get causal edges from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         edges = hcg_client.get_causal_edges(
             entity_id=entity_id,
@@ -191,39 +198,47 @@ async def get_plan_history(
     """Get plan history from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         plans = hcg_client.get_plan_history(goal_id=goal_id, limit=limit)
         return plans
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch plan history: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch plan history: {str(e)}"
+        )
 
 
 @app.get("/api/hcg/history", response_model=List[StateHistory])
 async def get_state_history(
     state_id: Optional[str] = Query(None, description="Filter by state ID"),
-    limit: int = Query(50, ge=1, le=200, description="Maximum number of history records"),
+    limit: int = Query(
+        50, ge=1, le=200, description="Maximum number of history records"
+    ),
 ):
     """Get state change history from HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         history = hcg_client.get_state_history(state_id=state_id, limit=limit)
         return history
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch state history: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch state history: {str(e)}"
+        )
 
 
 @app.get("/api/hcg/snapshot", response_model=GraphSnapshot)
 async def get_graph_snapshot(
-    entity_types: Optional[str] = Query(None, description="Comma-separated list of entity types"),
+    entity_types: Optional[str] = Query(
+        None, description="Comma-separated list of entity types"
+    ),
     limit: int = Query(200, ge=1, le=1000, description="Maximum number of entities"),
 ):
     """Get a snapshot of the HCG graph."""
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
-    
+
     try:
         types_list = entity_types.split(",") if entity_types else None
         snapshot = hcg_client.get_graph_snapshot(
@@ -232,12 +247,15 @@ async def get_graph_snapshot(
         )
         return snapshot
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch graph snapshot: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch graph snapshot: {str(e)}"
+        )
 
 
 def main():
     """Main entry point for apollo-api CLI command."""
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8082)
 
 
