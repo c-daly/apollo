@@ -150,6 +150,12 @@ The dashboard will be available at `http://localhost:5173`
 - **Diagnostics**: System logs, execution timeline, and telemetry metrics
 - **Persona Diary**: Agent's internal reasoning and decision-making trace
 
+**API Clients:**
+The webapp includes TypeScript API clients that mirror the Python CLI functionality:
+- **Sophia Client**: Goal creation, planning, execution, and simulation
+- **Hermes Client**: Text embedding and semantic search
+- See [API Client Documentation](docs/API_CLIENTS.md) for detailed usage
+
 ## Configuration
 
 Apollo supports configuration through YAML files and environment variables.
@@ -303,17 +309,30 @@ npm run preview
 apollo/
 ├── src/apollo/          # Python CLI package
 │   ├── cli/            # Command-line interface
-│   ├── client/         # Sophia API client
+│   ├── client/         # Sophia & Hermes API clients (Python)
 │   └── config/         # Configuration management
 ├── webapp/             # React web dashboard
-│   ├── src/           # React components and pages
+│   ├── src/
+│   │   ├── lib/       # API clients (TypeScript)
+│   │   │   ├── sophia-client.ts    # Sophia API client
+│   │   │   ├── hermes-client.ts    # Hermes API client
+│   │   │   ├── config.ts           # Configuration loader
+│   │   │   └── index.ts            # Client exports
+│   │   ├── components/ # React UI components
+│   │   ├── pages/      # Application pages
+│   │   └── __tests__/  # Test suite
 │   └── public/        # Static assets
+├── api-specs/         # OpenAPI specifications
+│   ├── sophia-openapi.yaml
+│   └── hermes-openapi.yaml
 ├── tests/             # Test suite
 │   ├── e2e/          # End-to-end functional tests
 │   ├── test_*.py     # Unit tests for CLI
 │   └── ...
-├── examples/          # Example usage and scripts
 ├── docs/              # Documentation
+│   ├── API_CLIENTS.md # API client usage guide
+│   └── ...
+├── examples/          # Example usage and scripts
 └── PHASE1_VERIFY/     # Phase 1 verification scripts
     └── scripts/       # E2E test scripts and documentation
 ```
