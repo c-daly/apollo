@@ -1,0 +1,150 @@
+.persona-diary {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px);
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.diary-header {
+  margin-bottom: 2rem;
+}
+
+.diary-header h2 {
+  margin: 0 0 0.5rem 0;
+}
+
+.diary-subtitle {
+  color: #888;
+  margin: 0;
+}
+
+.diary-timeline {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+  padding-left: 3rem;
+}
+
+.diary-timeline::before {
+  content: '';
+  position: absolute;
+  left: 1.5rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: #333;
+}
+
+.diary-entry {
+  display: flex;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.entry-marker {
+  position: absolute;
+  left: -3rem;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid #1a1a1a;
+  z-index: 1;
+}
+
+.entry-icon {
+  font-size: 1.5rem;
+}
+
+.entry-content {
+  flex: 1;
+  background-color: #2a2a2a;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.entry-type {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.875rem;
+  letter-spacing: 0.05em;
+}
+
+.entry-timestamp {
+  color: #888;
+  font-size: 0.875rem;
+}
+
+.entry-text {
+  line-height: 1.6;
+  color: #ddd;
+}
+
+.diary-legend {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.diary-legend h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+}
+
+.legend-items {
+  display: flex;
+  gap: 2rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.legend-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+@media (prefers-color-scheme: light) {
+  .diary-timeline::before {
+    background-color: #ddd;
+  }
+  
+  .entry-marker {
+    border: 3px solid #ffffff;
+  }
+  
+  .entry-content {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+  }
+  
+  .entry-text {
+    color: #213547;
+  }
+  
+  .diary-legend {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+  }
+}

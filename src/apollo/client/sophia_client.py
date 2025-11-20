@@ -266,3 +266,46 @@ class SophiaClient:
             return response.status_code == 200
         except Exception:
             return False
+
+    def simulate_plan(
+        self, plan_id: str, initial_state: Optional[Dict[str, Any]] = None
+    ) -> SophiaResponse:
+        """Simulate plan execution without committing changes.
+
+        Args:
+            plan_id: ID of the plan to simulate
+            initial_state: Optional initial state for simulation
+
+        Returns:
+            Response with simulation results
+
+        Raises:
+            requests.RequestException: If request fails
+        """
+        try:
+            payload: Dict[str, Any] = {"plan_id": plan_id}
+            if initial_state:
+                payload["initial_state"] = initial_state
+
+            response = requests.post(
+                f"{self.base_url}/api/simulate",
+                json=payload,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return SophiaResponse(success=True, data=data)
+        except requests.exceptions.ConnectionError:
+            return SophiaResponse(
+                success=False,
+                error=f"Cannot connect to Sophia at {self.base_url}",
+            )
+        except requests.exceptions.Timeout:
+            return SophiaResponse(
+                success=False,
+                error=f"Request timed out after {self.timeout} seconds",
+            )
+        except requests.exceptions.RequestException as e:
+            return SophiaResponse(success=False, error=f"Request failed: {str(e)}")
+        except Exception as e:
+            return SophiaResponse(success=False, error=f"Unexpected error: {str(e)}")

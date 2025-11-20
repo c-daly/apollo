@@ -1,0 +1,82 @@
+.graph-viewer {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px);
+  position: relative;
+}
+
+.graph-controls {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.graph-controls button {
+  padding: 0.5rem 1rem;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.graph-controls button:hover {
+  background-color: #535bf2;
+}
+
+.graph-container {
+  flex: 1;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.graph-legend {
+  position: absolute;
+  top: 5rem;
+  right: 1rem;
+  background-color: #2a2a2a;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+  min-width: 150px;
+}
+
+.graph-legend h3 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+}
+
+@media (prefers-color-scheme: light) {
+  .graph-controls {
+    background-color: #f5f5f5;
+  }
+  
+  .graph-container {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+  }
+  
+  .graph-legend {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+  }
+}
