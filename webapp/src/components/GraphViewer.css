@@ -86,6 +86,15 @@
   margin-bottom: 1rem;
 }
 
+.graph-info {
+  padding: 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
 .graph-loading {
   padding: 1rem;
   background-color: #2a2a2a;

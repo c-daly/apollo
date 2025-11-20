@@ -1,10 +1,130 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import cytoscape from 'cytoscape'
 import dagre from 'cytoscape-dagre'
 import { useGraphSnapshot } from '../hooks/useHCG'
+import type { GraphSnapshot } from '../types/hcg'
 import './GraphViewer.css'
 
 cytoscape.use(dagre)
+
+// Mock data for demo/fallback when API is unavailable
+const createMockSnapshot = (): GraphSnapshot => ({
+  entities: [
+    {
+      id: 'goal_1',
+      type: 'goal',
+      properties: { name: 'Navigate to Kitchen', priority: 'high', status: 'active' },
+      labels: ['Goal'],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'plan_1',
+      type: 'plan',
+      properties: { name: 'Kitchen Navigation Plan', status: 'executing' },
+      labels: ['Plan'],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'step_1',
+      type: 'step',
+      properties: { name: 'Move forward', order: 1, status: 'completed' },
+      labels: ['Step'],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'step_2',
+      type: 'step',
+      properties: { name: 'Turn left', order: 2, status: 'in_progress' },
+      labels: ['Step'],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'step_3',
+      type: 'step',
+      properties: { name: 'Enter kitchen', order: 3, status: 'pending' },
+      labels: ['Step'],
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'state_1',
+      type: 'state',
+      properties: { name: 'Current Position', x: 10, y: 5 },
+      labels: ['State'],
+      created_at: new Date().toISOString(),
+    },
+  ],
+  edges: [
+    {
+      id: 'edge_1',
+      source_id: 'goal_1',
+      target_id: 'plan_1',
+      edge_type: 'generates',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'edge_2',
+      source_id: 'plan_1',
+      target_id: 'step_1',
+      edge_type: 'contains',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'edge_3',
+      source_id: 'plan_1',
+      target_id: 'step_2',
+      edge_type: 'contains',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'edge_4',
+      source_id: 'plan_1',
+      target_id: 'step_3',
+      edge_type: 'contains',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'edge_5',
+      source_id: 'step_1',
+      target_id: 'step_2',
+      edge_type: 'precedes',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'edge_6',
+      source_id: 'step_2',
+      target_id: 'step_3',
+      edge_type: 'precedes',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: 'edge_7',
+      source_id: 'step_2',
+      target_id: 'state_1',
+      edge_type: 'updates',
+      properties: {},
+      weight: 1.0,
+      created_at: new Date().toISOString(),
+    },
+  ],
+  timestamp: new Date().toISOString(),
+  metadata: {
+    entity_count: 6,
+    edge_count: 7,
+    entity_types: ['goal', 'plan', 'step', 'state'],
+  },
+})
 
 function GraphViewer() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -14,10 +134,17 @@ function GraphViewer() {
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   
   // Fetch graph snapshot from HCG API
-  const { data: snapshot, isLoading, error, refetch } = useGraphSnapshot(
+  const { data: apiSnapshot, isLoading, error, refetch } = useGraphSnapshot(
     entityTypeFilter.length > 0 ? entityTypeFilter : undefined,
     200
   )
+
+  // Use mock data if API fails or returns no data
+  const snapshot = useMemo(() => {
+    if (apiSnapshot) return apiSnapshot
+    if (error) return createMockSnapshot()
+    return null
+  }, [apiSnapshot, error])
 
   useEffect(() => {
     if (!containerRef.current || !snapshot) return
@@ -246,8 +373,8 @@ function GraphViewer() {
       </div>
 
       {error && (
-        <div className="graph-error">
-          Error loading graph data: {error.message}
+        <div className="graph-info">
+          ℹ️ API unavailable - showing sample graph data. Start the HCG API server to view live data.
         </div>
       )}
 
