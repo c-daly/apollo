@@ -7,6 +7,7 @@ React-based web dashboard for Apollo, providing real-time visualization and cont
 ⏳ **To be implemented in Epoch 3 (Task C4)**
 
 The web dashboard will provide:
+
 - Real-time visualization of agent state
 - HCG graph visualization
 - Plan monitoring and execution tracking
@@ -29,6 +30,7 @@ The web dashboard will provide:
 - npm 9.x or higher
 
 You can check your versions with:
+
 ```bash
 node --version
 npm --version
@@ -58,19 +60,23 @@ The dashboard will be available at `http://localhost:3000` with hot module repla
 ## Available Scripts
 
 ### Development
+
 - `npm run dev` - Start development server with hot reload
 - `npm run preview` - Preview production build locally
 
 ### Building
+
 - `npm run build` - Build for production (outputs to `dist/`)
 - `npm run type-check` - Run TypeScript type checking without emitting files
 
 ### Testing
+
 - `npm test` - Run tests in watch mode
 - `npm run test:ui` - Run tests with UI interface
 - `npm run coverage` - Generate test coverage report
 
 ### Code Quality
+
 - `npm run lint` - Check code for linting errors
 - `npm run lint:fix` - Fix auto-fixable linting errors
 - `npm run format` - Format code with Prettier
@@ -100,6 +106,7 @@ webapp/
 ## Integration Points
 
 The web dashboard will integrate with:
+
 - **Sophia API**: For sending commands and receiving state updates
 - **Neo4j**: For querying and visualizing the HCG
 - **WebSocket**: For real-time state updates
@@ -113,6 +120,7 @@ This project uses **npm** for dependency management:
 - **Lock File**: `package-lock.json` ensures reproducible builds
 
 To add new dependencies:
+
 ```bash
 # Runtime dependency
 npm install <package-name>
@@ -124,10 +132,12 @@ npm install --save-dev <package-name>
 ## Node.js Version
 
 This project requires Node.js 18 or higher. The version is specified in:
+
 - `package.json` under `engines.node`
 - `.nvmrc` file in the project root (for nvm users)
 
 If you use nvm, you can switch to the correct version with:
+
 ```bash
 nvm use
 ```

@@ -1,9 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import Dashboard from './pages/Dashboard';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import Dashboard from './pages/Dashboard'
+import './App.css'
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient()
 
 function App() {
   return (
@@ -16,7 +16,9 @@ function App() {
               <span className="nav-subtitle">LOGOS Command Interface</span>
             </div>
             <div className="nav-links">
-              <Link to="/" className="nav-link">Dashboard</Link>
+              <Link to="/" className="nav-link">
+                Dashboard
+              </Link>
             </div>
           </nav>
           <main className="app-main">
@@ -27,7 +29,7 @@ function App() {
         </div>
       </Router>
     </QueryClientProvider>
-  );
+  )
 }
 
-export default App;
+export default App

@@ -129,20 +129,20 @@
   .diary-timeline::before {
     background-color: #ddd;
   }
-  
+
   .entry-marker {
     border: 3px solid #ffffff;
   }
-  
+
   .entry-content {
     background-color: #f5f5f5;
     border: 1px solid #ddd;
   }
-  
+
   .entry-text {
     color: #213547;
   }
-  
+
   .diary-legend {
     background-color: #f5f5f5;
     border: 1px solid #ddd;

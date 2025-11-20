@@ -44,12 +44,12 @@
     background-color: #f5f5f5;
     border-bottom: 1px solid #ddd;
   }
-  
+
   .tab-button:hover {
     background-color: #e0e0e0;
     color: #213547;
   }
-  
+
   .tab-button.active {
     background-color: #646cff;
     color: #fff;

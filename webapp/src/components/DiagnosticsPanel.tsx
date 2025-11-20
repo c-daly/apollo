@@ -1,17 +1,17 @@
-import { useState } from 'react';
-import './DiagnosticsPanel.css';
+import { useState } from 'react'
+import './DiagnosticsPanel.css'
 
-type DiagnosticTab = 'logs' | 'timeline' | 'telemetry';
+type DiagnosticTab = 'logs' | 'timeline' | 'telemetry'
 
 interface LogEntry {
-  id: string;
-  timestamp: Date;
-  level: 'info' | 'warning' | 'error';
-  message: string;
+  id: string
+  timestamp: Date
+  level: 'info' | 'warning' | 'error'
+  message: string
 }
 
 function DiagnosticsPanel() {
-  const [activeTab, setActiveTab] = useState<DiagnosticTab>('logs');
+  const [activeTab, setActiveTab] = useState<DiagnosticTab>('logs')
 
   // Sample log data
   const logs: LogEntry[] = [
@@ -39,7 +39,7 @@ function DiagnosticsPanel() {
       level: 'info',
       message: 'Embedding generated for text input',
     },
-  ];
+  ]
 
   return (
     <div className="diagnostics-panel">
@@ -99,7 +99,10 @@ function DiagnosticsPanel() {
           <div className="timeline-view">
             <h3>Plan Execution Timeline</h3>
             <div className="timeline-placeholder">
-              <p>Plan timeline visualization will show step-by-step execution progress.</p>
+              <p>
+                Plan timeline visualization will show step-by-step execution
+                progress.
+              </p>
               <ul>
                 <li>Step start/end times</li>
                 <li>Performance metrics per step</li>
@@ -138,7 +141,7 @@ function DiagnosticsPanel() {
         )}
       </div>
     </div>
-  );
+  )
 }
 
-export default DiagnosticsPanel;
+export default DiagnosticsPanel
