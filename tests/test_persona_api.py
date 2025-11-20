@@ -57,7 +57,7 @@ def test_persona_entry_defaults():
 def test_persona_entry_types():
     """Test various entry types."""
     types = ["belief", "decision", "observation", "reflection"]
-    
+
     for entry_type in types:
         entry = PersonaEntry(
             id=f"test_{entry_type}",
@@ -66,4 +66,3 @@ def test_persona_entry_types():
             content=f"Test {entry_type} entry",
         )
         assert entry.entry_type == entry_type
-

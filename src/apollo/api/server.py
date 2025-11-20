@@ -310,7 +310,9 @@ async def get_persona_entries(
     related_process_id: Optional[str] = Query(
         None, description="Filter by related process ID"
     ),
-    related_goal_id: Optional[str] = Query(None, description="Filter by related goal ID"),
+    related_goal_id: Optional[str] = Query(
+        None, description="Filter by related goal ID"
+    ),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of entries"),
     offset: int = Query(0, ge=0, description="Number of entries to skip"),
 ) -> List[PersonaEntry]:

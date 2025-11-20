@@ -145,10 +145,13 @@ class PersonaEntry(BaseModel):
     id: str = Field(..., description="Unique entry identifier")
     timestamp: datetime = Field(..., description="Entry creation timestamp")
     entry_type: str = Field(
-        ..., description="Entry type: 'belief', 'decision', 'observation', or 'reflection'"
+        ...,
+        description="Entry type: 'belief', 'decision', 'observation', or 'reflection'",
     )
     content: str = Field(..., description="The main content/narrative of the entry")
-    summary: Optional[str] = Field(None, description="Brief summary for quick reference")
+    summary: Optional[str] = Field(
+        None, description="Brief summary for quick reference"
+    )
     sentiment: Optional[str] = Field(
         None, description="Sentiment: 'positive', 'negative', 'neutral', or 'mixed'"
     )
