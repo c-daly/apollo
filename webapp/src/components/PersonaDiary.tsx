@@ -52,7 +52,10 @@ function PersonaDiary() {
   ])
 
   // Fetch state history for diary entries
-  const { data: stateHistory, refetch: refetchHistory } = useStateHistory(undefined, 50)
+  const { data: stateHistory, refetch: refetchHistory } = useStateHistory(
+    undefined,
+    50
+  )
 
   // Convert state history to diary entries
   useEffect(() => {
@@ -60,17 +63,24 @@ function PersonaDiary() {
       const historyEntries: DiaryEntry[] = stateHistory.map(history => {
         // Determine entry type based on trigger or changes
         let type: 'belief' | 'decision' | 'observation' = 'observation'
-        if (history.trigger?.includes('plan') || history.trigger?.includes('decision')) {
+        if (
+          history.trigger?.includes('plan') ||
+          history.trigger?.includes('decision')
+        ) {
           type = 'decision'
-        } else if (history.trigger?.includes('belief') || history.trigger?.includes('update')) {
+        } else if (
+          history.trigger?.includes('belief') ||
+          history.trigger?.includes('update')
+        ) {
           type = 'belief'
         }
 
         // Create content from changes
         const changeKeys = Object.keys(history.changes)
-        const content = changeKeys.length > 0
-          ? `State updated: ${changeKeys.join(', ')}. ${JSON.stringify(history.changes, null, 2)}`
-          : `State change triggered by: ${history.trigger || 'system'}`
+        const content =
+          changeKeys.length > 0
+            ? `State updated: ${changeKeys.join(', ')}. ${JSON.stringify(history.changes, null, 2)}`
+            : `State change triggered by: ${history.trigger || 'system'}`
 
         return {
           id: history.id,
@@ -102,11 +112,16 @@ function PersonaDiary() {
         const newEntry: DiaryEntry = {
           id: `ws-${Date.now()}`,
           timestamp: new Date(),
-          type: (data.type as 'belief' | 'decision' | 'observation') || 'observation',
-          content: (data.message as string) || message.message || 'Real-time update received',
+          type:
+            (data.type as 'belief' | 'decision' | 'observation') ||
+            'observation',
+          content:
+            (data.message as string) ||
+            message.message ||
+            'Real-time update received',
         }
         setEntries(prev => [newEntry, ...prev].slice(0, 100))
-        
+
         // Refresh state history
         refetchHistory()
       }
@@ -153,7 +168,10 @@ function PersonaDiary() {
         <div className="diary-stats">
           <span>Total Entries: {entries.length}</span>
           <span>
-            Latest: {entries.length > 0 ? entries[0].timestamp.toLocaleTimeString() : 'N/A'}
+            Latest:{' '}
+            {entries.length > 0
+              ? entries[0].timestamp.toLocaleTimeString()
+              : 'N/A'}
           </span>
         </div>
       </div>

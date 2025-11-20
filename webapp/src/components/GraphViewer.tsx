@@ -13,7 +13,11 @@ const createMockSnapshot = (): GraphSnapshot => ({
     {
       id: 'goal_1',
       type: 'goal',
-      properties: { name: 'Navigate to Kitchen', priority: 'high', status: 'active' },
+      properties: {
+        name: 'Navigate to Kitchen',
+        priority: 'high',
+        status: 'active',
+      },
       labels: ['Goal'],
       created_at: new Date().toISOString(),
     },
@@ -132,9 +136,14 @@ function GraphViewer() {
   const [entityTypeFilter, setEntityTypeFilter] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
-  
+
   // Fetch graph snapshot from HCG API
-  const { data: apiSnapshot, isLoading, error, refetch } = useGraphSnapshot(
+  const {
+    data: apiSnapshot,
+    isLoading,
+    error,
+    refetch,
+  } = useGraphSnapshot(
     entityTypeFilter.length > 0 ? entityTypeFilter : undefined,
     200
   )
@@ -153,7 +162,8 @@ function GraphViewer() {
     const nodes = snapshot.entities.map(entity => ({
       data: {
         id: entity.id,
-        label: entity.properties.name || entity.properties.description || entity.id,
+        label:
+          entity.properties.name || entity.properties.description || entity.id,
         type: entity.type,
         ...entity.properties,
       },
@@ -173,7 +183,7 @@ function GraphViewer() {
     // Filter by search query
     let filteredNodes = nodes
     let filteredEdges = edges
-    
+
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       filteredNodes = nodes.filter(node => {
@@ -187,8 +197,8 @@ function GraphViewer() {
         )
       })
       const nodeIds = new Set(filteredNodes.map(n => n.data.id))
-      filteredEdges = edges.filter(edge =>
-        nodeIds.has(edge.data.source) && nodeIds.has(edge.data.target)
+      filteredEdges = edges.filter(
+        edge => nodeIds.has(edge.data.source) && nodeIds.has(edge.data.target)
       )
     }
 
@@ -374,7 +384,8 @@ function GraphViewer() {
 
       {error && (
         <div className="graph-info">
-          ℹ️ API unavailable - showing sample graph data. Start the HCG API server to view live data.
+          ℹ️ API unavailable - showing sample graph data. Start the HCG API
+          server to view live data.
         </div>
       )}
 
@@ -382,14 +393,11 @@ function GraphViewer() {
 
       <div className="graph-content">
         <div className="graph-container" ref={containerRef}></div>
-        
+
         {selectedNodeData && (
           <div className="node-details">
             <h3>Node Details</h3>
-            <button
-              className="close-btn"
-              onClick={() => setSelectedNode(null)}
-            >
+            <button className="close-btn" onClick={() => setSelectedNode(null)}>
               ×
             </button>
             <div className="detail-item">

@@ -59,8 +59,14 @@ function DiagnosticsPanel() {
   })
 
   // Fetch plan history for timeline
-  const { data: planHistory, isLoading: plansLoading } = usePlanHistory(undefined, 20)
-  const { data: processes, isLoading: processesLoading } = useProcesses(undefined, 50)
+  const { data: planHistory, isLoading: plansLoading } = usePlanHistory(
+    undefined,
+    20
+  )
+  const { data: processes, isLoading: processesLoading } = useProcesses(
+    undefined,
+    50
+  )
 
   // Setup WebSocket for real-time updates
   useEffect(() => {
@@ -100,8 +106,14 @@ function DiagnosticsPanel() {
       setTelemetry(prev => ({
         apiLatency: Math.round(prev.apiLatency + (Math.random() - 0.5) * 20),
         requests: prev.requests + Math.floor(Math.random() * 10),
-        successRate: Math.max(95, Math.min(100, prev.successRate + (Math.random() - 0.5))),
-        activePlans: Math.max(0, prev.activePlans + Math.floor(Math.random() * 3 - 1)),
+        successRate: Math.max(
+          95,
+          Math.min(100, prev.successRate + (Math.random() - 0.5))
+        ),
+        activePlans: Math.max(
+          0,
+          prev.activePlans + Math.floor(Math.random() * 3 - 1)
+        ),
         lastUpdate: new Date(),
       }))
     }, 5000)
@@ -118,10 +130,13 @@ function DiagnosticsPanel() {
   )
 
   const handleExportLogs = () => {
-    const logData = filteredLogs.map(log =>
-      `[${log.timestamp.toISOString()}] ${log.level.toUpperCase()}: ${log.message}`
-    ).join('\n')
-    
+    const logData = filteredLogs
+      .map(
+        log =>
+          `[${log.timestamp.toISOString()}] ${log.level.toUpperCase()}: ${log.message}`
+      )
+      .join('\n')
+
     const blob = new Blob([logData], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -238,11 +253,15 @@ function DiagnosticsPanel() {
                         <div className="timeline-steps">
                           <strong>Steps:</strong>
                           <ol>
-                            {plan.steps.map((step: Record<string, unknown>, idx: number) => (
-                              <li key={idx}>
-                                {(step.description as string) || (step.name as string) || `Step ${idx + 1}`}
-                              </li>
-                            ))}
+                            {plan.steps.map(
+                              (step: Record<string, unknown>, idx: number) => (
+                                <li key={idx}>
+                                  {(step.description as string) ||
+                                    (step.name as string) ||
+                                    `Step ${idx + 1}`}
+                                </li>
+                              )
+                            )}
                           </ol>
                         </div>
                       )}
@@ -265,7 +284,9 @@ function DiagnosticsPanel() {
                 <h3 style={{ marginTop: '2rem' }}>Active Processes</h3>
                 <div className="processes-list">
                   {processes
-                    .filter(p => p.status === 'running' || p.status === 'pending')
+                    .filter(
+                      p => p.status === 'running' || p.status === 'pending'
+                    )
                     .map(process => (
                       <div key={process.id} className="process-card">
                         <div className="process-header">
@@ -305,12 +326,16 @@ function DiagnosticsPanel() {
               </div>
               <div className="metric-card">
                 <h4>Requests</h4>
-                <div className="metric-value">{telemetry.requests.toLocaleString()}</div>
+                <div className="metric-value">
+                  {telemetry.requests.toLocaleString()}
+                </div>
                 <div className="metric-label">Last hour</div>
               </div>
               <div className="metric-card">
                 <h4>Success Rate</h4>
-                <div className="metric-value">{telemetry.successRate.toFixed(1)}%</div>
+                <div className="metric-value">
+                  {telemetry.successRate.toFixed(1)}%
+                </div>
                 <div className="metric-label">Last hour</div>
               </div>
               <div className="metric-card">
