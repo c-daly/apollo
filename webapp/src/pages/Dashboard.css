@@ -1,0 +1,57 @@
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.dashboard-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #333;
+}
+
+.tab-button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background-color: transparent;
+  color: #888;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  background-color: #333;
+  color: #fff;
+}
+
+.tab-button.active {
+  background-color: #646cff;
+  color: #fff;
+}
+
+.dashboard-content {
+  flex: 1;
+  overflow: auto;
+  padding: 2rem;
+}
+
+@media (prefers-color-scheme: light) {
+  .dashboard-tabs {
+    background-color: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .tab-button:hover {
+    background-color: #e0e0e0;
+    color: #213547;
+  }
+  
+  .tab-button.active {
+    background-color: #646cff;
+    color: #fff;
+  }
+}

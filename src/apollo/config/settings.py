@@ -15,6 +15,14 @@ class SophiaConfig(BaseModel):
     timeout: int = Field(default=30, description="Request timeout in seconds")
 
 
+class HermesConfig(BaseModel):
+    """Configuration for Hermes language and embedding service."""
+
+    host: str = Field(default="localhost", description="Hermes API host")
+    port: int = Field(default=8081, description="Hermes API port")
+    timeout: int = Field(default=30, description="Request timeout in seconds")
+
+
 class Neo4jConfig(BaseModel):
     """Configuration for Neo4j HCG connection."""
 
@@ -41,6 +49,7 @@ class ApolloConfig(BaseModel):
     """Main Apollo configuration."""
 
     sophia: SophiaConfig = Field(default_factory=SophiaConfig)
+    hermes: HermesConfig = Field(default_factory=HermesConfig)
     hcg: HCGConfig = Field(default_factory=HCGConfig)
 
     @classmethod
