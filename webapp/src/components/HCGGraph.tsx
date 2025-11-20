@@ -109,7 +109,8 @@ export function HCGGraph({
         nodeSep: 50,
         rankSep: 100,
       },
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
 
     cyRef.current = cy;
 
