@@ -68,6 +68,7 @@
   border: 1px solid #333;
   color: #fff;
   border-radius: 4px;
+  cursor: pointer;
 }
 
 .btn-secondary {
@@ -139,6 +140,12 @@
   margin-top: 0;
 }
 
+.timeline-loading {
+  text-align: center;
+  padding: 2rem;
+  color: #888;
+}
+
 .timeline-placeholder {
   background-color: #2a2a2a;
   padding: 2rem;
@@ -153,6 +160,191 @@
   list-style-position: inside;
 }
 
+.timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid #646cff;
+}
+
+.timeline-marker {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 0.3rem;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #888;
+}
+
+.status-dot.pending {
+  background-color: #fbbf24;
+}
+
+.status-dot.executing {
+  background-color: #60a5fa;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.completed {
+  background-color: #4ade80;
+}
+
+.status-dot.failed {
+  background-color: #ef4444;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.timeline-content {
+  flex: 1;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.timeline-id {
+  font-weight: 600;
+  color: #646cff;
+}
+
+.timeline-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.timeline-status.pending {
+  background-color: #fbbf2440;
+  color: #fbbf24;
+}
+
+.timeline-status.executing {
+  background-color: #60a5fa40;
+  color: #60a5fa;
+}
+
+.timeline-status.completed {
+  background-color: #4ade8040;
+  color: #4ade80;
+}
+
+.timeline-status.failed {
+  background-color: #ef444440;
+  color: #ef4444;
+}
+
+.timeline-details {
+  font-size: 0.875rem;
+  margin-bottom: 0.75rem;
+}
+
+.detail-row {
+  margin-bottom: 0.25rem;
+  color: #ccc;
+}
+
+.detail-row strong {
+  color: #888;
+  margin-right: 0.5rem;
+}
+
+.timeline-steps {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #333;
+  font-size: 0.875rem;
+}
+
+.timeline-steps ol {
+  margin: 0.5rem 0 0 0;
+  padding-left: 1.5rem;
+}
+
+.timeline-steps li {
+  margin-bottom: 0.25rem;
+}
+
+.processes-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.process-card {
+  background-color: #2a2a2a;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.process-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.process-name {
+  font-weight: 600;
+  color: #646cff;
+}
+
+.process-status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.process-status.running {
+  background-color: #60a5fa40;
+  color: #60a5fa;
+}
+
+.process-status.pending {
+  background-color: #fbbf2440;
+  color: #fbbf24;
+}
+
+.process-description {
+  font-size: 0.875rem;
+  color: #ccc;
+  margin-bottom: 0.5rem;
+}
+
+.process-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: #888;
+}
+
 /* Telemetry View */
 .telemetry-view {
   display: flex;
@@ -162,6 +354,12 @@
 
 .telemetry-view h3 {
   margin-top: 0;
+  margin-bottom: 0.5rem;
+}
+
+.telemetry-update {
+  color: #888;
+  font-size: 0.875rem;
   margin-bottom: 1.5rem;
 }
 
@@ -230,8 +428,14 @@
   }
 
   .timeline-placeholder,
+  .timeline-item,
+  .process-card,
   .metric-card {
     background-color: #f5f5f5;
     border: 1px solid #ddd;
+  }
+
+  .detail-row {
+    color: #333;
   }
 }
