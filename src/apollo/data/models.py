@@ -133,3 +133,40 @@ class GraphSnapshot(BaseModel):
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Snapshot metadata"
     )
+
+
+class PersonaEntry(BaseModel):
+    """Persona diary entry capturing agent's internal reasoning and experiences.
+
+    Used for building a narrative of the agent's decision-making process
+    and providing context to LLM-based chat interfaces.
+    """
+
+    id: str = Field(..., description="Unique entry identifier")
+    timestamp: datetime = Field(..., description="Entry creation timestamp")
+    entry_type: str = Field(
+        ...,
+        description="Entry type: 'belief', 'decision', 'observation', or 'reflection'",
+    )
+    content: str = Field(..., description="The main content/narrative of the entry")
+    summary: Optional[str] = Field(
+        None, description="Brief summary for quick reference"
+    )
+    sentiment: Optional[str] = Field(
+        None, description="Sentiment: 'positive', 'negative', 'neutral', or 'mixed'"
+    )
+    confidence: Optional[float] = Field(
+        None, description="Confidence level (0.0-1.0) for decisions/beliefs"
+    )
+    related_process_ids: List[str] = Field(
+        default_factory=list, description="IDs of related processes/actions"
+    )
+    related_goal_ids: List[str] = Field(
+        default_factory=list, description="IDs of related goals"
+    )
+    emotion_tags: List[str] = Field(
+        default_factory=list, description="Emotion tags associated with this entry"
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )

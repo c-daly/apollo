@@ -22,11 +22,15 @@ from apollo.data.models import (
     PlanHistory,
     StateHistory,
     GraphSnapshot,
+    PersonaEntry,
 )
 
 
 # Global HCG client instance
 hcg_client: Optional[HCGClient] = None
+
+# In-memory storage for persona entries (in production, use a database)
+persona_entries: List[PersonaEntry] = []
 
 
 @asynccontextmanager
@@ -250,6 +254,108 @@ async def get_graph_snapshot(
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch graph snapshot: {str(e)}"
         )
+
+
+class CreatePersonaEntryRequest(BaseModel):
+    """Request model for creating a persona entry."""
+
+    entry_type: str
+    content: str
+    summary: Optional[str] = None
+    sentiment: Optional[str] = None
+    confidence: Optional[float] = None
+    related_process_ids: List[str] = []
+    related_goal_ids: List[str] = []
+    emotion_tags: List[str] = []
+    metadata: dict = {}
+
+
+@app.post("/api/persona/entries", response_model=PersonaEntry, status_code=201)
+async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEntry:
+    """Create a new persona diary entry.
+
+    This endpoint allows creation of new diary entries capturing the agent's
+    internal reasoning, decisions, beliefs, and observations.
+    """
+    global persona_entries
+
+    # Generate unique ID
+    entry_id = f"entry_{len(persona_entries) + 1}_{int(datetime.now().timestamp())}"
+
+    # Create the entry
+    entry = PersonaEntry(
+        id=entry_id,
+        timestamp=datetime.now(),
+        entry_type=request.entry_type,
+        content=request.content,
+        summary=request.summary,
+        sentiment=request.sentiment,
+        confidence=request.confidence,
+        related_process_ids=request.related_process_ids,
+        related_goal_ids=request.related_goal_ids,
+        emotion_tags=request.emotion_tags,
+        metadata=request.metadata,
+    )
+
+    # Store the entry
+    persona_entries.append(entry)
+
+    return entry
+
+
+@app.get("/api/persona/entries", response_model=List[PersonaEntry])
+async def get_persona_entries(
+    entry_type: Optional[str] = Query(None, description="Filter by entry type"),
+    sentiment: Optional[str] = Query(None, description="Filter by sentiment"),
+    related_process_id: Optional[str] = Query(
+        None, description="Filter by related process ID"
+    ),
+    related_goal_id: Optional[str] = Query(
+        None, description="Filter by related goal ID"
+    ),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of entries"),
+    offset: int = Query(0, ge=0, description="Number of entries to skip"),
+) -> List[PersonaEntry]:
+    """Get persona diary entries with optional filtering.
+
+    Returns a list of diary entries sorted by timestamp (most recent first).
+    """
+    global persona_entries
+
+    # Apply filters
+    filtered = persona_entries
+
+    if entry_type:
+        filtered = [e for e in filtered if e.entry_type == entry_type]
+
+    if sentiment:
+        filtered = [e for e in filtered if e.sentiment == sentiment]
+
+    if related_process_id:
+        filtered = [e for e in filtered if related_process_id in e.related_process_ids]
+
+    if related_goal_id:
+        filtered = [e for e in filtered if related_goal_id in e.related_goal_ids]
+
+    # Sort by timestamp (most recent first)
+    sorted_entries = sorted(filtered, key=lambda e: e.timestamp, reverse=True)
+
+    # Apply pagination
+    paginated = sorted_entries[offset : offset + limit]
+
+    return paginated
+
+
+@app.get("/api/persona/entries/{entry_id}", response_model=PersonaEntry)
+async def get_persona_entry(entry_id: str) -> PersonaEntry:
+    """Get a specific persona diary entry by ID."""
+    global persona_entries
+
+    for entry in persona_entries:
+        if entry.id == entry_id:
+            return entry
+
+    raise HTTPException(status_code=404, detail="Persona entry not found")
 
 
 def main() -> None:

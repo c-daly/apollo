@@ -71,6 +71,32 @@ export interface GraphSnapshot {
   metadata: Record<string, unknown>
 }
 
+export interface PersonaEntry {
+  id: string
+  timestamp: string
+  entry_type: 'belief' | 'decision' | 'observation' | 'reflection'
+  content: string
+  summary?: string
+  sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed'
+  confidence?: number
+  related_process_ids: string[]
+  related_goal_ids: string[]
+  emotion_tags: string[]
+  metadata: Record<string, unknown>
+}
+
+export interface CreatePersonaEntryRequest {
+  entry_type: string
+  content: string
+  summary?: string
+  sentiment?: string
+  confidence?: number
+  related_process_ids?: string[]
+  related_goal_ids?: string[]
+  emotion_tags?: string[]
+  metadata?: Record<string, unknown>
+}
+
 export interface WebSocketMessage {
   type: 'snapshot' | 'update' | 'error' | 'pong'
   timestamp?: string

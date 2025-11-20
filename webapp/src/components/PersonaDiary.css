@@ -137,6 +137,138 @@
   flex-shrink: 0;
 }
 
+/* Controls and filters */
+.diary-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  flex-wrap: wrap;
+}
+
+.diary-search {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.5rem 1rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #ddd;
+  font-size: 0.875rem;
+}
+
+.diary-filter {
+  padding: 0.5rem 1rem;
+  border: 1px solid #333;
+  border-radius: 4px;
+  background-color: #2a2a2a;
+  color: #ddd;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.diary-refresh {
+  padding: 0.5rem 1rem;
+  border: 1px solid #4ade80;
+  border-radius: 4px;
+  background-color: transparent;
+  color: #4ade80;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.diary-refresh:hover {
+  background-color: rgba(74, 222, 128, 0.1);
+}
+
+/* Entry metadata */
+.entry-summary {
+  font-style: italic;
+  color: #aaa;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.entry-metadata {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.entry-sentiment,
+.entry-confidence {
+  color: #aaa;
+}
+
+.entry-emotions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.emotion-tag {
+  padding: 0.25rem 0.5rem;
+  background-color: #333;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #fbbf24;
+}
+
+.entry-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.link-info {
+  color: #60a5fa;
+  font-size: 0.75rem;
+}
+
+/* Empty state */
+.diary-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #888;
+}
+
+.diary-help {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.diary-help code {
+  background-color: #2a2a2a;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #4ade80;
+}
+
+/* Error state */
+.diary-error {
+  color: #f87171;
+  margin-top: 1rem;
+}
+
+/* Loading indicator */
+.loading {
+  color: #4ade80;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 @media (prefers-color-scheme: light) {
   .diary-timeline::before {
     background-color: #ddd;
