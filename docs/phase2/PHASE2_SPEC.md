@@ -31,6 +31,32 @@ Phase 2 of Apollo introduces dual user surfaces: an enhanced CLI and a browser-b
          └──────────────────────┘
 ```
 
+### Shared CWM State Envelope
+
+Both Apollo surfaces consume the unified `CWMState` contract described in `logos/docs/phase2/PHASE2_SPEC.md`. Every `/state`, `/plan`, and `/simulate` response contains a `states` array whose elements follow the structure:
+
+```json
+{
+  "state_id": "cwm_a_d7e1c2a7",
+  "model_type": "CWM_A",
+  "source": "orchestrator",
+  "timestamp": "2025-11-20T04:15:00Z",
+  "confidence": 0.92,
+  "status": "observed",
+  "links": {
+    "plan_id": "plan_456",
+    "entity_ids": ["entity_12"],
+    "process_ids": ["proc_99"]
+  },
+  "tags": ["capability:perception"],
+  "data": {
+    "...": "model-specific payload"
+  }
+}
+```
+
+React diagnostics panes, CLI renderers, and persona diaries only switch on `model_type` to decide how to format `data`, ensuring CLI + browser stay in sync with Sophia/Hermes logs.
+
 ## Components
 
 ### 1. Shared SDK
@@ -164,7 +190,25 @@ Generate an execution plan for a goal.
   "plan_id": "plan_456",
   "steps": [...],
   "estimated_duration": 300,
-  "confidence": 0.95
+  "confidence": 0.95,
+  "states": [
+    {
+      "state_id": "cwm_a_plan_456_summary",
+      "model_type": "CWM_A",
+      "status": "observed",
+      "timestamp": "2025-11-20T04:12:00Z",
+      "links": {
+        "plan_id": "plan_456"
+      },
+      "data": {
+        "entities": [...],
+        "relations": [...],
+        "validation": {
+          "shacl_passed": true
+        }
+      }
+    }
+  ]
 }
 ```
 
@@ -174,13 +218,29 @@ Retrieve current agent state with HCG graph data.
 **Response**:
 ```json
 {
-  "agent_id": "agent_001",
-  "beliefs": {...},
-  "goals": [...],
-  "graph": {
-    "nodes": [...],
-    "edges": [...]
-  }
+  "states": [
+    {
+      "state_id": "cwm_a_d7e1c2a7",
+      "model_type": "CWM_A",
+      "source": "orchestrator",
+      "timestamp": "2025-11-20T04:15:00Z",
+      "confidence": 0.92,
+      "status": "observed",
+      "links": {
+        "entity_ids": ["entity_12"],
+        "process_ids": ["proc_99"]
+      },
+      "tags": ["capability:actuation"],
+      "data": {
+        "entities": [...],
+        "relations": [...],
+        "validation": {
+          "shacl_passed": true
+        }
+      }
+    }
+  ],
+  "cursor": "opaque_state_cursor"
 }
 ```
 
@@ -191,7 +251,11 @@ Simulate plan execution without committing changes.
 ```json
 {
   "plan_id": "plan_456",
-  "initial_state": {...}
+  "context": {
+    "state_ids": ["cwm_a_plan_456_summary"],
+    "media_sample_id": "upload_17",
+    "talos_metadata": null
+  }
 }
 ```
 
@@ -199,8 +263,26 @@ Simulate plan execution without committing changes.
 ```json
 {
   "simulation_id": "sim_789",
-  "predicted_outcome": {...},
-  "confidence": 0.85,
+  "plan_id": "plan_456",
+  "states": [
+    {
+      "state_id": "cwm_g_sim_plan_456_h3",
+      "model_type": "CWM_G",
+      "status": "imagined",
+      "timestamp": "2025-11-20T04:13:00Z",
+      "confidence": 0.76,
+      "links": {
+        "plan_id": "plan_456",
+        "media_sample_id": "upload_17"
+      },
+      "data": {
+        "imagined": true,
+        "horizon_steps": 3,
+        "frames": ["s3://...", "..."],
+        "assumptions": ["talos_free_mode"]
+      }
+    }
+  ],
   "issues": []
 }
 ```
