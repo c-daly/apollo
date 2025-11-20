@@ -12,7 +12,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from apollo.config.settings import load_config
+from apollo.config.settings import ApolloConfig
 from apollo.data.hcg_client import HCGClient
 from apollo.data.models import (
     Entity,
@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     global hcg_client
     
     # Startup: Initialize HCG client
-    config = load_config()
+    config = ApolloConfig.load()
     if config.hcg and config.hcg.neo4j:
         hcg_client = HCGClient(config.hcg.neo4j)
         hcg_client.connect()
