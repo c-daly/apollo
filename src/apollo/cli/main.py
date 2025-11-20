@@ -502,7 +502,7 @@ def diary(
     # Build the API URL (assuming apollo-api server is running on port 8082)
     api_url = f"http://{config.sophia.host}:8082/api/persona/entries"
 
-    console.print(f"[bold]Creating persona diary entry:[/bold]\n")
+    console.print("[bold]Creating persona diary entry:[/bold]\n")
     console.print(f"[dim]Type: {entry_type}[/dim]")
     console.print(f"[dim]Content: {content}[/dim]\n")
 
