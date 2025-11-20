@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:mock": "VITE_MOCK_DATA_MODE=true vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest",

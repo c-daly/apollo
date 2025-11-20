@@ -137,9 +137,13 @@ cp .env.example .env
 # Edit .env with your API configuration
 # VITE_SOPHIA_API_URL=http://localhost:8080
 # VITE_HERMES_API_URL=http://localhost:8081
+# VITE_MOCK_DATA_MODE=false
 
 # Start development server
 npm run dev
+
+# Or start with mock data (no backend required)
+npm run dev:mock
 ```
 
 The dashboard will be available at `http://localhost:5173`
@@ -149,6 +153,13 @@ The dashboard will be available at `http://localhost:5173`
 - **Graph Viewer**: Interactive visualization of HCG (goals, plans, steps)
 - **Diagnostics**: System logs, execution timeline, and telemetry metrics
 - **Persona Diary**: Agent's internal reasoning and decision-making trace
+
+**Mock Data Fixtures:**
+The webapp includes mock CWMState fixtures for development without backend dependencies:
+- **CWM-A/G/E Records**: Actions, Goals with visual frames, and Events
+- **JEPA Outputs**: Joint-Embedding Predictive Architecture predictions
+- **Mock Service**: In-memory service for deterministic testing
+- See [Fixtures Documentation](webapp/src/fixtures/README.md) for usage
 
 **API Clients:**
 The webapp includes TypeScript API clients that mirror the Python CLI functionality:
@@ -318,6 +329,12 @@ apollo/
 │   │   │   ├── hermes-client.ts    # Hermes API client
 │   │   │   ├── config.ts           # Configuration loader
 │   │   │   └── index.ts            # Client exports
+│   │   ├── fixtures/  # Mock data fixtures
+│   │   │   ├── cwm-types.ts        # CWM type definitions
+│   │   │   ├── cwm-fixtures.ts     # Sample fixture data
+│   │   │   ├── mock-service.ts     # Mock data service
+│   │   │   ├── index.ts            # Fixture exports
+│   │   │   └── README.md           # Fixtures documentation
 │   │   ├── components/ # React UI components
 │   │   ├── pages/      # Application pages
 │   │   └── __tests__/  # Test suite
