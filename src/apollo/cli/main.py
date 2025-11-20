@@ -1,7 +1,7 @@
 """Apollo CLI - Command-line interface for Project LOGOS."""
 
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import click
 from rich.console import Console
@@ -507,7 +507,7 @@ def diary(
     console.print(f"[dim]Content: {content}[/dim]\n")
 
     # Prepare request data
-    data = {
+    data: Dict[str, Any] = {
         "entry_type": entry_type,
         "content": content,
         "summary": summary,
