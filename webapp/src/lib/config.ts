@@ -1,6 +1,6 @@
 /**
  * Configuration management for Apollo webapp
- * 
+ *
  * Provides centralized access to environment variables and configuration
  * with sensible defaults. Matches Python CLI config structure.
  */
@@ -32,7 +32,10 @@ export interface ApolloConfig {
  * Parse boolean from environment variable
  * Handles various string representations of true/false
  */
-function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
+function parseBoolean(
+  value: string | undefined,
+  defaultValue: boolean
+): boolean {
   if (value === undefined) return defaultValue
   return value.toLowerCase() === 'true' || value === '1'
 }
@@ -48,7 +51,7 @@ function parseTimeout(value: string | undefined, defaultValue: number): number {
 
 /**
  * Load Apollo configuration from environment variables
- * 
+ *
  * Environment variables:
  * - VITE_SOPHIA_API_URL: Sophia API base URL (default: http://localhost:8080)
  * - VITE_SOPHIA_API_KEY: Optional API key for Sophia authentication
@@ -73,7 +76,10 @@ export function loadConfig(): ApolloConfig {
     },
     features: {
       enableChat: parseBoolean(import.meta.env.VITE_ENABLE_CHAT, true),
-      enableDiagnostics: parseBoolean(import.meta.env.VITE_ENABLE_DIAGNOSTICS, true),
+      enableDiagnostics: parseBoolean(
+        import.meta.env.VITE_ENABLE_DIAGNOSTICS,
+        true
+      ),
     },
   }
 }

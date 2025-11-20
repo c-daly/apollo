@@ -1,6 +1,6 @@
 /**
  * Example React Component: Goal Creator
- * 
+ *
  * Demonstrates how to use the Sophia API client in a React component
  * to create goals and display their status.
  */
@@ -18,7 +18,7 @@ export function GoalCreator() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!goalText.trim()) {
       setError('Please enter a goal description')
       return
@@ -32,7 +32,9 @@ export function GoalCreator() {
       // Check if Sophia is available
       const isHealthy = await sophiaClient.healthCheck()
       if (!isHealthy) {
-        setError('Sophia service is not available. Please check your connection.')
+        setError(
+          'Sophia service is not available. Please check your connection.'
+        )
         setLoading(false)
         return
       }
@@ -60,7 +62,7 @@ export function GoalCreator() {
   return (
     <div className="goal-creator">
       <h2>Create New Goal</h2>
-      
+
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="goal-input">Goal Description</label>
@@ -68,7 +70,7 @@ export function GoalCreator() {
             id="goal-input"
             type="text"
             value={goalText}
-            onChange={(e) => setGoalText(e.target.value)}
+            onChange={e => setGoalText(e.target.value)}
             placeholder="e.g., Navigate to the kitchen"
             disabled={loading}
           />
@@ -79,7 +81,9 @@ export function GoalCreator() {
           <select
             id="priority-select"
             value={priority}
-            onChange={(e) => setPriority(e.target.value as 'low' | 'medium' | 'high')}
+            onChange={e =>
+              setPriority(e.target.value as 'low' | 'medium' | 'high')
+            }
             disabled={loading}
           >
             <option value="low">Low</option>
@@ -105,16 +109,16 @@ export function GoalCreator() {
           <dl>
             <dt>Goal ID:</dt>
             <dd>{createdGoal.goal_id}</dd>
-            
+
             <dt>Description:</dt>
             <dd>{createdGoal.description}</dd>
-            
+
             <dt>Priority:</dt>
             <dd>{createdGoal.priority || 'not specified'}</dd>
-            
+
             <dt>Status:</dt>
             <dd>{createdGoal.status}</dd>
-            
+
             <dt>Created At:</dt>
             <dd>{new Date(createdGoal.created_at).toLocaleString()}</dd>
           </dl>
@@ -126,7 +130,7 @@ export function GoalCreator() {
 
 /**
  * Example React Component: Text Embedding Generator
- * 
+ *
  * Demonstrates how to use the Hermes API client to generate embeddings
  */
 
@@ -169,13 +173,13 @@ export function EmbeddingGenerator() {
   return (
     <div className="embedding-generator">
       <h2>Generate Text Embedding</h2>
-      
+
       <div className="form-group">
         <label htmlFor="text-input">Text</label>
         <textarea
           id="text-input"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={e => setText(e.target.value)}
           placeholder="Enter text to embed..."
           rows={4}
           disabled={loading}
@@ -195,7 +199,9 @@ export function EmbeddingGenerator() {
       {embedding && (
         <div className="success-message">
           <h3>Embedding Generated</h3>
-          <p><strong>Dimensions:</strong> {dimensions}</p>
+          <p>
+            <strong>Dimensions:</strong> {dimensions}
+          </p>
           <details>
             <summary>View Embedding Vector</summary>
             <pre>{JSON.stringify(embedding, null, 2)}</pre>
@@ -208,10 +214,10 @@ export function EmbeddingGenerator() {
 
 /**
  * Example: Using API clients with React Query
- * 
+ *
  * Demonstrates integration with @tanstack/react-query for
  * better state management and caching
- * 
+ *
  * Note: In a real application, move these hooks to separate files
  * to comply with React Fast Refresh requirements.
  */
@@ -265,11 +271,11 @@ export function AgentDashboard() {
   return (
     <div className="agent-dashboard">
       <h2>Agent State</h2>
-      
+
       <section>
         <h3>Active Goals ({state?.state.goals.length || 0})</h3>
         <ul>
-          {state?.state.goals.map((goal) => (
+          {state?.state.goals.map(goal => (
             <li key={goal.id}>
               {goal.description} - <em>{goal.status}</em>
             </li>
@@ -280,7 +286,7 @@ export function AgentDashboard() {
       <section>
         <h3>Plans ({state?.state.plans.length || 0})</h3>
         <ul>
-          {state?.state.plans.map((plan) => (
+          {state?.state.plans.map(plan => (
             <li key={plan.id}>
               Plan {plan.id} - {plan.steps.length} steps
             </li>

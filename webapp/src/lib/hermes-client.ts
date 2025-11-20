@@ -1,6 +1,6 @@
 /**
  * TypeScript client for Hermes Language & Embedding API
- * 
+ *
  * Provides type-safe interface to Hermes's text embedding and semantic search
  * capabilities. Matches Python CLI client functionality.
  */
@@ -74,7 +74,7 @@ export interface SearchRequest {
 
 /**
  * Client for Hermes Language & Embedding API
- * 
+ *
  * Provides methods for:
  * - Health checks
  * - Text embedding (single and batch)
@@ -116,7 +116,7 @@ export class HermesClient {
         headers,
         signal: controller.signal,
       })
-      
+
       clearTimeout(timeoutId)
       return response
     } catch (error) {
@@ -133,7 +133,7 @@ export class HermesClient {
   ): Promise<HermesResponse<T>> {
     try {
       const response = await requestFn()
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         return {

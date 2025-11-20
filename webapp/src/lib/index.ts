@@ -1,6 +1,6 @@
 /**
  * Apollo API Client Library
- * 
+ *
  * Centralized exports for all API clients and configuration
  */
 
@@ -22,11 +22,7 @@ export type {
 } from './config'
 
 // Sophia Client
-export {
-  SophiaClient,
-  createSophiaClient,
-  sophiaClient,
-} from './sophia-client'
+export { SophiaClient, createSophiaClient, sophiaClient } from './sophia-client'
 export type {
   SophiaClientConfig,
   SophiaResponse,
@@ -44,11 +40,7 @@ export type {
 } from './sophia-client'
 
 // Hermes Client
-export {
-  HermesClient,
-  createHermesClient,
-  hermesClient,
-} from './hermes-client'
+export { HermesClient, createHermesClient, hermesClient } from './hermes-client'
 export type {
   HermesClientConfig,
   HermesResponse,

@@ -11,7 +11,7 @@ describe('HermesClient', () => {
       apiKey: 'test-key',
       timeout: 5000,
     })
-    
+
     // Mock global fetch
     fetchMock = vi.fn()
     globalThis.fetch = fetchMock
@@ -453,7 +453,7 @@ describe('HermesClient', () => {
       })
 
       await noAuthClient.getHealth()
-      
+
       const callArgs = fetchMock.mock.calls[0][1]
       expect(callArgs.headers).not.toHaveProperty('Authorization')
     })

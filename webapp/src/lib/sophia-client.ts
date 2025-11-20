@@ -1,6 +1,6 @@
 /**
  * TypeScript client for Sophia Cognitive Core API
- * 
+ *
  * Provides type-safe interface to Sophia's planning, state management,
  * and execution capabilities. Matches Python CLI client functionality.
  */
@@ -112,7 +112,7 @@ export interface SimulatePlanResponse {
 
 /**
  * Client for Sophia Cognitive Core API
- * 
+ *
  * Provides methods for:
  * - Health checks
  * - State management
@@ -157,7 +157,7 @@ export class SophiaClient {
         headers,
         signal: controller.signal,
       })
-      
+
       clearTimeout(timeoutId)
       return response
     } catch (error) {
@@ -174,7 +174,7 @@ export class SophiaClient {
   ): Promise<SophiaResponse<T>> {
     try {
       const response = await requestFn()
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         return {

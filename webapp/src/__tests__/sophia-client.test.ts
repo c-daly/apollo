@@ -11,7 +11,7 @@ describe('SophiaClient', () => {
       apiKey: 'test-key',
       timeout: 5000,
     })
-    
+
     // Mock global fetch
     fetchMock = vi.fn()
     globalThis.fetch = fetchMock
@@ -185,7 +185,12 @@ describe('SophiaClient', () => {
     it('should fetch plans with default limit', async () => {
       const plansData = {
         plans: [
-          { plan_id: 'p1', goal_id: 'g1', status: 'completed', created_at: '2024-01-01T00:00:00Z' },
+          {
+            plan_id: 'p1',
+            goal_id: 'g1',
+            status: 'completed',
+            created_at: '2024-01-01T00:00:00Z',
+          },
         ],
       }
       fetchMock.mockResolvedValueOnce({
@@ -320,7 +325,11 @@ describe('SophiaClient', () => {
     it('should simulate with initial state', async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ success: true, final_state: {}, execution_trace: [] }),
+        json: async () => ({
+          success: true,
+          final_state: {},
+          execution_trace: [],
+        }),
       })
 
       const result = await client.simulatePlan({
@@ -425,7 +434,7 @@ describe('SophiaClient', () => {
       })
 
       await noAuthClient.getHealth()
-      
+
       const callArgs = fetchMock.mock.calls[0][1]
       expect(callArgs.headers).not.toHaveProperty('Authorization')
     })
