@@ -19,7 +19,7 @@ from apollo.data.models import (
 
 class HCGClient:
     """Read-only client for querying HCG graph data from Neo4j.
-    
+
     This client provides methods to query entities, states, processes,
     causal edges, and historical data from the Hybrid Causal Graph stored
     in Neo4j. All operations are read-only to ensure data integrity.
@@ -97,7 +97,7 @@ class HCGClient:
         )
 
     def get_entities(
-        self, 
+        self,
         entity_type: Optional[str] = None,
         limit: int = 100,
         offset: int = 0,

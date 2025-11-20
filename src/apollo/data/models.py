@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class Entity(BaseModel):
     """Base entity in HCG ontology.
-    
+
     Represents any node in the Hybrid Causal Graph.
     """
 
@@ -26,7 +26,7 @@ class Entity(BaseModel):
 
 class State(BaseModel):
     """State entity representing agent or world state in HCG.
-    
+
     States are snapshots of the world or agent at a point in time.
     """
 
@@ -44,7 +44,7 @@ class State(BaseModel):
 
 class Process(BaseModel):
     """Process entity representing actions or transformations in HCG.
-    
+
     Processes transform states and create causal relationships.
     """
 
@@ -55,12 +55,8 @@ class Process(BaseModel):
     status: str = Field(
         default="pending", description="Process status (pending, running, completed)"
     )
-    inputs: List[str] = Field(
-        default_factory=list, description="Input state IDs"
-    )
-    outputs: List[str] = Field(
-        default_factory=list, description="Output state IDs"
-    )
+    inputs: List[str] = Field(default_factory=list, description="Input state IDs")
+    outputs: List[str] = Field(default_factory=list, description="Output state IDs")
     properties: Dict[str, Any] = Field(
         default_factory=dict, description="Additional properties"
     )
@@ -70,7 +66,7 @@ class Process(BaseModel):
 
 class CausalEdge(BaseModel):
     """Causal edge representing relationships between entities in HCG.
-    
+
     Edges define causal relationships, dependencies, and transformations.
     """
 
@@ -89,7 +85,7 @@ class CausalEdge(BaseModel):
 
 class PlanHistory(BaseModel):
     """Historical record of a plan in HCG.
-    
+
     Tracks plan generation, execution, and outcomes.
     """
 
@@ -98,40 +94,32 @@ class PlanHistory(BaseModel):
     status: str = Field(
         ..., description="Plan status (pending, executing, completed, failed)"
     )
-    steps: List[Dict[str, Any]] = Field(
-        default_factory=list, description="Plan steps"
-    )
+    steps: List[Dict[str, Any]] = Field(default_factory=list, description="Plan steps")
     created_at: datetime = Field(..., description="Plan creation time")
     started_at: Optional[datetime] = Field(None, description="Execution start time")
     completed_at: Optional[datetime] = Field(None, description="Completion time")
-    result: Optional[Dict[str, Any]] = Field(
-        None, description="Execution result"
-    )
+    result: Optional[Dict[str, Any]] = Field(None, description="Execution result")
 
 
 class StateHistory(BaseModel):
     """Historical record of state changes in HCG.
-    
+
     Tracks state transitions over time for visualization and analysis.
     """
 
     id: str = Field(..., description="Unique history entry identifier")
     state_id: str = Field(..., description="State identifier")
     timestamp: datetime = Field(..., description="Change timestamp")
-    changes: Dict[str, Any] = Field(
-        default_factory=dict, description="State changes"
-    )
+    changes: Dict[str, Any] = Field(default_factory=dict, description="State changes")
     previous_values: Optional[Dict[str, Any]] = Field(
         None, description="Previous state values"
     )
-    trigger: Optional[str] = Field(
-        None, description="What triggered the state change"
-    )
+    trigger: Optional[str] = Field(None, description="What triggered the state change")
 
 
 class GraphSnapshot(BaseModel):
     """Complete snapshot of HCG graph state.
-    
+
     Used for visualization and analysis of the entire graph.
     """
 

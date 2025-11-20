@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Set
 
 import websockets
-from websockets.server import WebSocketServerProtocol
+from websockets.asyncio.server import ServerConnection
 
 from apollo.config.settings import Neo4jConfig
 from apollo.data.hcg_client import HCGClient
@@ -14,7 +14,7 @@ from apollo.data.hcg_client import HCGClient
 
 class HCGWebSocketServer:
     """WebSocket server for streaming HCG updates to clients.
-    
+
     Provides real-time updates when the HCG graph changes, allowing
     React components to update visualizations without polling.
     """
@@ -38,11 +38,11 @@ class HCGWebSocketServer:
         self.host = host
         self.port = port
         self.poll_interval = poll_interval
-        self.clients: Set[WebSocketServerProtocol] = set()
+        self.clients: Set[ServerConnection] = set()
         self._last_update: Optional[datetime] = None
         self._running = False
 
-    async def register(self, websocket: WebSocketServerProtocol) -> None:
+    async def register(self, websocket: ServerConnection) -> None:
         """Register a new client connection.
 
         Args:
@@ -52,7 +52,7 @@ class HCGWebSocketServer:
         # Send initial state
         await self.send_snapshot(websocket)
 
-    async def unregister(self, websocket: WebSocketServerProtocol) -> None:
+    async def unregister(self, websocket: ServerConnection) -> None:
         """Unregister a client connection.
 
         Args:
@@ -60,7 +60,7 @@ class HCGWebSocketServer:
         """
         self.clients.discard(websocket)
 
-    async def send_snapshot(self, websocket: WebSocketServerProtocol) -> None:
+    async def send_snapshot(self, websocket: ServerConnection) -> None:
         """Send current HCG snapshot to a client.
 
         Args:
@@ -105,17 +105,17 @@ class HCGWebSocketServer:
             with HCGClient(self.neo4j_config) as client:
                 # Get recent state changes
                 history = client.get_state_history(limit=10)
-                
+
                 if history:
                     latest_timestamp = max(h.timestamp for h in history)
-                    
+
                     # If we have new updates, broadcast them
                     if (
                         self._last_update is None
                         or latest_timestamp > self._last_update
                     ):
                         self._last_update = latest_timestamp
-                        
+
                         update = {
                             "type": "update",
                             "timestamp": latest_timestamp.isoformat(),
@@ -137,7 +137,7 @@ class HCGWebSocketServer:
             await self.check_for_updates()
             await asyncio.sleep(self.poll_interval)
 
-    async def handle_client(self, websocket: WebSocketServerProtocol) -> None:
+    async def handle_client(self, websocket: ServerConnection) -> None:
         """Handle a client connection.
 
         Args:
@@ -150,7 +150,7 @@ class HCGWebSocketServer:
                 try:
                     data = json.loads(message)
                     message_type = data.get("type")
-                    
+
                     if message_type == "subscribe":
                         # Client wants to subscribe to updates
                         await self.send_snapshot(websocket)
@@ -160,7 +160,12 @@ class HCGWebSocketServer:
                     elif message_type == "ping":
                         # Respond to ping
                         await websocket.send(
-                            json.dumps({"type": "pong", "timestamp": datetime.now().isoformat()})
+                            json.dumps(
+                                {
+                                    "type": "pong",
+                                    "timestamp": datetime.now().isoformat(),
+                                }
+                            )
                         )
                 except json.JSONDecodeError:
                     error_msg = {
@@ -176,10 +181,10 @@ class HCGWebSocketServer:
     async def start(self) -> None:
         """Start the WebSocket server."""
         self._running = True
-        
+
         # Start polling loop
         poll_task = asyncio.create_task(self.poll_loop())
-        
+
         try:
             async with websockets.serve(self.handle_client, self.host, self.port):
                 print(f"HCG WebSocket server running on ws://{self.host}:{self.port}")
