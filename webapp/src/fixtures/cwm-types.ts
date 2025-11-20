@@ -1,6 +1,6 @@
 /**
  * Type definitions for Continuous World Model (CWM) State data
- * 
+ *
  * CWM tracks three primary record types:
  * - CWM-A: Actions/Activities performed by the agent
  * - CWM-G: Goals with associated visual frames and metadata
@@ -156,7 +156,9 @@ export interface CWMStateStream {
   stream_id: string
   start_time: string
   end_time?: string
-  records: Array<CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>>
+  records: Array<
+    CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>
+  >
   jepa_outputs?: JEPAOutput[]
   metadata: {
     total_records: number

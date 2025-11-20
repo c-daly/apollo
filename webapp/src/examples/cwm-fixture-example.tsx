@@ -1,6 +1,6 @@
 /**
  * Example component demonstrating CWM mock fixtures usage
- * 
+ *
  * This component shows how to:
  * - Toggle between live and mock data modes
  * - Subscribe to CWM state streams
@@ -31,9 +31,9 @@ export function CWMFixtureExample() {
 
   useEffect(() => {
     // Subscribe to stream updates
-    const unsubscribe = mockCWMStateService.subscribe((record) => {
+    const unsubscribe = mockCWMStateService.subscribe(record => {
       if (record) {
-        setRecords((prev) => [...prev, record])
+        setRecords(prev => [...prev, record])
       } else {
         // Stream complete
         setIsStreaming(false)
@@ -72,7 +72,7 @@ export function CWMFixtureExample() {
   const filteredRecords =
     filterType === 'all'
       ? records
-      : records.filter((r) => r.record_type === filterType)
+      : records.filter(r => r.record_type === filterType)
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
@@ -188,22 +188,18 @@ export function CWMFixtureExample() {
           <h2>Filter Records</h2>
           <select
             value={filterType}
-            onChange={(e) =>
-              setFilterType(e.target.value as typeof filterType)
-            }
+            onChange={e => setFilterType(e.target.value as typeof filterType)}
             style={{ padding: '5px 10px', fontSize: '16px' }}
           >
             <option value="all">All Records ({records.length})</option>
             <option value="CWM-A">
-              Actions (
-              {records.filter((r) => r.record_type === 'CWM-A').length})
+              Actions ({records.filter(r => r.record_type === 'CWM-A').length})
             </option>
             <option value="CWM-G">
-              Goals ({records.filter((r) => r.record_type === 'CWM-G').length})
+              Goals ({records.filter(r => r.record_type === 'CWM-G').length})
             </option>
             <option value="CWM-E">
-              Events (
-              {records.filter((r) => r.record_type === 'CWM-E').length})
+              Events ({records.filter(r => r.record_type === 'CWM-E').length})
             </option>
           </select>
         </div>
@@ -227,7 +223,7 @@ export function CWMFixtureExample() {
               gap: '10px',
             }}
           >
-            {filteredRecords.map((record) => (
+            {filteredRecords.map(record => (
               <div
                 key={record.record_id}
                 style={{
@@ -292,23 +288,24 @@ export function CWMFixtureExample() {
                     </div>
                   )}
 
-                {record.record_type === 'CWM-G' && 'priority' in record.payload && (
-                  <div>
-                    <p>
-                      <strong>Goal:</strong> {record.payload.description}
-                    </p>
-                    <p>
-                      <strong>Priority:</strong> {record.payload.priority}
-                    </p>
-                    <p>
-                      <strong>Progress:</strong> {record.payload.progress}%
-                    </p>
-                    <p>
-                      <strong>Frames:</strong> {record.payload.frames.length}{' '}
-                      frame(s)
-                    </p>
-                  </div>
-                )}
+                {record.record_type === 'CWM-G' &&
+                  'priority' in record.payload && (
+                    <div>
+                      <p>
+                        <strong>Goal:</strong> {record.payload.description}
+                      </p>
+                      <p>
+                        <strong>Priority:</strong> {record.payload.priority}
+                      </p>
+                      <p>
+                        <strong>Progress:</strong> {record.payload.progress}%
+                      </p>
+                      <p>
+                        <strong>Frames:</strong> {record.payload.frames.length}{' '}
+                        frame(s)
+                      </p>
+                    </div>
+                  )}
 
                 {record.record_type === 'CWM-E' &&
                   'event_type' in record.payload && (
@@ -384,8 +381,8 @@ export function CWMFixtureExample() {
           </li>
         </ol>
         <p>
-          <strong>Note:</strong> In "Live Mode", this component would connect
-          to real backend services via the Sophia and Hermes clients.
+          <strong>Note:</strong> In "Live Mode", this component would connect to
+          real backend services via the Sophia and Hermes clients.
         </p>
       </div>
     </div>

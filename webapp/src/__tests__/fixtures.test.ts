@@ -31,7 +31,7 @@ describe('CWM Fixtures', () => {
     })
 
     it('should have records sorted by sequence number', () => {
-      const sequences = mockCWMStateStream.records.map((r) => r.sequence_number)
+      const sequences = mockCWMStateStream.records.map(r => r.sequence_number)
       const sorted = [...sequences].sort((a, b) => a - b)
       expect(sequences).toEqual(sorted)
     })
@@ -42,7 +42,7 @@ describe('CWM Fixtures', () => {
     })
 
     it('should have valid timestamps', () => {
-      mockCWMStateStream.records.forEach((record) => {
+      mockCWMStateStream.records.forEach(record => {
         expect(() => new Date(record.timestamp)).not.toThrow()
         expect(new Date(record.timestamp).getTime()).toBeGreaterThan(0)
       })
@@ -72,7 +72,7 @@ describe('CWM Fixtures', () => {
   describe('Individual collections', () => {
     it('mockCWMActions should have action records', () => {
       expect(mockCWMActions.length).toBe(3)
-      mockCWMActions.forEach((action) => {
+      mockCWMActions.forEach(action => {
         expect(action.record_type).toBe('CWM-A')
         expect(action.payload).toHaveProperty('action_type')
       })
@@ -80,7 +80,7 @@ describe('CWM Fixtures', () => {
 
     it('mockCWMGoals should have goal records with frames', () => {
       expect(mockCWMGoals.length).toBe(2)
-      mockCWMGoals.forEach((goal) => {
+      mockCWMGoals.forEach(goal => {
         expect(goal.record_type).toBe('CWM-G')
         expect(goal.payload).toHaveProperty('frames')
         expect(goal.payload.frames.length).toBeGreaterThan(0)
@@ -89,7 +89,7 @@ describe('CWM Fixtures', () => {
 
     it('mockCWMEvents should have event records', () => {
       expect(mockCWMEvents.length).toBe(2)
-      mockCWMEvents.forEach((event) => {
+      mockCWMEvents.forEach(event => {
         expect(event.record_type).toBe('CWM-E')
         expect(event.payload).toHaveProperty('severity')
       })
@@ -97,7 +97,7 @@ describe('CWM Fixtures', () => {
 
     it('mockJEPAOutputs should have valid structure', () => {
       expect(mockJEPAOutputs.length).toBeGreaterThan(0)
-      mockJEPAOutputs.forEach((output) => {
+      mockJEPAOutputs.forEach(output => {
         expect(output).toHaveProperty('output_id')
         expect(output).toHaveProperty('embeddings')
         expect(output).toHaveProperty('predictions')
@@ -151,15 +151,15 @@ describe('CWM Fixtures', () => {
     })
 
     it('should have different frame types', () => {
-      const allFrames = mockCWMGoals.flatMap((goal) => goal.payload.frames)
-      const frameTypes = new Set(allFrames.map((f) => f.frame_type))
+      const allFrames = mockCWMGoals.flatMap(goal => goal.payload.frames)
+      const frameTypes = new Set(allFrames.map(f => f.frame_type))
       expect(frameTypes.size).toBeGreaterThan(1)
     })
 
     it('should have annotations in observation frames', () => {
       const goalWithFrames = mockCWMGoals[0]
       const observationFrame = goalWithFrames.payload.frames.find(
-        (f) => f.frame_type === 'observation',
+        f => f.frame_type === 'observation'
       )
 
       expect(observationFrame).toBeDefined()
@@ -223,7 +223,9 @@ describe('MockCWMStateService', () => {
       expect(shortStream.stream_id).toBe(mockCWMStateStreamShort.stream_id)
 
       const failuresStream = service.getFullStream('failures')
-      expect(failuresStream.stream_id).toBe(mockCWMStateStreamFailures.stream_id)
+      expect(failuresStream.stream_id).toBe(
+        mockCWMStateStreamFailures.stream_id
+      )
     })
   })
 
@@ -271,9 +273,9 @@ describe('MockCWMStateService', () => {
       expect(goals.length).toBe(2)
       expect(events.length).toBe(2)
 
-      actions.forEach((r) => expect(r.record_type).toBe('CWM-A'))
-      goals.forEach((r) => expect(r.record_type).toBe('CWM-G'))
-      events.forEach((r) => expect(r.record_type).toBe('CWM-E'))
+      actions.forEach(r => expect(r.record_type).toBe('CWM-A'))
+      goals.forEach(r => expect(r.record_type).toBe('CWM-G'))
+      events.forEach(r => expect(r.record_type).toBe('CWM-E'))
     })
 
     it('should get JEPA outputs', () => {
@@ -302,8 +304,8 @@ describe('MockCWMStateService', () => {
     it('should notify subscribers of records', async () => {
       const records: unknown[] = []
 
-      const promise = new Promise<void>((resolve) => {
-        service.subscribe((record) => {
+      const promise = new Promise<void>(resolve => {
+        service.subscribe(record => {
           if (record) {
             records.push(record)
           } else {

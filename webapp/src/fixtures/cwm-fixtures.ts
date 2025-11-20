@@ -1,6 +1,6 @@
 /**
  * Sample CWMState fixture data for development and testing
- * 
+ *
  * This file contains deterministic mock data representing:
  * - Mixed CWM-A/G/E records in unified envelope format
  * - CWM-G frames with visual metadata
@@ -468,11 +468,9 @@ export const mockCWMStateStream: CWMStateStream = {
   stream_id: 'stream_fixture_001',
   start_time: timestamp(-300),
   end_time: timestamp(125),
-  records: [
-    ...actionRecords,
-    ...goalRecords,
-    ...eventRecords,
-  ].sort((a, b) => a.sequence_number - b.sequence_number),
+  records: [...actionRecords, ...goalRecords, ...eventRecords].sort(
+    (a, b) => a.sequence_number - b.sequence_number
+  ),
   jepa_outputs: jepaOutputs,
   metadata: {
     total_records: 7,

@@ -1,22 +1,22 @@
 /**
  * Mock CWMState fixtures for Apollo development
- * 
+ *
  * This module provides:
  * - Type definitions for CWM records (Actions, Goals, Events)
  * - Sample fixture data with deterministic timestamps
  * - Mock service for serving fixtures via the SDK
  * - Utilities for toggling between live and mock data
- * 
+ *
  * @example
  * ```typescript
  * import { mockCWMStateService, toggleMockMode } from './fixtures'
- * 
+ *
  * // Toggle to mock mode
  * toggleMockMode()
- * 
+ *
  * // Get a full stream
  * const stream = mockCWMStateService.getFullStream('default')
- * 
+ *
  * // Subscribe to streaming updates
  * const unsubscribe = mockCWMStateService.subscribe((record) => {
  *   if (record) {
@@ -25,7 +25,7 @@
  *     console.log('Stream complete')
  *   }
  * })
- * 
+ *
  * mockCWMStateService.startStream()
  * ```
  */

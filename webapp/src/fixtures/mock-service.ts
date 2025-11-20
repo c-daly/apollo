@@ -1,6 +1,6 @@
 /**
  * Mock data service for serving CWMState fixtures
- * 
+ *
  * Provides an in-memory mock service that simulates streaming CWMState data
  * and JEPA outputs. Can be toggled between live and mock modes.
  */
@@ -39,7 +39,7 @@ export class MockCWMStateService {
     (
       record: CWMEnvelope<
         CWMActionPayload | CWMGoalPayload | CWMEventPayload
-      > | null,
+      > | null
     ) => void
   > = new Set()
 
@@ -88,7 +88,9 @@ export class MockCWMStateService {
   /**
    * Get full stream (for testing/debugging)
    */
-  getFullStream(streamType: 'default' | 'short' | 'failures' = 'default'): CWMStateStream {
+  getFullStream(
+    streamType: 'default' | 'short' | 'failures' = 'default'
+  ): CWMStateStream {
     switch (streamType) {
       case 'short':
         return mockCWMStateStreamShort
@@ -102,7 +104,9 @@ export class MockCWMStateService {
   /**
    * Get next record from stream
    */
-  getNextRecord(): CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload> | null {
+  getNextRecord(): CWMEnvelope<
+    CWMActionPayload | CWMGoalPayload | CWMEventPayload
+  > | null {
     if (this.config.mode === 'live' || !this.currentStream) {
       return null
     }
@@ -118,13 +122,13 @@ export class MockCWMStateService {
    * Get records by type
    */
   getRecordsByType(
-    recordType: 'CWM-A' | 'CWM-G' | 'CWM-E',
+    recordType: 'CWM-A' | 'CWM-G' | 'CWM-E'
   ): Array<CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>> {
     if (this.config.mode === 'live' || !this.currentStream) {
       return []
     }
 
-    return this.currentStream.records.filter((r) => r.record_type === recordType)
+    return this.currentStream.records.filter(r => r.record_type === recordType)
   }
 
   /**
@@ -145,8 +149,8 @@ export class MockCWMStateService {
     callback: (
       record: CWMEnvelope<
         CWMActionPayload | CWMGoalPayload | CWMEventPayload
-      > | null,
-    ) => void,
+      > | null
+    ) => void
   ): () => void {
     this.subscribers.add(callback)
     return () => {
@@ -190,12 +194,12 @@ export class MockCWMStateService {
       this.streamPosition >= this.currentStream.records.length
     ) {
       // Stream complete, notify subscribers
-      this.subscribers.forEach((callback) => callback(null))
+      this.subscribers.forEach(callback => callback(null))
       return
     }
 
     const record = this.currentStream.records[this.streamPosition++]
-    this.subscribers.forEach((callback) => callback(record))
+    this.subscribers.forEach(callback => callback(record))
 
     // Schedule next record
     const delay = this.config.randomize
