@@ -11,39 +11,39 @@ import type {
   PlanHistory,
   StateHistory,
   GraphSnapshot,
-} from '../types/hcg';
+} from '../types/hcg'
 
 export interface HCGClientConfig {
-  baseUrl?: string;
-  timeout?: number;
+  baseUrl?: string
+  timeout?: number
 }
 
 export class HCGAPIClient {
-  private baseUrl: string;
-  private timeout: number;
+  private baseUrl: string
+  private timeout: number
 
   constructor(config: HCGClientConfig = {}) {
-    this.baseUrl = config.baseUrl || 'http://localhost:8080';
-    this.timeout = config.timeout || 30000;
+    this.baseUrl = config.baseUrl || 'http://localhost:8080'
+    this.timeout = config.timeout || 30000
   }
 
   private async fetchWithTimeout(
     url: string,
     options?: RequestInit
   ): Promise<Response> {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.timeout);
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), this.timeout)
 
     try {
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
-      });
-      clearTimeout(timeout);
-      return response;
+      })
+      clearTimeout(timeout)
+      return response
     } catch (error) {
-      clearTimeout(timeout);
-      throw error;
+      clearTimeout(timeout)
+      throw error
     }
   }
 
@@ -55,56 +55,53 @@ export class HCGAPIClient {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
-    });
+    })
     if (entityType) {
-      params.append('type', entityType);
+      params.append('type', entityType)
     }
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/entities?${params}`
-    );
-    
+    )
+
     if (!response.ok) {
-      throw new Error(`Failed to fetch entities: ${response.statusText}`);
+      throw new Error(`Failed to fetch entities: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async getEntityById(entityId: string): Promise<Entity | null> {
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/entities/${entityId}`
-    );
+    )
 
     if (response.status === 404) {
-      return null;
+      return null
     }
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch entity: ${response.statusText}`);
+      throw new Error(`Failed to fetch entity: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
-  async getStates(
-    limit: number = 100,
-    offset: number = 0
-  ): Promise<State[]> {
+  async getStates(limit: number = 100, offset: number = 0): Promise<State[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
-    });
+    })
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/states?${params}`
-    );
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch states: ${response.statusText}`);
+      throw new Error(`Failed to fetch states: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async getProcesses(
@@ -115,20 +112,20 @@ export class HCGAPIClient {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
-    });
+    })
     if (status) {
-      params.append('status', status);
+      params.append('status', status)
     }
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/processes?${params}`
-    );
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch processes: ${response.statusText}`);
+      throw new Error(`Failed to fetch processes: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async getCausalEdges(
@@ -138,23 +135,23 @@ export class HCGAPIClient {
   ): Promise<CausalEdge[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
-    });
+    })
     if (entityId) {
-      params.append('entity_id', entityId);
+      params.append('entity_id', entityId)
     }
     if (edgeType) {
-      params.append('edge_type', edgeType);
+      params.append('edge_type', edgeType)
     }
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/edges?${params}`
-    );
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch causal edges: ${response.statusText}`);
+      throw new Error(`Failed to fetch causal edges: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async getPlanHistory(
@@ -163,20 +160,20 @@ export class HCGAPIClient {
   ): Promise<PlanHistory[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
-    });
+    })
     if (goalId) {
-      params.append('goal_id', goalId);
+      params.append('goal_id', goalId)
     }
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/plans?${params}`
-    );
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch plan history: ${response.statusText}`);
+      throw new Error(`Failed to fetch plan history: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async getStateHistory(
@@ -185,20 +182,20 @@ export class HCGAPIClient {
   ): Promise<StateHistory[]> {
     const params = new URLSearchParams({
       limit: limit.toString(),
-    });
+    })
     if (stateId) {
-      params.append('state_id', stateId);
+      params.append('state_id', stateId)
     }
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/history?${params}`
-    );
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch state history: ${response.statusText}`);
+      throw new Error(`Failed to fetch state history: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async getGraphSnapshot(
@@ -207,33 +204,33 @@ export class HCGAPIClient {
   ): Promise<GraphSnapshot> {
     const params = new URLSearchParams({
       limit: limit.toString(),
-    });
+    })
     if (entityTypes && entityTypes.length > 0) {
-      params.append('entity_types', entityTypes.join(','));
+      params.append('entity_types', entityTypes.join(','))
     }
 
     const response = await this.fetchWithTimeout(
       `${this.baseUrl}/api/hcg/snapshot?${params}`
-    );
+    )
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch graph snapshot: ${response.statusText}`);
+      throw new Error(`Failed to fetch graph snapshot: ${response.statusText}`)
     }
 
-    return response.json();
+    return response.json()
   }
 
   async healthCheck(): Promise<boolean> {
     try {
       const response = await this.fetchWithTimeout(
         `${this.baseUrl}/api/hcg/health`
-      );
-      return response.ok;
+      )
+      return response.ok
     } catch {
-      return false;
+      return false
     }
   }
 }
 
 // Default client instance
-export const hcgClient = new HCGAPIClient();
+export const hcgClient = new HCGAPIClient()

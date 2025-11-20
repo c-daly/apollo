@@ -2,8 +2,8 @@
  * React hooks for HCG data fetching with TanStack Query
  */
 
-import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { hcgClient } from '../lib/hcg-client';
+import { useQuery, UseQueryResult } from '@tanstack/react-query'
+import { hcgClient } from '../lib/hcg-client'
 import type {
   Entity,
   State,
@@ -12,7 +12,7 @@ import type {
   PlanHistory,
   StateHistory,
   GraphSnapshot,
-} from '../types/hcg';
+} from '../types/hcg'
 
 /**
  * Hook to fetch entities from HCG
@@ -26,19 +26,21 @@ export function useEntities(
     queryKey: ['hcg', 'entities', entityType, limit, offset],
     queryFn: () => hcgClient.getEntities(entityType, limit, offset),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
  * Hook to fetch a specific entity by ID
  */
-export function useEntity(entityId: string): UseQueryResult<Entity | null, Error> {
+export function useEntity(
+  entityId: string
+): UseQueryResult<Entity | null, Error> {
   return useQuery({
     queryKey: ['hcg', 'entity', entityId],
     queryFn: () => hcgClient.getEntityById(entityId),
     staleTime: 5000,
     enabled: !!entityId,
-  });
+  })
 }
 
 /**
@@ -52,7 +54,7 @@ export function useStates(
     queryKey: ['hcg', 'states', limit, offset],
     queryFn: () => hcgClient.getStates(limit, offset),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
@@ -67,7 +69,7 @@ export function useProcesses(
     queryKey: ['hcg', 'processes', status, limit, offset],
     queryFn: () => hcgClient.getProcesses(status, limit, offset),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
@@ -82,7 +84,7 @@ export function useCausalEdges(
     queryKey: ['hcg', 'edges', entityId, edgeType, limit],
     queryFn: () => hcgClient.getCausalEdges(entityId, edgeType, limit),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
@@ -96,7 +98,7 @@ export function usePlanHistory(
     queryKey: ['hcg', 'plans', goalId, limit],
     queryFn: () => hcgClient.getPlanHistory(goalId, limit),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
@@ -110,7 +112,7 @@ export function useStateHistory(
     queryKey: ['hcg', 'history', stateId, limit],
     queryFn: () => hcgClient.getStateHistory(stateId, limit),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
@@ -124,7 +126,7 @@ export function useGraphSnapshot(
     queryKey: ['hcg', 'snapshot', entityTypes, limit],
     queryFn: () => hcgClient.getGraphSnapshot(entityTypes, limit),
     staleTime: 5000,
-  });
+  })
 }
 
 /**
@@ -136,5 +138,5 @@ export function useHCGHealth(): UseQueryResult<boolean, Error> {
     queryFn: () => hcgClient.healthCheck(),
     staleTime: 10000,
     refetchInterval: 30000,
-  });
+  })
 }

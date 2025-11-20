@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import ChatPanel from '../components/ChatPanel';
-import GraphViewer from '../components/GraphViewer';
-import DiagnosticsPanel from '../components/DiagnosticsPanel';
-import PersonaDiary from '../components/PersonaDiary';
-import './Dashboard.css';
+import { useState } from 'react'
+import ChatPanel from '../components/ChatPanel'
+import GraphViewer from '../components/GraphViewer'
+import DiagnosticsPanel from '../components/DiagnosticsPanel'
+import PersonaDiary from '../components/PersonaDiary'
+import './Dashboard.css'
 
 function Dashboard() {
-  const [activeTab, setActiveTab] = useState<'chat' | 'graph' | 'diagnostics' | 'diary'>('chat');
+  const [activeTab, setActiveTab] = useState<
+    'chat' | 'graph' | 'diagnostics' | 'diary'
+  >('chat')
 
   return (
     <div className="dashboard">
@@ -44,7 +46,7 @@ function Dashboard() {
         {activeTab === 'diary' && <PersonaDiary />}
       </div>
     </div>
-  );
+  )
 }
 
-export default Dashboard;
+export default Dashboard

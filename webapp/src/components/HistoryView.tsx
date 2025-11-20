@@ -2,19 +2,19 @@
  * History view component for plan and state history
  */
 
-import React from 'react';
-import type { PlanHistory, StateHistory } from '../types/hcg';
+import React from 'react'
+import type { PlanHistory, StateHistory } from '../types/hcg'
 
 export interface HistoryViewProps {
-  planHistory?: PlanHistory[];
-  stateHistory?: StateHistory[];
-  loading?: boolean;
-  error?: Error | null;
+  planHistory?: PlanHistory[]
+  stateHistory?: StateHistory[]
+  loading?: boolean
+  error?: Error | null
 }
 
 /**
  * History View Component
- * 
+ *
  * Displays historical records of plans and state changes.
  * Shows timeline of agent activities and state transitions.
  */
@@ -29,7 +29,7 @@ export function HistoryView({
       <div style={styles.container}>
         <div style={styles.loading}>Loading history...</div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -37,7 +37,7 @@ export function HistoryView({
       <div style={styles.container}>
         <div style={styles.error}>Error: {error.message}</div>
       </div>
-    );
+    )
   }
 
   return (
@@ -49,7 +49,7 @@ export function HistoryView({
           <p style={styles.empty}>No plan history available</p>
         ) : (
           <div style={styles.timeline}>
-            {planHistory.map((plan) => (
+            {planHistory.map(plan => (
               <div key={plan.id} style={styles.timelineItem}>
                 <div style={styles.timelineMarker} />
                 <div style={styles.timelineContent}>
@@ -64,9 +64,7 @@ export function HistoryView({
                       {plan.status}
                     </span>
                   </div>
-                  <div style={styles.timelineMeta}>
-                    Goal: {plan.goal_id}
-                  </div>
+                  <div style={styles.timelineMeta}>Goal: {plan.goal_id}</div>
                   <div style={styles.timelineMeta}>
                     Created: {new Date(plan.created_at).toLocaleString()}
                   </div>
@@ -92,7 +90,7 @@ export function HistoryView({
           <p style={styles.empty}>No state history available</p>
         ) : (
           <div style={styles.timeline}>
-            {stateHistory.map((history) => (
+            {stateHistory.map(history => (
               <div key={history.id} style={styles.timelineItem}>
                 <div style={styles.timelineMarker} />
                 <div style={styles.timelineContent}>
@@ -120,21 +118,21 @@ export function HistoryView({
         )}
       </section>
     </div>
-  );
+  )
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
     case 'completed':
-      return '#50C878';
+      return '#50C878'
     case 'executing':
-      return '#4A90E2';
+      return '#4A90E2'
     case 'failed':
-      return '#FF6B6B';
+      return '#FF6B6B'
     case 'pending':
-      return '#FFA500';
+      return '#FFA500'
     default:
-      return '#999';
+      return '#999'
   }
 }
 
@@ -221,4 +219,4 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'auto',
     maxHeight: '200px',
   },
-};
+}

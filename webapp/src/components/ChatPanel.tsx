@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, type FormEvent } from 'react';
-import './ChatPanel.css';
+import { useState, useRef, useEffect, type FormEvent } from 'react'
+import './ChatPanel.css'
 
 interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date
 }
 
 function ChatPanel() {
@@ -13,36 +13,37 @@ function ChatPanel() {
     {
       id: '1',
       role: 'assistant',
-      content: 'Hello! I\'m Apollo, your interface to the LOGOS cognitive system. How can I help you today?',
+      content:
+        "Hello! I'm Apollo, your interface to the LOGOS cognitive system. How can I help you today?",
       timestamp: new Date(),
     },
-  ]);
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  ])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    scrollToBottom()
+  }, [messages])
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    e.preventDefault()
+    if (!input.trim() || isLoading) return
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
       content: input,
       timestamp: new Date(),
-    };
+    }
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
+    setMessages(prev => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
 
     // Simulate API call
     setTimeout(() => {
@@ -51,11 +52,11 @@ function ChatPanel() {
         role: 'assistant',
         content: `I received your message: "${userMessage.content}". This is a placeholder response. In production, this would interact with the Sophia/Hermes APIs.`,
         timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1000);
-  };
+      }
+      setMessages(prev => [...prev, assistantMessage])
+      setIsLoading(false)
+    }, 1000)
+  }
 
   return (
     <div className="chat-panel">
@@ -97,12 +98,16 @@ function ChatPanel() {
           placeholder="Type a command or question..."
           disabled={isLoading}
         />
-        <button type="submit" className="chat-submit" disabled={isLoading || !input.trim()}>
+        <button
+          type="submit"
+          className="chat-submit"
+          disabled={isLoading || !input.trim()}
+        >
           Send
         </button>
       </form>
     </div>
-  );
+  )
 }
 
-export default ChatPanel;
+export default ChatPanel

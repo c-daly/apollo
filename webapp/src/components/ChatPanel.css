@@ -82,7 +82,9 @@
 }
 
 @keyframes typing {
-  0%, 60%, 100% {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
   }
   30% {
@@ -142,22 +144,22 @@
   .chat-panel {
     background-color: #ffffff;
   }
-  
+
   .chat-messages {
     background-color: #fafafa;
   }
-  
+
   .message.assistant {
     background-color: #f5f5f5;
     border: 1px solid #ddd;
     color: #213547;
   }
-  
+
   .chat-input-form {
     background-color: #f5f5f5;
     border-top: 1px solid #ddd;
   }
-  
+
   .chat-input {
     background-color: #ffffff;
     border: 1px solid #ddd;

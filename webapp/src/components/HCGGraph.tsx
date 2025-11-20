@@ -2,25 +2,25 @@
  * Graph visualization component for HCG using Cytoscape
  */
 
-import React, { useEffect, useRef } from 'react';
-import cytoscape, { Core, ElementDefinition } from 'cytoscape';
-import dagre from 'cytoscape-dagre';
-import type { GraphSnapshot } from '../types/hcg';
+import React, { useEffect, useRef } from 'react'
+import cytoscape, { Core, ElementDefinition } from 'cytoscape'
+import dagre from 'cytoscape-dagre'
+import type { GraphSnapshot } from '../types/hcg'
 
 // Register dagre layout
-cytoscape.use(dagre);
+cytoscape.use(dagre)
 
 export interface HCGGraphProps {
-  snapshot: GraphSnapshot;
-  width?: string;
-  height?: string;
-  onNodeClick?: (nodeId: string) => void;
-  onEdgeClick?: (edgeId: string) => void;
+  snapshot: GraphSnapshot
+  width?: string
+  height?: string
+  onNodeClick?: (nodeId: string) => void
+  onEdgeClick?: (edgeId: string) => void
 }
 
 /**
  * HCG Graph Visualization Component
- * 
+ *
  * Renders the Hybrid Causal Graph using Cytoscape.js with a hierarchical layout.
  * Nodes represent entities (states, processes, goals) and edges represent causal relationships.
  */
@@ -31,11 +31,11 @@ export function HCGGraph({
   onNodeClick,
   onEdgeClick,
 }: HCGGraphProps): React.JSX.Element {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const cyRef = useRef<Core | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null)
+  const cyRef = useRef<Core | null>(null)
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) return
 
     // Initialize Cytoscape
     const cy = cytoscape({
@@ -110,49 +110,52 @@ export function HCGGraph({
         rankSep: 100,
       },
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+    } as any)
 
-    cyRef.current = cy;
+    cyRef.current = cy
 
     // Add click handlers
-    cy.on('tap', 'node', (event) => {
-      const node = event.target;
+    cy.on('tap', 'node', event => {
+      const node = event.target
       if (onNodeClick) {
-        onNodeClick(node.id());
+        onNodeClick(node.id())
       }
-    });
+    })
 
-    cy.on('tap', 'edge', (event) => {
-      const edge = event.target;
+    cy.on('tap', 'edge', event => {
+      const edge = event.target
       if (onEdgeClick) {
-        onEdgeClick(edge.id());
+        onEdgeClick(edge.id())
       }
-    });
+    })
 
     return () => {
-      cy.destroy();
-    };
-  }, [onNodeClick, onEdgeClick]);
+      cy.destroy()
+    }
+  }, [onNodeClick, onEdgeClick])
 
   // Update graph data when snapshot changes
   useEffect(() => {
-    if (!cyRef.current) return;
+    if (!cyRef.current) return
 
-    const cy = cyRef.current;
+    const cy = cyRef.current
 
     // Convert snapshot to Cytoscape elements
     const elements: ElementDefinition[] = [
       // Nodes
-      ...snapshot.entities.map((entity) => ({
+      ...snapshot.entities.map(entity => ({
         data: {
           id: entity.id,
-          label: entity.properties.name || entity.properties.description || entity.id,
+          label:
+            entity.properties.name ||
+            entity.properties.description ||
+            entity.id,
           type: entity.type,
           ...entity.properties,
         },
       })),
       // Edges
-      ...snapshot.edges.map((edge) => ({
+      ...snapshot.edges.map(edge => ({
         data: {
           id: edge.id,
           source: edge.source_id,
@@ -162,19 +165,24 @@ export function HCGGraph({
           weight: edge.weight,
         },
       })),
-    ];
+    ]
 
     // Update graph
-    cy.elements().remove();
-    cy.add(elements);
-    
+    cy.elements().remove()
+    cy.add(elements)
+
     // Re-apply layout
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    cy.layout({ name: 'dagre', rankDir: 'TB', nodeSep: 50, rankSep: 100 } as any).run();
-    
+    cy.layout({
+      name: 'dagre',
+      rankDir: 'TB',
+      nodeSep: 50,
+      rankSep: 100,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any).run()
+
     // Fit to viewport
-    cy.fit(undefined, 50);
-  }, [snapshot]);
+    cy.fit(undefined, 50)
+  }, [snapshot])
 
   return (
     <div
@@ -186,5 +194,5 @@ export function HCGGraph({
         borderRadius: '4px',
       }}
     />
-  );
+  )
 }

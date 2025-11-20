@@ -2,19 +2,19 @@
  * Status view component for HCG state and process monitoring
  */
 
-import React from 'react';
-import type { State, Process } from '../types/hcg';
+import React from 'react'
+import type { State, Process } from '../types/hcg'
 
 export interface StatusViewProps {
-  states?: State[];
-  processes?: Process[];
-  loading?: boolean;
-  error?: Error | null;
+  states?: State[]
+  processes?: Process[]
+  loading?: boolean
+  error?: Error | null
 }
 
 /**
  * Status View Component
- * 
+ *
  * Displays current states and processes in a tabular format.
  * Shows real-time status of agent state and running processes.
  */
@@ -29,7 +29,7 @@ export function StatusView({
       <div style={styles.container}>
         <div style={styles.loading}>Loading status...</div>
       </div>
-    );
+    )
   }
 
   if (error) {
@@ -37,7 +37,7 @@ export function StatusView({
       <div style={styles.container}>
         <div style={styles.error}>Error: {error.message}</div>
       </div>
-    );
+    )
   }
 
   return (
@@ -59,7 +59,7 @@ export function StatusView({
                 </tr>
               </thead>
               <tbody>
-                {states.map((state) => (
+                {states.map(state => (
                   <tr key={state.id} style={styles.tr}>
                     <td style={styles.td}>{state.id}</td>
                     <td style={styles.td}>{state.description}</td>
@@ -95,7 +95,7 @@ export function StatusView({
                 </tr>
               </thead>
               <tbody>
-                {processes.map((process) => (
+                {processes.map(process => (
                   <tr key={process.id} style={styles.tr}>
                     <td style={styles.td}>{process.id}</td>
                     <td style={styles.td}>{process.name}</td>
@@ -123,21 +123,21 @@ export function StatusView({
         )}
       </section>
     </div>
-  );
+  )
 }
 
 function getStatusColor(status: string): string {
   switch (status) {
     case 'completed':
-      return '#50C878';
+      return '#50C878'
     case 'running':
-      return '#4A90E2';
+      return '#4A90E2'
     case 'failed':
-      return '#FF6B6B';
+      return '#FF6B6B'
     case 'pending':
-      return '#FFA500';
+      return '#FFA500'
     default:
-      return '#999';
+      return '#999'
   }
 }
 
@@ -199,4 +199,4 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '12px',
     fontWeight: 'bold',
   },
-};
+}
