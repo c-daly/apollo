@@ -1,7 +1,7 @@
 """Apollo CLI - Command-line interface for Project LOGOS."""
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -12,6 +12,7 @@ import yaml
 
 from apollo.client.sophia_client import SophiaClient
 from apollo.client.hermes_client import HermesClient
+from apollo.client.persona_client import PersonaClient
 from apollo.config.settings import ApolloConfig
 
 console = Console()
@@ -37,6 +38,7 @@ def cli(ctx: click.Context, config: Optional[Path]) -> None:
     ctx.obj["config"] = ApolloConfig.load(config)
     ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
     ctx.obj["hermes"] = HermesClient(ctx.obj["config"].hermes)
+    ctx.obj["persona"] = PersonaClient(ctx.obj["config"].persona_api)
 
 
 @cli.command()
@@ -501,44 +503,31 @@ def diary(
         console.print("  --emotion <tag>  (can be used multiple times)")
         return
 
-    import requests
-
-    config: ApolloConfig = ctx.obj["config"]
-
-    # Build the API URL (assuming apollo-api server is running on port 8082)
-    api_url = f"http://{config.sophia.host}:8082/api/persona/entries"
+    persona_client: PersonaClient = ctx.obj["persona"]
 
     console.print("[bold]Creating persona diary entry:[/bold]\n")
     console.print(f"[dim]Type: {entry_type}[/dim]")
     console.print(f"[dim]Content: {content}[/dim]\n")
 
-    # Prepare request data
-    data: Dict[str, Any] = {
-        "entry_type": entry_type,
-        "content": content,
-        "summary": summary,
-        "sentiment": sentiment,
-        "confidence": confidence,
-        "related_process_ids": list(process),
-        "related_goal_ids": list(goal),
-        "emotion_tags": list(emotion),
-        "metadata": {},
-    }
+    response = persona_client.create_entry(
+        content=content,
+        entry_type=entry_type,
+        summary=summary,
+        sentiment=sentiment,
+        confidence=confidence,
+        process=list(process),
+        goal=list(goal),
+        emotion=list(emotion),
+    )
 
-    try:
-        response = requests.post(api_url, json=data, timeout=10)
-        response.raise_for_status()
-
-        entry = response.json()
+    if response.success and response.data:
         console.print("[green]✓[/green] Diary entry created successfully\n")
-
-        # Display formatted response
-        entry_text = yaml.dump(entry, default_flow_style=False, sort_keys=False)
+        entry_text = yaml.dump(response.data, default_flow_style=False, sort_keys=False)
         syntax = Syntax(entry_text, "yaml", theme="monokai", line_numbers=False)
         panel = Panel(syntax, title="Diary Entry", border_style="green")
         console.print(panel)
-    except requests.exceptions.RequestException as e:
-        console.print(f"[red]✗ Error:[/red] {str(e)}")
+    else:
+        console.print(f"[red]✗ Error:[/red] {response.error or 'Unknown error'}")
         console.print(
             "\n[dim]Tip: Ensure apollo-api server is running (apollo-api command)[/dim]"
         )

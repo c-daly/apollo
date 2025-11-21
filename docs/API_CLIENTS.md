@@ -1,6 +1,59 @@
 # Apollo API Clients
 
-TypeScript client libraries for interacting with Sophia (cognitive core) and Hermes (language/embedding) services.
+Apollo ships SDK-backed clients for both the Python CLI surface and the TypeScript web application.
+
+## Python (CLI) Clients
+
+The CLI code in `src/apollo/client/` is a thin wrapper around the generated Python packages that live in the [`logos`](https://github.com/c-daly/logos) repository (`logos-sophia-sdk` and `logos-hermes-sdk`). The helper module at `src/apollo/sdk/__init__.py` is responsible for:
+
+- Building configured SDK instances using `ApolloConfig` (host, port, timeout, API key).
+- Providing the shared `ServiceResponse` base class so every operation returns `success / data / error` fields.
+- Normalizing error handling (authorization failures, transport errors, timeouts) in one place.
+
+### Quick Start
+
+```python
+from apollo.client.sophia_client import SophiaClient
+from apollo.client.hermes_client import HermesClient
+from apollo.config.settings import ApolloConfig
+
+config = ApolloConfig.load()  # loads config.yaml or defaults
+sophia = SophiaClient(config.sophia)
+hermes = HermesClient(config.hermes)
+
+plan = sophia.create_goal("Navigate to the kitchen")
+if plan.success:
+    print(plan.data["goal_id"])
+else:
+    print(plan.error)
+
+embedding = hermes.embed_text("Pick up the red block")
+```
+
+Every response inherits from `ServiceResponse`, so test fixtures and CLI commands can treat all service calls uniformly:
+
+```python
+response = sophia.get_state(limit=5)
+if not response.success:
+    raise RuntimeError(response.error)
+
+state = response.data  # already serialized via SDK model.to_dict()
+```
+
+### Regenerating the Python SDKs
+
+1. From the `logos` repository, run `./scripts/generate-sdks.sh` to emit the latest Python packages under `sdk/python/{sophia,hermes}`.
+2. Commit the regenerated SDKs inside `logos`.
+3. Update the `git+https://...#subdirectory=sdk/python/...` commit hashes in `pyproject.toml` (this repository) so Poetry fetches the new artifacts.
+4. Run `poetry lock --no-update && poetry install` (or `pip install -e .`) to refresh your local environment.
+
+### Persona Diary Helper
+
+Persona diary endpoints live on the `apollo-api` FastAPI service. Until those routes are folded into the shared OpenAPI contracts, the CLI uses `PersonaClient` (`src/apollo/client/persona_client.py`) as a thin HTTP wrapper. It still returns `ServiceResponse` objects so callers handle success/error the same way as Sophia/Hermes, and it reads connection details from the `persona_api` block in `config.yaml`.
+
+## TypeScript (Web) Clients
+
+The sections below describe the TypeScript SDKs that power the Apollo web application.
 
 ## Overview
 

@@ -8,6 +8,7 @@ from apollo.config.settings import (
     HCGConfig,
     MilvusConfig,
     Neo4jConfig,
+    PersonaApiConfig,
     SophiaConfig,
 )
 
@@ -42,10 +43,19 @@ def test_hcg_config_defaults() -> None:
     assert isinstance(config.milvus, MilvusConfig)
 
 
+def test_persona_api_config_defaults() -> None:
+    """Test PersonaApiConfig default values."""
+    config = PersonaApiConfig()
+    assert config.host == "localhost"
+    assert config.port == 8082
+    assert config.timeout == 15
+
+
 def test_apollo_config_defaults() -> None:
     """Test ApolloConfig default values."""
     config = ApolloConfig()
     assert isinstance(config.sophia, SophiaConfig)
+    assert isinstance(config.persona_api, PersonaApiConfig)
     assert isinstance(config.hcg, HCGConfig)
 
 

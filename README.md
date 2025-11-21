@@ -125,12 +125,19 @@ apollo-cli embed "Pick up the red block" --model small-e5
 
 ### Shared SDK Clients
 
-Apollo CLI now depends on the generated Python SDKs that live in the [`logos`](https://github.com/c-daly/logos) repository:
+Apollo CLI now depends exclusively on the generated Python SDKs that live in the [`logos`](https://github.com/c-daly/logos) repository:
 
-- `logos-sophia-sdk` (commit `9549b08`): exposes `PlanRequest`, `StateResponse`, and JEPA simulation types.
+- `logos-sophia-sdk` (commit `9549b08`): exposes `PlanRequest`, `StateResponse`, and JEPA simulation types that back every `apollo-cli` command.
 - `logos-hermes-sdk` (commit `9549b08`): exposes embedding/NLP helpers used by the `embed` command.
 
-Running `pip install -e .` (or `pip install -e ".[dev]"`) will automatically pull both SDKs from GitHub. To regenerate them after OpenAPI changes, run the generator scripts in the `logos` repo and bump the commit hash inside `pyproject.toml`.
+The thin wrappers in `src/apollo/client/*` all subclass the shared `ServiceResponse` base from `src/apollo/sdk/__init__.py`, so every CLI and API surface gets the same `success / data / error` contract and consistent auth + timeout handling. `ApolloConfig` wires host/port/API-key values into the SDK `Configuration` objects at start up.
+
+Running `pip install -e .` (or `pip install -e ".[dev]"`) will automatically pull both SDKs from GitHub. To regenerate them after OpenAPI changes:
+
+1. `git clone https://github.com/c-daly/logos.git` (or reuse the existing checkout).
+2. Run `./scripts/generate-sdks.sh` from the repo root to rebuild the Python and TypeScript clients from `contracts/*.openapi.yaml`.
+3. Commit the regenerated SDKs inside `logos`, then bump the `git+https://...` commit hashes in `pyproject.toml` here so Poetry picks up the new artifacts.
+4. `poetry lock --no-update && poetry install` (or `pip install -e .`) to refresh your virtualenv.
 
 ### Running the Web Dashboard
 
@@ -194,6 +201,12 @@ hermes:
   port: 8081
   timeout: 30
   api_key: ${HERMES_API_KEY}
+
+persona_api:
+  host: localhost
+  port: 8082
+  timeout: 15
+  api_key: ${PERSONA_API_KEY}
   
 hcg:
   neo4j:
@@ -211,6 +224,8 @@ hcg:
 export SOPHIA_API_KEY=your_sophia_key
 export HERMES_API_KEY=your_hermes_key
 ```
+
+The `persona_api` block configures how the CLI reaches the `apollo-api` FastAPI service for persona diary operations. Leave the defaults if you run `apollo-api` locally on port `8082`; otherwise adjust host/port/API key (if you protect the API) so the `apollo-cli diary` command can submit entries.
 
 ### Web Dashboard Configuration
 
