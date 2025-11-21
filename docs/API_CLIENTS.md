@@ -145,7 +145,7 @@ Apollo uses Vite environment variables for configuration. Create a `.env` file i
 ```env
 # HCG API Configuration
 VITE_HCG_API_URL=http://localhost:8082
-VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
 VITE_HCG_TIMEOUT=30000                  # Optional, in milliseconds
 
 # Sophia API Configuration
@@ -162,6 +162,16 @@ VITE_HERMES_TIMEOUT=30000               # Optional, in milliseconds
 VITE_ENABLE_CHAT=true
 VITE_ENABLE_DIAGNOSTICS=true
 ```
+
+### Diagnostics Client
+
+The diagnostics panel consumes the telemetry/log endpoints exposed by `apollo-api`:
+
+- `GET /api/diagnostics/logs?limit=100` → latest log entries.
+- `GET /api/diagnostics/metrics` → aggregated telemetry snapshot.
+- `WS /ws/diagnostics` → streaming feed for real-time updates.
+
+See `webapp/src/lib/diagnostics-client.ts` and `webapp/src/hooks/useDiagnosticsStream.ts` for example usage.
 
 ### Loading Configuration
 

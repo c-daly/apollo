@@ -130,6 +130,9 @@ This document verifies the completion of P2-M2, which implements browser diagnos
 - `GET /api/hcg/plans` - Get plan history
 - `GET /api/hcg/history` - Get state change history
 - `GET /api/hcg/snapshot` - Get complete graph snapshot
+- `GET /api/diagnostics/logs` - Structured, recent log entries for Apollo surfaces
+- `GET /api/diagnostics/metrics` - Aggregated telemetry snapshot (latency/request count/etc.)
+- `WebSocket /ws/diagnostics` - Live log + telemetry streaming for the browser
 
 **Features:**
 - FastAPI framework for high performance
@@ -222,7 +225,7 @@ cd webapp
 
 # Configure API endpoints (.env)
 VITE_HCG_API_URL=http://localhost:8082
-VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
 VITE_SOPHIA_API_URL=http://localhost:8080
 VITE_HERMES_API_URL=http://localhost:8081
 
@@ -261,6 +264,15 @@ curl http://localhost:8082/api/hcg/plans?limit=5
 
 # Get state history
 curl http://localhost:8082/api/hcg/history?limit=20
+
+# Diagnostics (REST fallback)
+curl http://localhost:8082/api/diagnostics/logs?limit=20
+curl http://localhost:8082/api/diagnostics/metrics
+
+# Diagnostics (WebSocket)
+# ws://localhost:8082/ws/diagnostics streams JSON events:
+# { \"type\": \"log\", \"data\": {...} }
+# { \"type\": \"telemetry\", \"data\": {...} }
 ```
 
 ## Testing with Mock Neo4j Data

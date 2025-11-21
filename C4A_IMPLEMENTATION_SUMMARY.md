@@ -46,6 +46,7 @@ Initialize Apollo webapp (Vite/React/TS) and implement clients for Sophia/Hermes
 - Separate configs for Sophia, Hermes, and features
 - Timeout configuration
 - API key management
+- HCG configuration now drives REST + WebSocket endpoints used by diagnostics
 
 **Exports** (`webapp/src/lib/index.ts`)
 - Centralized export point
@@ -59,7 +60,7 @@ Initialize Apollo webapp (Vite/React/TS) and implement clients for Sophia/Hermes
 ```env
 # HCG API
 VITE_HCG_API_URL=http://localhost:8082
-VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
 VITE_HCG_TIMEOUT=30000            # Optional, milliseconds
 
 # Sophia API
@@ -75,6 +76,10 @@ VITE_HERMES_TIMEOUT=30000         # Optional, milliseconds
 # Features
 VITE_ENABLE_CHAT=true
 VITE_ENABLE_DIAGNOSTICS=true
+
+# Diagnostics
+# (WebSocket + REST derived from VITE_HCG_API_URL)
+# /api/diagnostics/logs, /api/diagnostics/metrics, /ws/diagnostics
 ```
 
 **Type Definitions** (`webapp/src/vite-env.d.ts`)

@@ -166,7 +166,7 @@ The dashboard will be available at `http://localhost:5173`
 **Web Dashboard Features:**
 - **Chat Panel**: Conversational interface for natural language commands
 - **Graph Viewer**: Interactive visualization of HCG (goals, plans, steps)
-- **Diagnostics**: System logs, execution timeline, and telemetry metrics
+- **Diagnostics**: Real-time logs & telemetry streamed from `/ws/diagnostics` with REST fallback (`/api/diagnostics/logs`, `/api/diagnostics/metrics`)
 - **Persona Diary**: Agent's internal reasoning and decision-making trace
 
 **Mock Data Fixtures:**
