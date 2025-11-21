@@ -29,6 +29,17 @@ class HermesConfig(BaseModel):
     )
 
 
+class PersonaApiConfig(BaseModel):
+    """Configuration for Apollo persona diary API."""
+
+    host: str = Field(default="localhost", description="Persona API host")
+    port: int = Field(default=8082, description="Persona API port")
+    timeout: int = Field(default=15, description="Request timeout in seconds")
+    api_key: Optional[str] = Field(
+        default=None, description="Optional bearer token for persona API access"
+    )
+
+
 class Neo4jConfig(BaseModel):
     """Configuration for Neo4j HCG connection."""
 
@@ -57,6 +68,7 @@ class ApolloConfig(BaseModel):
     sophia: SophiaConfig = Field(default_factory=SophiaConfig)
     hermes: HermesConfig = Field(default_factory=HermesConfig)
     hcg: HCGConfig = Field(default_factory=HCGConfig)
+    persona_api: PersonaApiConfig = Field(default_factory=PersonaApiConfig)
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ApolloConfig":

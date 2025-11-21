@@ -13,6 +13,12 @@ hermes:
   timeout: 30
   api_key: ""  # Optional bearer token for Hermes API
 
+persona_api:
+  host: localhost
+  port: 8082
+  timeout: 15
+  api_key: ""  # Optional bearer token if Apollo API is secured
+
 hcg:
   neo4j:
     uri: bolt://localhost:7687

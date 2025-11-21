@@ -2,40 +2,31 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
-from pydantic import BaseModel
-
-from logos_hermes_sdk import ApiClient, Configuration
-from logos_hermes_sdk.api.default_api import DefaultApi
-from logos_hermes_sdk.exceptions import ApiException
 from logos_hermes_sdk.models.embed_text_request import EmbedTextRequest
 
 from apollo.config.settings import HermesConfig
+from apollo.sdk import (
+    HermesSDK,
+    ServiceResponse,
+    build_hermes_sdk,
+    execute_hermes_call,
+)
 
 
-class HermesResponse(BaseModel):
+class HermesResponse(ServiceResponse):
     """Response wrapper for Hermes operations."""
-
-    success: bool
-    data: Optional[Any] = None
-    error: Optional[str] = None
 
 
 class HermesClient:
     """SDK-backed Hermes client."""
 
-    def __init__(self, config: HermesConfig) -> None:
+    def __init__(self, config: HermesConfig, sdk: Optional[HermesSDK] = None) -> None:
         self.config = config
-        self.base_url = f"http://{config.host}:{config.port}"
-        self.timeout = config.timeout
-
-        sdk_config = Configuration(host=self.base_url)
-        if config.api_key:
-            sdk_config.access_token = config.api_key
-
-        self._api_client = ApiClient(configuration=sdk_config)
-        self._default_api = DefaultApi(self._api_client)
+        self._sdk = sdk or build_hermes_sdk(config)
+        self.base_url = self._sdk.base_url
+        self.timeout = self._sdk.timeout
 
     def embed_text(self, text: str, model: str = "default") -> HermesResponse:
         """Generate an embedding for the provided text."""
@@ -43,24 +34,21 @@ class HermesClient:
             return HermesResponse(success=False, error="Text is required for embedding")
 
         request = EmbedTextRequest(text=text, model=model or "default")
-
-        try:
-            response = self._default_api.embed_text(
+        success, data, error = execute_hermes_call(
+            self._sdk,
+            "generating embeddings",
+            lambda: self._sdk.default.embed_text(
                 request,
                 _request_timeout=self.timeout,
-            )
-            return HermesResponse(success=True, data=self._to_serializable(response))
-        except Exception as exc:  # noqa: BLE001
-            return self._handle_exception("generating embeddings", exc)
+            ),
+        )
+        return HermesResponse(success=success, data=data, error=error)
 
     def health_check(self) -> bool:
-        """Basic connectivity probe."""
-        # Hermes SDK does not expose a dedicated health endpoint. Attempting a fast
-        # no-op call would still allocate GPU work, so we just ensure the base URL
-        # resolves by opening a socket via urllib3.
+        """Basic connectivity probe via HTTP HEAD."""
         response = None
         try:
-            response = self._api_client.rest_client.pool_manager.request(
+            response = self._sdk.api_client.rest_client.pool_manager.request(
                 "HEAD",
                 f"{self.base_url}/health",
                 timeout=min(5, self.timeout),
@@ -75,27 +63,3 @@ class HermesClient:
                     response.release_conn()
                 except Exception:  # noqa: BLE001
                     pass
-
-    def _handle_exception(self, action: str, error: Exception) -> HermesResponse:
-        if isinstance(error, ApiException):
-            details = error.body or error.reason or str(error)
-            return HermesResponse(
-                success=False, error=f"Hermes API error while {action}: {details}"
-            )
-
-        return HermesResponse(
-            success=False,
-            error=f"Cannot reach Hermes at {self.base_url} while {action}: {error}",
-        )
-
-    @staticmethod
-    def _to_serializable(payload: Any) -> Any:
-        if payload is None:
-            return None
-        if isinstance(payload, dict):
-            return payload
-        if hasattr(payload, "to_dict"):
-            return payload.to_dict()
-        if hasattr(payload, "model_dump"):
-            return payload.model_dump()
-        return payload
