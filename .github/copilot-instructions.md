@@ -24,6 +24,9 @@ This file gives focused, actionable guidance to AI coding agents working in the 
 - Type checks: Python `mypy` settings in `pyproject.toml`; run `mypy src` for stricter checks.
 - Tests: Add unit tests under `tests/` and E2E scenarios under `PHASE1_VERIFY/` if they exercise cross-service flows.
 
+**Project board hygiene:**
+- When you start work on an issue that lives on the LOGOS workspace project, move its card to *In Progress* (and update any `status/*` label). When the PR merges or the task finishes, move it to *Done* so the board stays accurate for the rest of the team.
+
 **When changing APIs or contracts:**
 - Edit `api-specs/*.yaml` first; regenerate or update API clients (`webapp/src/lib` and `src/apollo/client`) and update docs in `docs/API_CLIENTS.md`.
 - CI validates OpenAPI and runs artifact checks; keep changes minimal and add tests.
