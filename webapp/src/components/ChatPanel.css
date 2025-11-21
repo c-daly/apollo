@@ -18,6 +18,18 @@
   gap: 1rem;
 }
 
+.chat-status {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.chat-status.error {
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fecaca;
+}
+
 .message {
   display: flex;
   flex-direction: column;
@@ -164,5 +176,11 @@
     background-color: #ffffff;
     border: 1px solid #ddd;
     color: #213547;
+  }
+
+  .chat-status.error {
+    background: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+    color: #b91c1c;
   }
 }
