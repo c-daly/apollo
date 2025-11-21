@@ -303,10 +303,11 @@ import { useGraphSnapshot } from '../hooks/useHCG'
 const { data, isLoading, error } = useGraphSnapshot(['goal', 'plan'], 200)
 ```
 
-Configure the API URL in `webapp/.env`:
+Configure the HCG API endpoints in `webapp/.env`:
 
 ```env
-VITE_SOPHIA_API_URL=http://localhost:8082
+VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_WS_URL=ws://localhost:8765
 ```
 
 ## Performance Considerations

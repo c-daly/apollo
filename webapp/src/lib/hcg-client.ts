@@ -3,6 +3,7 @@
  * Provides functions to fetch HCG data via REST API
  */
 
+import { getHCGConfig } from './config'
 import type {
   Entity,
   State,
@@ -23,8 +24,9 @@ export class HCGAPIClient {
   private timeout: number
 
   constructor(config: HCGClientConfig = {}) {
-    this.baseUrl = config.baseUrl || 'http://localhost:8080'
-    this.timeout = config.timeout || 30000
+    const hcgConfig = getHCGConfig()
+    this.baseUrl = config.baseUrl || hcgConfig.apiUrl || 'http://localhost:8082'
+    this.timeout = config.timeout || hcgConfig.timeout || 30000
   }
 
   private async fetchWithTimeout(

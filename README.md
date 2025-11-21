@@ -148,6 +148,8 @@ cd webapp
 cp .env.example .env
 
 # Edit .env with your API configuration
+# VITE_HCG_API_URL=http://localhost:8082
+# VITE_HCG_WS_URL=ws://localhost:8765
 # VITE_SOPHIA_API_URL=http://localhost:8080
 # VITE_HERMES_API_URL=http://localhost:8081
 # VITE_MOCK_DATA_MODE=false
@@ -239,13 +241,20 @@ cp .env.example .env
 Edit `.env` with your configuration:
 
 ```env
+# HCG API
+VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_TIMEOUT=30000
+
 # Sophia API
 VITE_SOPHIA_API_URL=http://localhost:8080
 VITE_SOPHIA_API_KEY=
+VITE_SOPHIA_TIMEOUT=30000
 
 # Hermes API
 VITE_HERMES_API_URL=http://localhost:8081
 VITE_HERMES_API_KEY=
+VITE_HERMES_TIMEOUT=30000
 
 # Features
 VITE_ENABLE_CHAT=true

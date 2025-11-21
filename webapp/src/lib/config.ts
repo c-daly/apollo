@@ -17,6 +17,12 @@ export interface HermesConfig {
   timeout: number
 }
 
+export interface HCGConfig {
+  apiUrl: string
+  wsUrl: string
+  timeout: number
+}
+
 export interface FeatureFlags {
   enableChat: boolean
   enableDiagnostics: boolean
@@ -25,6 +31,7 @@ export interface FeatureFlags {
 export interface ApolloConfig {
   sophia: SophiaConfig
   hermes: HermesConfig
+  hcg: HCGConfig
   features: FeatureFlags
 }
 
@@ -59,6 +66,9 @@ function parseTimeout(value: string | undefined, defaultValue: number): number {
  * - VITE_HERMES_API_URL: Hermes API base URL (default: http://localhost:8081)
  * - VITE_HERMES_API_KEY: Optional API key for Hermes authentication
  * - VITE_HERMES_TIMEOUT: Request timeout in milliseconds (default: 30000)
+ * - VITE_HCG_API_URL: HCG REST API base URL (default: http://localhost:8082)
+ * - VITE_HCG_WS_URL: HCG WebSocket URL (default: ws://localhost:8765)
+ * - VITE_HCG_TIMEOUT: HCG REST timeout in milliseconds (default: 30000)
  * - VITE_ENABLE_CHAT: Enable chat panel (default: true)
  * - VITE_ENABLE_DIAGNOSTICS: Enable diagnostics panel (default: true)
  */
@@ -73,6 +83,11 @@ export function loadConfig(): ApolloConfig {
       baseUrl: import.meta.env.VITE_HERMES_API_URL || 'http://localhost:8081',
       apiKey: import.meta.env.VITE_HERMES_API_KEY || undefined,
       timeout: parseTimeout(import.meta.env.VITE_HERMES_TIMEOUT, 30000),
+    },
+    hcg: {
+      apiUrl: import.meta.env.VITE_HCG_API_URL || 'http://localhost:8082',
+      wsUrl: import.meta.env.VITE_HCG_WS_URL || 'ws://localhost:8765',
+      timeout: parseTimeout(import.meta.env.VITE_HCG_TIMEOUT, 30000),
     },
     features: {
       enableChat: parseBoolean(import.meta.env.VITE_ENABLE_CHAT, true),
@@ -99,6 +114,13 @@ export function getHermesConfig(): HermesConfig {
 }
 
 /**
+ * Get HCG configuration
+ */
+export function getHCGConfig(): HCGConfig {
+  return loadConfig().hcg
+}
+
+/**
  * Get feature flags
  */
 export function getFeatureFlags(): FeatureFlags {
@@ -119,6 +141,14 @@ export function validateConfig(): string[] {
 
   if (!config.hermes.baseUrl) {
     missing.push('VITE_HERMES_API_URL')
+  }
+
+  if (!config.hcg.apiUrl) {
+    missing.push('VITE_HCG_API_URL')
+  }
+
+  if (!config.hcg.wsUrl) {
+    missing.push('VITE_HCG_WS_URL')
   }
 
   return missing

@@ -143,6 +143,11 @@ const hermes = new HermesClient({
 Apollo uses Vite environment variables for configuration. Create a `.env` file in the `webapp` directory:
 
 ```env
+# HCG API Configuration
+VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_TIMEOUT=30000                  # Optional, in milliseconds
+
 # Sophia API Configuration
 VITE_SOPHIA_API_URL=http://localhost:8080
 VITE_SOPHIA_API_KEY=                    # Optional

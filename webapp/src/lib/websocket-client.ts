@@ -3,6 +3,7 @@
  */
 
 import type { WebSocketMessage } from '../types/hcg'
+import { getHCGConfig } from './config'
 
 export interface WebSocketClientConfig {
   url?: string
@@ -23,7 +24,8 @@ export class HCGWebSocketClient {
   private connected: boolean = false
 
   constructor(config: WebSocketClientConfig = {}) {
-    this.url = config.url || 'ws://localhost:8765'
+    const hcgConfig = getHCGConfig()
+    this.url = config.url || hcgConfig.wsUrl || 'ws://localhost:8765'
     this.reconnectInterval = config.reconnectInterval || 3000
     this.maxReconnectAttempts = config.maxReconnectAttempts || 10
   }

@@ -3,6 +3,7 @@ import {
   loadConfig,
   getSophiaConfig,
   getHermesConfig,
+  getHCGConfig,
   getFeatureFlags,
   validateConfig,
   isConfigValid,
@@ -18,6 +19,7 @@ describe('Config', () => {
       expect(loadedConfig).toBeDefined()
       expect(loadedConfig.sophia).toBeDefined()
       expect(loadedConfig.hermes).toBeDefined()
+      expect(loadedConfig.hcg).toBeDefined()
       expect(loadedConfig.features).toBeDefined()
     })
 
@@ -35,6 +37,15 @@ describe('Config', () => {
       expect(loadedConfig.hermes.baseUrl).toBeDefined()
       expect(typeof loadedConfig.hermes.baseUrl).toBe('string')
       expect(loadedConfig.hermes.timeout).toBeGreaterThan(0)
+    })
+
+    it('should have valid HCG config', () => {
+      const loadedConfig = loadConfig()
+
+      expect(loadedConfig.hcg.apiUrl).toBeDefined()
+      expect(typeof loadedConfig.hcg.apiUrl).toBe('string')
+      expect(typeof loadedConfig.hcg.wsUrl).toBe('string')
+      expect(loadedConfig.hcg.timeout).toBeGreaterThan(0)
     })
 
     it('should have valid feature flags', () => {
@@ -62,6 +73,17 @@ describe('Config', () => {
       expect(hermesConfig.baseUrl).toBeDefined()
       expect(typeof hermesConfig.baseUrl).toBe('string')
       expect(hermesConfig.timeout).toBeGreaterThan(0)
+    })
+  })
+
+  describe('getHCGConfig', () => {
+    it('should return HCG config', () => {
+      const hcgConfig = getHCGConfig()
+
+      expect(hcgConfig.apiUrl).toBeDefined()
+      expect(typeof hcgConfig.apiUrl).toBe('string')
+      expect(typeof hcgConfig.wsUrl).toBe('string')
+      expect(hcgConfig.timeout).toBeGreaterThan(0)
     })
   })
 
@@ -96,6 +118,7 @@ describe('Config', () => {
       expect(config).toBeDefined()
       expect(config.sophia).toBeDefined()
       expect(config.hermes).toBeDefined()
+      expect(config.hcg).toBeDefined()
       expect(config.features).toBeDefined()
     })
 
@@ -104,6 +127,7 @@ describe('Config', () => {
 
       expect(config.sophia.baseUrl).toBe(freshConfig.sophia.baseUrl)
       expect(config.hermes.baseUrl).toBe(freshConfig.hermes.baseUrl)
+      expect(config.hcg.apiUrl).toBe(freshConfig.hcg.apiUrl)
     })
   })
 
@@ -113,6 +137,7 @@ describe('Config', () => {
 
       expect(loadedConfig.sophia.timeout).toBeGreaterThan(0)
       expect(loadedConfig.hermes.timeout).toBeGreaterThan(0)
+      expect(loadedConfig.hcg.timeout).toBeGreaterThan(0)
     })
 
     it('should use reasonable default timeouts', () => {
@@ -121,6 +146,7 @@ describe('Config', () => {
       // Timeouts should be at least 1 second
       expect(loadedConfig.sophia.timeout).toBeGreaterThanOrEqual(1000)
       expect(loadedConfig.hermes.timeout).toBeGreaterThanOrEqual(1000)
+      expect(loadedConfig.hcg.timeout).toBeGreaterThanOrEqual(1000)
     })
   })
 })

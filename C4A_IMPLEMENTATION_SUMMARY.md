@@ -57,6 +57,11 @@ Initialize Apollo webapp (Vite/React/TS) and implement clients for Sophia/Hermes
 
 **Environment Variables:**
 ```env
+# HCG API
+VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_TIMEOUT=30000            # Optional, milliseconds
+
 # Sophia API
 VITE_SOPHIA_API_URL=http://localhost:8080
 VITE_SOPHIA_API_KEY=              # Optional
