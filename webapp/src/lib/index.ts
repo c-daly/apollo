@@ -9,6 +9,7 @@ export {
   loadConfig,
   getSophiaConfig,
   getHermesConfig,
+  getHCGConfig,
   getFeatureFlags,
   validateConfig,
   isConfigValid,
@@ -17,6 +18,7 @@ export {
 export type {
   SophiaConfig,
   HermesConfig,
+  HCGConfig,
   FeatureFlags,
   ApolloConfig,
 } from './config'

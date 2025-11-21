@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  readonly VITE_HCG_API_URL: string
+  readonly VITE_HCG_WS_URL: string
+  readonly VITE_HCG_TIMEOUT: string
   readonly VITE_SOPHIA_API_URL: string
   readonly VITE_SOPHIA_API_KEY: string
   readonly VITE_SOPHIA_TIMEOUT: string

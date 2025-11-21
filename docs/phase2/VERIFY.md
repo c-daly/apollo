@@ -220,8 +220,11 @@ uvicorn apollo.api.server:app --host 0.0.0.0 --port 8082
 ```bash
 cd webapp
 
-# Configure API endpoint (.env)
-VITE_SOPHIA_API_URL=http://localhost:8082
+# Configure API endpoints (.env)
+VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_WS_URL=ws://localhost:8765
+VITE_SOPHIA_API_URL=http://localhost:8080
+VITE_HERMES_API_URL=http://localhost:8081
 
 # Start development server
 npm run dev
