@@ -21,11 +21,26 @@ npm install
 
 ### Shared SDK Packages
 
-The TypeScript clients wrap the generated `@logos/sophia-sdk` and `@logos/hermes-sdk`
-packages that live in the sibling `logos` repository (`../logos/sdk-web/*`). Make sure the
-`logos` repo is checked out next to `apollo` so the `file:../logos/...` dependencies resolve.
-Whenever the OpenAPI contracts change, regenerate the SDKs from the `logos` repo and rerun
-`npm install` in `webapp/` to pick up the updates.
+The TypeScript clients wrap the generated `@logos/sophia-sdk` and
+`@logos/hermes-sdk` packages. To keep CI simple, the SDKs are vendored under
+`webapp/vendor/@logos/*` and were copied from
+[`c-daly/logos`](https://github.com/c-daly/logos) commit
+`9549b089203ed1d8bb6560ab56ba02e7dbbefb61` (folders `sdk-web/sophia` and
+`sdk-web/hermes`).
+
+To refresh them after the OpenAPI contracts change:
+
+```bash
+# From the apollo repo root (with ../logos pointing at the desired commit)
+rm -rf webapp/vendor
+mkdir -p webapp/vendor/@logos
+rsync -a --exclude node_modules ../logos/sdk-web/sophia/ webapp/vendor/@logos/sophia-sdk
+rsync -a --exclude node_modules ../logos/sdk-web/hermes/ webapp/vendor/@logos/hermes-sdk
+npm install --prefix webapp
+```
+
+Please update `webapp/vendor/README.md` with the new commit hash whenever you
+refresh the snapshot.
 
 ## Quick Start
 
