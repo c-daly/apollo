@@ -4,7 +4,6 @@
 
 import type { WebSocketMessage } from '../types/hcg'
 import { getHCGConfig } from './config'
-import { getHCGConfig } from './config'
 
 export interface WebSocketClientConfig {
   url?: string
