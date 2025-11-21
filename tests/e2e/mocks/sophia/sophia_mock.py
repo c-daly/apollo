@@ -105,7 +105,7 @@ def build_cwm_state(plan_id=None):
         "entities": [agent_entity],
         "relations": [],
         "violations": [],
-        "validation": {"status": "ok", "message": None},
+        "validation": {"status": "passed", "message": None},
     }
 
     return {
@@ -261,6 +261,7 @@ def create_plan():
         return (
             jsonify(
                 {
+                    "plan": plan,
                     "plan_id": plan["plan_id"],
                     "status": plan["status"],
                     "steps": plan["steps"],
