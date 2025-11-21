@@ -136,10 +136,9 @@ All CLI commands output structured JSON logs for the diagnostics pipeline:
 
 **Environment Variables** (`.env`):
 ```env
-# Sophia API
 # HCG API
 VITE_HCG_API_URL=http://localhost:8082
-VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
 VITE_HCG_TIMEOUT=30000
 
 # Sophia API

@@ -4,6 +4,7 @@
 
 import type { WebSocketMessage } from '../types/hcg'
 import { getHCGConfig } from './config'
+import { getHCGConfig } from './config'
 
 export interface WebSocketClientConfig {
   url?: string
@@ -154,4 +155,42 @@ export class HCGWebSocketClient {
 }
 
 // Default WebSocket client instance
-export const hcgWebSocket = new HCGWebSocketClient()
+function ensureWsBase(baseUrl: string): string {
+  if (baseUrl.startsWith('ws')) {
+    return baseUrl
+  }
+  if (baseUrl.startsWith('http')) {
+    const scheme = baseUrl.startsWith('https') ? 'wss' : 'ws'
+    const withoutProto = baseUrl.replace(/^https?:\/\//, '')
+    return `${scheme}://${withoutProto}`
+  }
+  return baseUrl
+}
+
+function buildHcgWsUrl(): string {
+  const config = getHCGConfig()
+  const base = config.wsUrl || config.apiUrl || 'http://localhost:8082'
+  const target = ensureWsBase(base).replace(/\/$/, '')
+  if (target.endsWith('/ws/hcg')) {
+    return target
+  }
+  return `${target}/ws/hcg`
+}
+
+function buildDiagnosticsWsUrl(): string {
+  const config = getHCGConfig()
+  const base = config.apiUrl || config.wsUrl || 'http://localhost:8082'
+  const target = ensureWsBase(base).replace(/\/$/, '')
+  if (target.endsWith('/ws/diagnostics')) {
+    return target
+  }
+  return `${target}/ws/diagnostics`
+}
+
+export const hcgWebSocket = new HCGWebSocketClient({
+  url: buildHcgWsUrl(),
+})
+
+export const diagnosticsWebSocket = new HCGWebSocketClient({
+  url: buildDiagnosticsWsUrl(),
+})

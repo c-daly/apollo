@@ -1,139 +1,100 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePlanHistory, useProcesses } from '../hooks/useHCG'
-import { hcgWebSocket } from '../lib/websocket-client'
-import type { WebSocketMessage } from '../types/hcg'
+import { useDiagnosticsLogs, useTelemetryMetrics } from '../hooks/useDiagnostics'
+import { useDiagnosticsStream } from '../hooks/useDiagnosticsStream'
+import type {
+  DiagnosticLogEntry,
+  TelemetrySnapshot,
+} from '../types/diagnostics'
 import './DiagnosticsPanel.css'
 
 type DiagnosticTab = 'logs' | 'timeline' | 'telemetry'
 
-interface LogEntry {
-  id: string
-  timestamp: Date
-  level: 'info' | 'warning' | 'error'
-  message: string
-}
-
-interface TelemetryData {
-  apiLatency: number
-  requests: number
-  successRate: number
-  activePlans: number
-  lastUpdate: Date
-}
-
 function DiagnosticsPanel() {
   const [activeTab, setActiveTab] = useState<DiagnosticTab>('logs')
-  const [logs, setLogs] = useState<LogEntry[]>([
-    {
-      id: '1',
-      timestamp: new Date(),
-      level: 'info',
-      message: 'Sophia API connected successfully',
-    },
-    {
-      id: '2',
-      timestamp: new Date(Date.now() - 60000),
-      level: 'info',
-      message: 'Plan generation started for goal_12345',
-    },
-    {
-      id: '3',
-      timestamp: new Date(Date.now() - 120000),
-      level: 'warning',
-      message: 'High latency detected on Hermes API (>500ms)',
-    },
-    {
-      id: '4',
-      timestamp: new Date(Date.now() - 180000),
-      level: 'info',
-      message: 'Embedding generated for text input',
-    },
-  ])
+  const [logs, setLogs] = useState<DiagnosticLogEntry[]>([])
   const [logFilter, setLogFilter] = useState<string>('all')
-  const [telemetry, setTelemetry] = useState<TelemetryData>({
-    apiLatency: 127,
-    requests: 1247,
-    successRate: 98.5,
-    activePlans: 3,
-    lastUpdate: new Date(),
+  const [telemetry, setTelemetry] = useState<TelemetrySnapshot | null>(null)
+  const [streamError, setStreamError] = useState<string | null>(null)
+
+  const {
+    data: planHistory,
+    isLoading: plansLoading,
+    refetch: refetchPlans,
+  } = usePlanHistory(undefined, 20)
+  const {
+    data: processes,
+    isLoading: processesLoading,
+    refetch: refetchProcesses,
+  } = useProcesses(undefined, 50)
+
+  const {
+    data: initialLogs,
+    isLoading: logsLoading,
+    refetch: refetchLogs,
+  } = useDiagnosticsLogs(100)
+  const {
+    data: initialTelemetry,
+    isLoading: telemetryLoading,
+    refetch: refetchTelemetry,
+  } = useTelemetryMetrics()
+
+  useEffect(() => {
+    if (initialLogs) {
+      setLogs(initialLogs)
+    }
+  }, [initialLogs])
+
+  useEffect(() => {
+    if (initialTelemetry) {
+      setTelemetry(initialTelemetry)
+    }
+  }, [initialTelemetry])
+
+  const streamConnected = useDiagnosticsStream({
+    onLog: entry => {
+      setLogs(prev => [entry, ...prev].slice(0, 100))
+    },
+    onLogBatch: entries => {
+      setLogs(prev => [...entries, ...prev].slice(0, 100))
+    },
+    onTelemetry: snapshot => {
+      setTelemetry(snapshot)
+    },
+    onError: message => {
+      setStreamError(message)
+    },
   })
 
-  // Fetch plan history for timeline
-  const { data: planHistory, isLoading: plansLoading } = usePlanHistory(
-    undefined,
-    20
-  )
-  const { data: processes, isLoading: processesLoading } = useProcesses(
-    undefined,
-    50
-  )
-
-  // Setup WebSocket for real-time updates
   useEffect(() => {
-    hcgWebSocket.connect()
-
-    const unsubscribe = hcgWebSocket.onMessage((message: WebSocketMessage) => {
-      if (message.type === 'update') {
-        // Add log entry for updates
-        const newLog: LogEntry = {
-          id: `ws-${Date.now()}`,
-          timestamp: new Date(),
-          level: 'info',
-          message: message.message || 'HCG update received',
-        }
-        setLogs(prev => [newLog, ...prev].slice(0, 100))
-
-        // Update telemetry
-        setTelemetry(prev => ({
-          ...prev,
-          lastUpdate: new Date(),
-          requests: prev.requests + 1,
-        }))
-      } else if (message.type === 'error') {
-        const errorLog: LogEntry = {
-          id: `ws-error-${Date.now()}`,
-          timestamp: new Date(),
+    if (streamError) {
+      setLogs(prev => [
+        {
+          id: `stream-error-${Date.now()}`,
+          timestamp: new Date().toISOString(),
           level: 'error',
-          message: message.message || 'WebSocket error',
-        }
-        setLogs(prev => [errorLog, ...prev].slice(0, 100))
-      }
-    })
-
-    // Refresh telemetry periodically
-    const telemetryInterval = setInterval(() => {
-      // Simulate telemetry updates (in production, fetch from API)
-      setTelemetry(prev => ({
-        apiLatency: Math.round(prev.apiLatency + (Math.random() - 0.5) * 20),
-        requests: prev.requests + Math.floor(Math.random() * 10),
-        successRate: Math.max(
-          95,
-          Math.min(100, prev.successRate + (Math.random() - 0.5))
-        ),
-        activePlans: Math.max(
-          0,
-          prev.activePlans + Math.floor(Math.random() * 3 - 1)
-        ),
-        lastUpdate: new Date(),
-      }))
-    }, 5000)
-
-    return () => {
-      unsubscribe()
-      hcgWebSocket.disconnect()
-      clearInterval(telemetryInterval)
+          message: streamError,
+        },
+        ...prev,
+      ])
     }
-  }, [])
+  }, [streamError])
 
-  const filteredLogs = logs.filter(log =>
-    logFilter === 'all' ? true : log.level === logFilter
+  const filteredLogs = useMemo(
+    () =>
+      logs.filter(log =>
+        logFilter === 'all' ? true : log.level === logFilter
+      ),
+    [logs, logFilter]
   )
 
   const handleExportLogs = () => {
     const logData = filteredLogs
       .map(
         log =>
-          `[${log.timestamp.toISOString()}] ${log.level.toUpperCase()}: ${log.message}`
+          `[${new Date(log.timestamp).toISOString()}] ${log.level.toUpperCase()}: ${
+            log.message
+          }`
       )
       .join('\n')
 
@@ -144,6 +105,13 @@ function DiagnosticsPanel() {
     a.download = `apollo-logs-${Date.now()}.txt`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleManualRefresh = () => {
+    refetchLogs()
+    refetchTelemetry()
+    refetchPlans()
+    refetchProcesses()
   }
 
   return (
@@ -175,6 +143,9 @@ function DiagnosticsPanel() {
             <div className="logs-header">
               <h3>System Logs</h3>
               <div className="logs-controls">
+                <span className={`stream-status ${streamConnected ? 'online' : 'offline'}`}>
+                  {streamConnected ? 'Live' : 'Offline'}
+                </span>
                 <select
                   className="log-filter"
                   value={logFilter}
@@ -191,17 +162,25 @@ function DiagnosticsPanel() {
               </div>
             </div>
             <div className="logs-list">
-              {filteredLogs.map(log => (
-                <div key={log.id} className={`log-entry ${log.level}`}>
-                  <span className="log-timestamp">
-                    {log.timestamp.toLocaleTimeString()}
-                  </span>
-                  <span className={`log-level ${log.level}`}>
-                    {log.level.toUpperCase()}
-                  </span>
-                  <span className="log-message">{log.message}</span>
+              {logsLoading && filteredLogs.length === 0 ? (
+                <div className="logs-placeholder">Loading logs...</div>
+              ) : filteredLogs.length > 0 ? (
+                filteredLogs.map(log => (
+                  <div key={log.id} className={`log-entry ${log.level}`}>
+                    <span className="log-timestamp">
+                      {new Date(log.timestamp).toLocaleTimeString()}
+                    </span>
+                    <span className={`log-level ${log.level}`}>
+                      {log.level.toUpperCase()}
+                    </span>
+                    <span className="log-message">{log.message}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="logs-placeholder">
+                  No log entries yet. Activity will appear here in real time.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         )}
@@ -316,33 +295,43 @@ function DiagnosticsPanel() {
           <div className="telemetry-view">
             <h3>System Telemetry</h3>
             <div className="telemetry-update">
-              Last updated: {telemetry.lastUpdate.toLocaleTimeString()}
+              Last updated:{' '}
+              {telemetry
+                ? new Date(telemetry.last_update).toLocaleTimeString()
+                : telemetryLoading
+                  ? 'Loading...'
+                  : 'No data'}
             </div>
             <div className="telemetry-grid">
-              <div className="metric-card">
-                <h4>API Latency</h4>
-                <div className="metric-value">{telemetry.apiLatency}ms</div>
-                <div className="metric-label">Average (last hour)</div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">API Latency</span>
+                <span className="telemetry-value">
+                  {telemetry ? `${telemetry.api_latency_ms} ms` : '—'}
+                </span>
               </div>
-              <div className="metric-card">
-                <h4>Requests</h4>
-                <div className="metric-value">
-                  {telemetry.requests.toLocaleString()}
-                </div>
-                <div className="metric-label">Last hour</div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">Requests</span>
+                <span className="telemetry-value">
+                  {telemetry ? telemetry.request_count : '—'}
+                </span>
               </div>
-              <div className="metric-card">
-                <h4>Success Rate</h4>
-                <div className="metric-value">
-                  {telemetry.successRate.toFixed(1)}%
-                </div>
-                <div className="metric-label">Last hour</div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">Success Rate</span>
+                <span className="telemetry-value">
+                  {telemetry ? `${telemetry.success_rate}%` : '—'}
+                </span>
               </div>
-              <div className="metric-card">
-                <h4>Active Plans</h4>
-                <div className="metric-value">{telemetry.activePlans}</div>
-                <div className="metric-label">Currently executing</div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">Active Plans</span>
+                <span className="telemetry-value">
+                  {telemetry ? telemetry.active_plans : '—'}
+                </span>
               </div>
+            </div>
+            <div className="telemetry-actions">
+              <button className="btn-secondary" onClick={handleManualRefresh}>
+                Refresh Now
+              </button>
             </div>
           </div>
         )}
