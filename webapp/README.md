@@ -47,6 +47,11 @@ npm install
 
 This will install all required dependencies and devDependencies as defined in `package.json`.
 
+> **Note:** The Apollo webapp links against the generated `@logos/sophia-sdk` and
+> `@logos/hermes-sdk` packages that live in the sibling `../logos/sdk-web/` directory.
+> Make sure the `logos` repository is checked out next to `apollo` before running
+> `npm install`, and regenerate the SDKs there whenever the OpenAPI contracts change.
+
 ## Development
 
 Start the development server:

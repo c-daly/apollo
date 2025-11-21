@@ -1,9 +1,27 @@
 /**
- * TypeScript client for Sophia Cognitive Core API
+ * Sophia client that wraps the generated @logos/sophia-sdk library.
  *
- * Provides type-safe interface to Sophia's planning, state management,
- * and execution capabilities. Matches Python CLI client functionality.
+ * The class keeps the legacy API surface that the webapp already uses
+ * (e.g., createGoal, getState, sendCommand) but executes the calls via
+ * the shared SDK. When the SDK endpoints are not available (older mock
+ * services still expose /api/* routes), the client automatically falls
+ * back to those legacy endpoints so local mocks and tests continue to work.
  */
+
+import {
+  Configuration,
+  PlanningApi,
+  PlanRequest,
+  PlanResponse,
+  ResponseError,
+  SimulationRequest,
+  SimulationResponse,
+  StateResponse as SophiaStateResponse,
+  SystemApi,
+  WorldModelApi,
+  GetStateModelTypeEnum,
+} from '@logos/sophia-sdk'
+import type { HealthResponse } from '@logos/sophia-sdk'
 
 export interface SophiaClientConfig {
   baseUrl?: string
@@ -17,147 +35,299 @@ export interface SophiaResponse<T = unknown> {
   error?: string
 }
 
-// Response types based on Sophia OpenAPI spec
-export interface HealthResponse {
-  status: string
-  version?: string
+interface SophiaClientDependencies {
+  planningApi: PlanningApi
+  systemApi: SystemApi
+  worldModelApi: WorldModelApi
 }
 
-export interface StateResponse {
-  state: {
-    beliefs: Record<string, unknown>
-    goals: Array<{
-      id: string
-      description: string
-      priority?: string
-      status?: string
-    }>
-    plans: Array<{
-      id: string
-      goal_id: string
-      steps: unknown[]
-      status?: string
-    }>
-  }
-  timestamp: string
-}
+const DEFAULT_TIMEOUT_MS = 30_000
+type FetchInput = Parameters<typeof fetch>[0]
+type FetchInit = Parameters<typeof fetch>[1]
 
-export interface GoalResponse {
-  goal_id: string
-  description: string
-  priority?: string
-  status: string
-  created_at: string
-}
-
-export interface CreateGoalRequest {
-  goal: string
-  priority?: string
-  metadata?: Record<string, unknown>
-}
-
-export interface PlanResponse {
-  plan_id: string
-  goal_id: string
-  steps: Array<{
-    step_id: string
-    action: string
-    parameters?: Record<string, unknown>
-    preconditions?: string[]
-    effects?: string[]
-  }>
-  status: string
-  created_at: string
-}
-
-export interface PlansResponse {
-  plans: Array<{
-    plan_id: string
-    goal_id: string
-    status: string
-    created_at: string
-  }>
-}
-
-export interface CreatePlanRequest {
-  goal_id: string
-}
-
-export interface ExecuteStepRequest {
-  plan_id: string
-  step_index: number
-}
-
-export interface ExecuteStepResponse {
-  success: boolean
-  step_id: string
-  result: Record<string, unknown>
-  new_state?: Record<string, unknown>
-}
-
-export interface SimulatePlanRequest {
-  plan_id: string
-  initial_state?: Record<string, unknown>
-}
-
-export interface SimulatePlanResponse {
-  success: boolean
-  final_state: Record<string, unknown>
-  execution_trace: Array<{
-    step_id: string
-    state_before: Record<string, unknown>
-    state_after: Record<string, unknown>
-  }>
-}
-
-/**
- * Client for Sophia Cognitive Core API
- *
- * Provides methods for:
- * - Health checks
- * - State management
- * - Goal creation
- * - Plan generation
- * - Plan execution
- * - Plan simulation
- */
 export class SophiaClient {
-  private baseUrl: string
-  private apiKey?: string
-  private timeout: number
+  private readonly planningApi: PlanningApi
+  private readonly systemApi: SystemApi
+  private readonly worldModelApi: WorldModelApi
+  private readonly timeout: number
+  private readonly baseUrl: string
+  private readonly apiKey?: string
 
-  constructor(config: SophiaClientConfig = {}) {
+  constructor(
+    config: SophiaClientConfig = {},
+    deps?: Partial<SophiaClientDependencies>
+  ) {
     this.baseUrl = config.baseUrl || 'http://localhost:8080'
     this.apiKey = config.apiKey
-    this.timeout = config.timeout || 30000
+    this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
+
+    const configuration = new Configuration({
+      basePath: this.baseUrl,
+      accessToken: this.apiKey
+        ? async () => this.apiKey as string
+        : undefined,
+      fetchApi: (input, init) => this.fetchWithTimeout(input, init),
+    })
+
+    this.planningApi = deps?.planningApi ?? new PlanningApi(configuration)
+    this.systemApi = deps?.systemApi ?? new SystemApi(configuration)
+    this.worldModelApi = deps?.worldModelApi ?? new WorldModelApi(configuration)
   }
 
-  /**
-   * Internal fetch with timeout and error handling
-   */
+  async sendCommand(
+    command: string
+  ): Promise<SophiaResponse<PlanResponse>> {
+    if (!command.trim()) {
+      return {
+        success: false,
+        error: 'Command cannot be empty',
+      }
+    }
+
+    const payload: PlanRequest = {
+      goal: command,
+      metadata: { source: 'apollo-webapp' },
+    }
+
+    try {
+      const response = await this.planningApi.createPlan({
+        planRequest: payload,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacySendCommand(command)
+      }
+      return this.failure('sending command', error)
+    }
+  }
+
+  async getState(
+    limit = 10,
+    cursor?: string,
+    modelType?: GetStateModelTypeEnum
+  ): Promise<SophiaResponse<SophiaStateResponse>> {
+    try {
+      const response = await this.worldModelApi.getState({
+        cursor,
+        limit,
+        modelType,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacyGetState(limit)
+      }
+      return this.failure('retrieving state', error)
+    }
+  }
+
+  async getPlans(limit = 10): Promise<SophiaResponse<SophiaStateResponse>> {
+    try {
+      const response = await this.worldModelApi.getState({
+        limit,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacyGetPlans(limit)
+      }
+      return this.failure('retrieving plans', error)
+    }
+  }
+
+  async createGoal(
+    request: { goal: string; priority?: string; metadata?: Record<string, unknown> }
+  ): Promise<SophiaResponse<PlanResponse>> {
+    if (!request.goal.trim()) {
+      return {
+        success: false,
+        error: 'Goal description cannot be empty',
+      }
+    }
+
+    const payload: PlanRequest = {
+      goal: request.goal,
+      priority: request.priority,
+      metadata: request.metadata,
+    }
+
+    try {
+      const response = await this.planningApi.createPlan({
+        planRequest: payload,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacyCreateGoal(payload)
+      }
+      return this.failure('creating goal', error)
+    }
+  }
+
+  async invokePlanner(goalId: string): Promise<SophiaResponse<PlanResponse>> {
+    if (!goalId.trim()) {
+      return {
+        success: false,
+        error: 'Goal identifier cannot be empty',
+      }
+    }
+
+    const payload: PlanRequest = { goal: goalId }
+
+    try {
+      const response = await this.planningApi.createPlan({
+        planRequest: payload,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacyInvokePlanner(goalId)
+      }
+      return this.failure('invoking planner', error)
+    }
+  }
+
+  async simulatePlan(
+    planId: string,
+    context?: Record<string, unknown>,
+    horizonSteps?: number
+  ): Promise<SophiaResponse<SimulationResponse>> {
+    if (!planId.trim()) {
+      return {
+        success: false,
+        error: 'Plan identifier is required for simulation',
+      }
+    }
+
+    const request: SimulationRequest = {
+      capabilityId: planId,
+      context: context ?? {},
+      horizonSteps: horizonSteps,
+    }
+
+    try {
+      const response = await this.planningApi.runSimulation({
+        simulationRequest: request,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacySimulatePlan(planId, context)
+      }
+      return this.failure('running simulation', error)
+    }
+  }
+
+  async healthCheck(): Promise<boolean> {
+    try {
+      await this.systemApi.healthCheck()
+      return true
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        const legacyHealth = await this.performLegacyRequest<HealthResponse>({
+          action: 'checking health',
+          method: 'GET',
+          path: '/health',
+        })
+        return legacyHealth.success
+      }
+      return false
+    }
+  }
+
+  async getHealth(): Promise<SophiaResponse<HealthResponse>> {
+    try {
+      const response = await this.systemApi.healthCheck()
+      return this.success(response)
+    } catch (error) {
+      return this.failure('retrieving health status', error)
+    }
+  }
+
+  async executeStep(): Promise<SophiaResponse<never>> {
+    return {
+      success: false,
+      error:
+        'Plan execution is handled by Talos; use the executor service to run individual steps.',
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Internal helpers
+  // ---------------------------------------------------------------------------
+  private success<T>(data: T): SophiaResponse<T> {
+    return {
+      success: true,
+      data,
+    }
+  }
+
+  private async failure(
+    action: string,
+    error: unknown
+  ): Promise<SophiaResponse<never>> {
+    if (this.isAbortError(error)) {
+      return {
+        success: false,
+        error: `Request timed out after ${this.timeout}ms while ${action}`,
+      }
+    }
+
+    if (error instanceof ResponseError) {
+      let details: string | undefined
+      try {
+        details = await error.response.text()
+      } catch {
+        details = error.message
+      }
+
+      return {
+        success: false,
+        error: `Sophia API error while ${action}: ${details}`,
+      }
+    }
+
+    if (error instanceof Error) {
+      return {
+        success: false,
+        error: `Unexpected error while ${action}: ${error.message}`,
+      }
+    }
+
+    return {
+      success: false,
+      error: `Unknown error while ${action}`,
+    }
+  }
+
+  private isAbortError(error: unknown): error is DOMException {
+    return error instanceof DOMException && error.name === 'AbortError'
+  }
+
+  private isNotFound(error: unknown): boolean {
+    return error instanceof ResponseError && error.response.status === 404
+  }
+
   private async fetchWithTimeout(
-    url: string,
-    options: RequestInit = {}
+    input: FetchInput,
+    init: FetchInit = {}
   ): Promise<Response> {
+    const requestInput =
+      input instanceof URL ? input.toString() : input
+
+    if (this.timeout <= 0 || init.signal) {
+      return fetch(requestInput, init)
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(options.headers as Record<string, string>),
-      }
-
-      if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers,
+      const response = await fetch(requestInput, {
+        ...init,
         signal: controller.signal,
       })
-
       clearTimeout(timeoutId)
       return response
     } catch (error) {
@@ -166,180 +336,195 @@ export class SophiaClient {
     }
   }
 
-  /**
-   * Wrap API calls with consistent error handling
-   */
-  private async handleRequest<T>(
-    requestFn: () => Promise<Response>
-  ): Promise<SophiaResponse<T>> {
+  private authHeaders(): Record<string, string> {
+    if (!this.apiKey) {
+      return {}
+    }
+    return {
+      Authorization: `Bearer ${this.apiKey}`,
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy fallbacks
+  // ---------------------------------------------------------------------------
+  private legacySendCommand(
+    command: string
+  ): Promise<SophiaResponse<PlanResponse>> {
+    return this.performLegacyRequest<PlanResponse>({
+      action: 'sending command',
+      method: 'POST',
+      path: '/api/command',
+      body: { command },
+    })
+  }
+
+  private async legacyGetState(
+    limit: number
+  ): Promise<SophiaResponse<SophiaStateResponse>> {
+    const response = await this.performLegacyRequest<unknown>({
+      action: 'retrieving state',
+      method: 'GET',
+      path: '/api/state',
+      params: { limit: String(limit) },
+    })
+    return this.normalizeLegacyStateResponse(response)
+  }
+
+  private async legacyGetPlans(
+    limit: number
+  ): Promise<SophiaResponse<SophiaStateResponse>> {
+    const response = await this.performLegacyRequest<unknown>({
+      action: 'retrieving plans',
+      method: 'GET',
+      path: '/api/plans',
+      params: { limit: String(limit) },
+    })
+    return this.normalizeLegacyStateResponse(response)
+  }
+
+  private legacyCreateGoal(
+    payload: PlanRequest
+  ): Promise<SophiaResponse<PlanResponse>> {
+    return this.performLegacyRequest({
+      action: 'creating goal',
+      method: 'POST',
+      path: '/api/goals',
+      body: payload,
+    })
+  }
+
+  private legacyInvokePlanner(
+    goalId: string
+  ): Promise<SophiaResponse<PlanResponse>> {
+    return this.performLegacyRequest({
+      action: 'invoking planner',
+      method: 'POST',
+      path: '/api/planner/invoke',
+      body: { goal_id: goalId },
+    })
+  }
+
+  private legacySimulatePlan(
+    planId: string,
+    context?: Record<string, unknown>
+  ): Promise<SophiaResponse<SimulationResponse>> {
+    return this.performLegacyRequest({
+      action: 'running simulation',
+      method: 'POST',
+      path: '/api/simulate',
+      body: {
+        plan_id: planId,
+        initial_state: context,
+      },
+    })
+  }
+
+  private async performLegacyRequest<T>({
+    action,
+    method,
+    path,
+    body,
+    params,
+  }: {
+    action: string
+    method: 'GET' | 'POST'
+    path: string
+    body?: unknown
+    params?: Record<string, string>
+  }): Promise<SophiaResponse<T>> {
     try {
-      const response = await requestFn()
+      const url = new URL(path, this.baseUrl)
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          url.searchParams.set(key, value)
+        })
+      }
+
+      const response = await this.fetchWithTimeout(url.toString(), {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.authHeaders(),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const text = await response.text()
         return {
           success: false,
-          error: errorData.error || `Request failed: ${response.statusText}`,
+          error:
+            text || `Sophia legacy request failed while ${action}: ${response.statusText}`,
         }
       }
 
-      const data = await response.json()
+      if (response.status === 204) {
+        return { success: true }
+      }
+
+      const data = (await response.json()) as T
       return {
         success: true,
-        data: data as T,
+        data,
       }
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          return {
-            success: false,
-            error: `Request timed out after ${this.timeout}ms`,
-          }
-        }
+      if (this.isAbortError(error)) {
         return {
           success: false,
-          error: `Request failed: ${error.message}`,
+          error: `Request timed out after ${this.timeout}ms while ${action}`,
         }
       }
+
+      if (error instanceof Error) {
+        return {
+          success: false,
+          error: `Legacy request failed while ${action}: ${error.message}`,
+        }
+      }
+
       return {
         success: false,
-        error: 'Unknown error occurred',
+        error: `Legacy request failed while ${action}`,
       }
     }
   }
 
-  /**
-   * Health check - verify Sophia service is running
-   */
-  async healthCheck(): Promise<boolean> {
-    try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/health`)
-      return response.ok
-    } catch {
-      return false
+  private normalizeLegacyStateResponse(
+    response: SophiaResponse<unknown>
+  ): SophiaResponse<SophiaStateResponse> {
+    if (!response.success) {
+      return response as SophiaResponse<SophiaStateResponse>
     }
-  }
 
-  /**
-   * Get detailed health information
-   */
-  async getHealth(): Promise<SophiaResponse<HealthResponse>> {
-    return this.handleRequest<HealthResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/health`)
-    )
-  }
+    const payload = response.data
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'states' in (payload as Record<string, unknown>)
+    ) {
+      return response as SophiaResponse<SophiaStateResponse>
+    }
 
-  /**
-   * Get current agent state including beliefs, goals, and plans
-   */
-  async getState(): Promise<SophiaResponse<StateResponse>> {
-    return this.handleRequest<StateResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/state`)
-    )
-  }
-
-  /**
-   * Create a new goal for the agent
-   */
-  async createGoal(
-    request: CreateGoalRequest
-  ): Promise<SophiaResponse<GoalResponse>> {
-    return this.handleRequest<GoalResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/goals`, {
-        method: 'POST',
-        body: JSON.stringify(request),
-      })
-    )
-  }
-
-  /**
-   * Get list of recent plans
-   */
-  async getPlans(limit: number = 10): Promise<SophiaResponse<PlansResponse>> {
-    const params = new URLSearchParams({ limit: limit.toString() })
-    return this.handleRequest<PlansResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/plans?${params}`)
-    )
-  }
-
-  /**
-   * Generate a plan for a goal (alias for createPlan)
-   */
-  async invokePlanner(goalId: string): Promise<SophiaResponse<PlanResponse>> {
-    return this.handleRequest<PlanResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/planner/invoke`, {
-        method: 'POST',
-        body: JSON.stringify({ goal_id: goalId }),
-      })
-    )
-  }
-
-  /**
-   * Create a plan for a goal
-   */
-  async createPlan(
-    request: CreatePlanRequest
-  ): Promise<SophiaResponse<PlanResponse>> {
-    return this.handleRequest<PlanResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/plan`, {
-        method: 'POST',
-        body: JSON.stringify(request),
-      })
-    )
-  }
-
-  /**
-   * Execute a single step from a plan
-   */
-  async executeStep(
-    request: ExecuteStepRequest
-  ): Promise<SophiaResponse<ExecuteStepResponse>> {
-    return this.handleRequest<ExecuteStepResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/executor/step`, {
-        method: 'POST',
-        body: JSON.stringify(request),
-      })
-    )
-  }
-
-  /**
-   * Simulate plan execution without committing changes
-   */
-  async simulatePlan(
-    request: SimulatePlanRequest
-  ): Promise<SophiaResponse<SimulatePlanResponse>> {
-    return this.handleRequest<SimulatePlanResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/simulate`, {
-        method: 'POST',
-        body: JSON.stringify(request),
-      })
-    )
-  }
-
-  /**
-   * Send a natural language command to Sophia
-   */
-  async sendCommand(
-    command: string
-  ): Promise<SophiaResponse<Record<string, unknown>>> {
-    return this.handleRequest<Record<string, unknown>>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/command`, {
-        method: 'POST',
-        body: JSON.stringify({ command }),
-      })
-    )
+    return {
+      success: true,
+      data: {
+        states: [],
+        cursor: undefined,
+        nextPollAfterMs: undefined,
+      },
+    }
   }
 }
 
-/**
- * Create a Sophia client from environment variables
- */
-export function createSophiaClient(): SophiaClient {
+export function createSophiaClient(config?: SophiaClientConfig): SophiaClient {
   return new SophiaClient({
-    baseUrl: import.meta.env.VITE_SOPHIA_API_URL,
-    apiKey: import.meta.env.VITE_SOPHIA_API_KEY,
+    baseUrl: config?.baseUrl ?? import.meta.env.VITE_SOPHIA_API_URL,
+    apiKey: config?.apiKey ?? import.meta.env.VITE_SOPHIA_API_KEY,
+    timeout: config?.timeout,
   })
 }
 
-// Default client instance for convenience
 export const sophiaClient = createSophiaClient()
+
+export type { PlanRequest, PlanResponse, SimulationResponse, SophiaStateResponse, HealthResponse }

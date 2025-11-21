@@ -32,10 +32,9 @@ Initialize Apollo webapp (Vite/React/TS) and implement clients for Sophia/Hermes
 **Hermes Client** (`webapp/src/lib/hermes-client.ts`)
 - Health checks (`healthCheck()`, `getHealth()`)
 - Text embedding (`embedText()`)
-- Batch embedding (`embedBatch()`)
-- Semantic search (`search()`)
+- Simple NLP preprocessing (`simpleNlp()`)
+- LLM proxy (`llmGenerate()`)
 - Model selection support
-- Normalization options
 - Full TypeScript type safety
 - Bearer token authentication support
 
@@ -97,7 +96,6 @@ VITE_ENABLE_DIAGNOSTICS=true
 | `sophia_client.send_command()` | `sophiaClient.sendCommand()` | ✅ |
 | `sophia_client.get_plans()` | `sophiaClient.getPlans()` | ✅ |
 | `hermes_client.embed_text()` | `hermesClient.embedText()` | ✅ |
-| `hermes_client.embed_batch()` | `hermesClient.embedBatch()` | ✅ |
 | `hermes_client.health_check()` | `hermesClient.healthCheck()` | ✅ |
 
 **Consistency:**
