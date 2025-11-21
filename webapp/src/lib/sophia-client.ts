@@ -496,12 +496,22 @@ export class SophiaClient {
     }
 
     const payload = response.data
-    if (
-      payload &&
-      typeof payload === 'object' &&
-      'states' in (payload as Record<string, unknown>)
-    ) {
+    if (this.payloadHasStates(payload)) {
       return response as SophiaResponse<SophiaStateResponse>
+    }
+
+    if (this.isRecord(payload)) {
+      const merged = {
+        states: [],
+        cursor: undefined,
+        nextPollAfterMs: undefined,
+        ...payload,
+      } as SophiaStateResponse & Record<string, unknown>
+
+      return {
+        success: true,
+        data: merged,
+      }
     }
 
     return {
@@ -510,8 +520,23 @@ export class SophiaClient {
         states: [],
         cursor: undefined,
         nextPollAfterMs: undefined,
-      },
+        legacyPayload: payload,
+      } as SophiaStateResponse & { legacyPayload: unknown },
     }
+  }
+
+  private payloadHasStates(payload: unknown): payload is {
+    states: SophiaStateResponse['states']
+  } {
+    return (
+      typeof payload === 'object' &&
+      payload !== null &&
+      'states' in (payload as Record<string, unknown>)
+    )
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null
   }
 }
 
