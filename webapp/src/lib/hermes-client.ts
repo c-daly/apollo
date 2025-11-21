@@ -71,9 +71,7 @@ export class HermesClient {
 
     const configuration = new Configuration({
       basePath: this.baseUrl,
-      accessToken: this.apiKey
-        ? async () => this.apiKey as string
-        : undefined,
+      accessToken: this.apiKey ? async () => this.apiKey as string : undefined,
       fetchApi: (input, init) => this.fetchWithTimeout(input, init),
     })
 
@@ -182,9 +180,7 @@ export class HermesClient {
     }
   }
 
-  async llmGenerate(
-    request: LLMRequest
-  ): Promise<HermesResponse<LLMResponse>> {
+  async llmGenerate(request: LLMRequest): Promise<HermesResponse<LLMResponse>> {
     try {
       const response = await this.defaultApi.llmGenerate({
         lLMRequest: request,
@@ -252,8 +248,7 @@ export class HermesClient {
     input: FetchInput,
     init: FetchInit = {}
   ): Promise<Response> {
-    const requestInput =
-      input instanceof URL ? input.toString() : input
+    const requestInput = input instanceof URL ? input.toString() : input
 
     if (this.timeout <= 0 || init.signal) {
       return fetch(requestInput, init)
@@ -307,8 +302,7 @@ export class HermesClient {
         const text = await response.text()
         return {
           success: false,
-          error:
-            text || `Hermes legacy request failed: ${response.statusText}`,
+          error: text || `Hermes legacy request failed: ${response.statusText}`,
         }
       }
 

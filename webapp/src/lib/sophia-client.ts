@@ -63,9 +63,7 @@ export class SophiaClient {
 
     const configuration = new Configuration({
       basePath: this.baseUrl,
-      accessToken: this.apiKey
-        ? async () => this.apiKey as string
-        : undefined,
+      accessToken: this.apiKey ? async () => this.apiKey as string : undefined,
       fetchApi: (input, init) => this.fetchWithTimeout(input, init),
     })
 
@@ -74,9 +72,7 @@ export class SophiaClient {
     this.worldModelApi = deps?.worldModelApi ?? new WorldModelApi(configuration)
   }
 
-  async sendCommand(
-    command: string
-  ): Promise<SophiaResponse<PlanResponse>> {
+  async sendCommand(command: string): Promise<SophiaResponse<PlanResponse>> {
     if (!command.trim()) {
       return {
         success: false,
@@ -136,9 +132,11 @@ export class SophiaClient {
     }
   }
 
-  async createGoal(
-    request: { goal: string; priority?: string; metadata?: Record<string, unknown> }
-  ): Promise<SophiaResponse<PlanResponse>> {
+  async createGoal(request: {
+    goal: string
+    priority?: string
+    metadata?: Record<string, unknown>
+  }): Promise<SophiaResponse<PlanResponse>> {
     if (!request.goal.trim()) {
       return {
         success: false,
@@ -313,8 +311,7 @@ export class SophiaClient {
     input: FetchInput,
     init: FetchInit = {}
   ): Promise<Response> {
-    const requestInput =
-      input instanceof URL ? input.toString() : input
+    const requestInput = input instanceof URL ? input.toString() : input
 
     if (this.timeout <= 0 || init.signal) {
       return fetch(requestInput, init)
@@ -455,7 +452,8 @@ export class SophiaClient {
         return {
           success: false,
           error:
-            text || `Sophia legacy request failed while ${action}: ${response.statusText}`,
+            text ||
+            `Sophia legacy request failed while ${action}: ${response.statusText}`,
         }
       }
 
@@ -527,4 +525,10 @@ export function createSophiaClient(config?: SophiaClientConfig): SophiaClient {
 
 export const sophiaClient = createSophiaClient()
 
-export type { PlanRequest, PlanResponse, SimulationResponse, SophiaStateResponse, HealthResponse }
+export type {
+  PlanRequest,
+  PlanResponse,
+  SimulationResponse,
+  SophiaStateResponse,
+  HealthResponse,
+}

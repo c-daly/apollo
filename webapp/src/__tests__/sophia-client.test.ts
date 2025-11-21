@@ -78,7 +78,10 @@ describe('SophiaClient', () => {
   it('falls back to legacy /api/command when /plan is unavailable', async () => {
     fetchMock
       .mockResolvedValueOnce(
-        jsonResponse({ error: 'missing' }, { status: 404, statusText: 'Not Found' })
+        jsonResponse(
+          { error: 'missing' },
+          { status: 404, statusText: 'Not Found' }
+        )
       )
       .mockResolvedValueOnce(
         jsonResponse({ plan_id: 'legacy-plan', status: 'completed' })
@@ -102,7 +105,10 @@ describe('SophiaClient', () => {
   it('falls back to legacy simulation endpoint on 404', async () => {
     fetchMock
       .mockResolvedValueOnce(
-        jsonResponse({ error: 'missing' }, { status: 404, statusText: 'Not Found' })
+        jsonResponse(
+          { error: 'missing' },
+          { status: 404, statusText: 'Not Found' }
+        )
       )
       .mockResolvedValueOnce(
         jsonResponse({ success: true, final_state: { status: 'ok' } })
