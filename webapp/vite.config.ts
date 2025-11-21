@@ -12,8 +12,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
-      '@logos/hermes-sdk': resolve(__dirname, './vendor/@logos/hermes-sdk/src/index.ts'),
-      '@logos/sophia-sdk': resolve(__dirname, './vendor/@logos/sophia-sdk/src/index.ts'),
     },
   },
   server: {
