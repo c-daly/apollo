@@ -63,7 +63,10 @@ describe('HermesClient', () => {
   it('falls back to /api/embed_text when the SDK endpoint does not exist', async () => {
     fetchMock
       .mockResolvedValueOnce(
-        jsonResponse({ error: 'not found' }, { status: 404, statusText: 'Not Found' })
+        jsonResponse(
+          { error: 'not found' },
+          { status: 404, statusText: 'Not Found' }
+        )
       )
       .mockResolvedValueOnce(
         jsonResponse({ embedding: [0.3], model: 'legacy', dimension: 1 })
