@@ -49,7 +49,9 @@ class PersonaClient:
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-    def _post_json(self, url: str, payload: Dict[str, Any], action: str) -> ServiceResponse:
+    def _post_json(
+        self, url: str, payload: Dict[str, Any], action: str
+    ) -> ServiceResponse:
         try:
             response = requests.post(
                 url,
