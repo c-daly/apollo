@@ -9,7 +9,7 @@ import contextlib
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import AsyncIterator, Deque, List, Optional
+from typing import Any, AsyncIterator, Deque, Dict, List, Optional, Union
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,9 +52,12 @@ class TelemetrySnapshot(BaseModel):
     last_update: datetime
 
 
+DiagnosticsPayload = Union[Dict[str, Any], List[Dict[str, Any]], None]
+
+
 class DiagnosticsEvent(BaseModel):
     type: str
-    data: dict
+    data: DiagnosticsPayload = None
 
 
 class DiagnosticsManager:
@@ -138,9 +141,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         hcg_client.connect()
         print("HCG client connected to Neo4j")
         diagnostics_manager._logs.clear()
-        await diagnostics_manager.record_log(
-            "info", "HCG client connected to Neo4j"
-        )
+        await diagnostics_manager.record_log("info", "HCG client connected to Neo4j")
 
     async def telemetry_poller() -> None:
         while True:
@@ -151,9 +152,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             try:
                 start = datetime.utcnow()
                 health = await asyncio.to_thread(hcg_client.health_check)
-                latency_ms = (
-                    (datetime.utcnow() - start).total_seconds() * 1000.0
-                )
+                latency_ms = (datetime.utcnow() - start).total_seconds() * 1000.0
 
                 processes = await asyncio.to_thread(
                     hcg_client.get_processes, "running", 10, 0
@@ -539,8 +538,7 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
             DiagnosticsEvent(
                 type="logs",
                 data=[
-                    log.model_dump()
-                    for log in diagnostics_manager.get_logs(limit=20)
+                    log.model_dump() for log in diagnostics_manager.get_logs(limit=20)
                 ],
             ).model_dump()
         )
