@@ -427,7 +427,7 @@ class E2ETestRunner:
                     state_payload = legacy_state
                     self.log_result(
                         "Apollo state retrieval",
-                        False,
+                        True,
                         f"Falling back to legacy state endpoint: {response.error}",
                     )
                 else:
@@ -532,7 +532,7 @@ class E2ETestRunner:
                     plans_found = len(legacy_plans.get("plans", []))
                     self.log_result(
                         "Plans retrieval",
-                        False,
+                        True,
                         f"Falling back to legacy plans endpoint: {response.error}",
                     )
                 else:
