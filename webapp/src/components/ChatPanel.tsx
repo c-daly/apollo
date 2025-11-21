@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
+import { sophiaClient } from '../lib/sophia-client'
 import './ChatPanel.css'
 
 interface Message {
@@ -20,6 +21,7 @@ function ChatPanel() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -45,22 +47,45 @@ function ChatPanel() {
     setInput('')
     setIsLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const response = await sophiaClient.sendCommand(userMessage.content)
+
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `I received your message: "${userMessage.content}". This is a placeholder response. In production, this would interact with the Sophia/Hermes APIs.`,
+        content: formatSophiaResponse(response),
         timestamp: new Date(),
       }
+
       setMessages(prev => [...prev, assistantMessage])
+      setErrorMessage(null)
+    } catch (error) {
+      const fallbackMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content:
+          error instanceof Error
+            ? `I wasn't able to reach Sophia: ${error.message}`
+            : 'I was unable to reach Sophia due to an unknown error.',
+        timestamp: new Date(),
+      }
+      setMessages(prev => [...prev, fallbackMessage])
+      setErrorMessage(
+        error instanceof Error ? error.message : 'Unknown Sophia error'
+      )
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   return (
     <div className="chat-panel">
       <div className="chat-messages">
+        {errorMessage && (
+          <div className="chat-status error">
+            Unable to reach Sophia: {errorMessage}. Check your API settings.
+          </div>
+        )}
         {messages.map(message => (
           <div key={message.id} className={`message ${message.role}`}>
             <div className="message-header">
@@ -107,6 +132,26 @@ function ChatPanel() {
         </button>
       </form>
     </div>
+  )
+}
+
+function formatSophiaResponse(
+  response: Awaited<ReturnType<typeof sophiaClient.sendCommand>>
+): string {
+  if (response.success && response.data !== undefined) {
+    if (typeof response.data === 'string') {
+      return response.data
+    }
+    try {
+      return JSON.stringify(response.data, null, 2)
+    } catch {
+      return String(response.data)
+    }
+  }
+
+  return (
+    response.error ||
+    "Sophia couldn't process that command. Please verify the agent is running."
   )
 }
 
