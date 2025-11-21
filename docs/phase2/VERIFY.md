@@ -4,6 +4,11 @@
 
 This document verifies the completion of P2-M2, which implements browser diagnostics panes for inspecting LOGOS behavior in real-time.
 
+## Shared CLI/Webapp Smoke (Issue #31)
+
+- CLI → Sophia → Talos → HCG flow captured on 2025-11-21. Log: [`docs/evidence/apollo_surfaces_smoke/cli_smoke_2025-11-21.txt`](../evidence/apollo_surfaces_smoke/cli_smoke_2025-11-21.txt).
+- Webapp verification steps + instructions live in [`docs/evidence/apollo_surfaces_smoke/README.md`](../evidence/apollo_surfaces_smoke/README.md) and align with issues #17/#18.
+
 ## Implemented Features
 
 ### 1. Graph Explorer (✅ Complete)
