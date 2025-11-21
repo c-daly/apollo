@@ -230,15 +230,20 @@ class E2ETestRunner:
             if response.success:
                 self.log_result("Command sent successfully", True)
 
-                # Verify response contains plan
-                if response.data and "plan" in response.data:
-                    plan = response.data["plan"]
-                    logger.info(f"Plan generated: {plan['plan_id']}")
-                    logger.info(f"Plan status: {plan['status']}")
-                    logger.info(f"Plan steps: {len(plan['steps'])}")
+                plan_payload = None
+                if isinstance(response.data, dict):
+                    if "plan" in response.data:
+                        plan_payload = response.data["plan"]
+                    elif all(key in response.data for key in ("plan_id", "steps")):
+                        plan_payload = response.data
+
+                if plan_payload:
+                    logger.info(f"Plan generated: {plan_payload['plan_id']}")
+                    logger.info(f"Plan status: {plan_payload['status']}")
+                    logger.info(f"Plan steps: {len(plan_payload['steps'])}")
 
                     self.log_result(
-                        "Plan generated", True, f"Plan ID: {plan['plan_id']}"
+                        "Plan generated", True, f"Plan ID: {plan_payload['plan_id']}"
                     )
 
                     # Verify plan has expected steps
@@ -248,7 +253,7 @@ class E2ETestRunner:
                         "move_to_position",
                         "release",
                     ]
-                    actual_actions = [step["action"] for step in plan["steps"]]
+                    actual_actions = [step["action"] for step in plan_payload["steps"]]
 
                     if actual_actions == expected_actions:
                         self.log_result(
@@ -383,38 +388,57 @@ class E2ETestRunner:
             response = self.sophia_client.get_state()
 
             if response.success and response.data:
-                state = response.data
+                state_payload = response.data
+                agent_status = None
+                agent_object = None
+                agent_position = None
+
+                if isinstance(state_payload, dict) and "states" in state_payload:
+                    states = state_payload.get("states", [])
+                    if states:
+                        entities = states[0].get("data", {}).get("entities", [])
+                        if entities:
+                            agent_entry = entities[0]
+                            agent_status = agent_entry.get("status")
+                            agent_object = agent_entry.get("grasped_object")
+                            agent_position = agent_entry.get("position")
+                        else:
+                            agent_status = states[0].get("status")
+                else:
+                    agent_status = state_payload.get("status")
+                    agent_object = state_payload.get("grasped_object")
+                    agent_position = state_payload.get("position")
+
                 logger.info("Retrieved state via Apollo:")
-                logger.info(f"  Agent ID: {state.get('agent_id')}")
-                logger.info(f"  Status: {state.get('status')}")
-                logger.info(f"  Grasped object: {state.get('grasped_object')}")
-                logger.info(f"  Position: {state.get('position')}")
+                logger.info(f"  Status: {agent_status}")
+                logger.info(f"  Grasped object: {agent_object}")
+                logger.info(f"  Position: {agent_position}")
 
                 # Verify state reflects updates
-                if state.get("status") == "completed":
+                if agent_status == "completed":
                     self.log_result("Apollo reads completed status", True)
                 else:
                     self.log_result(
                         "Apollo reads completed status",
                         False,
-                        f"Status: {state.get('status')}",
+                        f"Status: {agent_status}",
                     )
 
-                if state.get("grasped_object") == "red_block":
+                if agent_object == "red_block":
                     self.log_result(
                         "Apollo reads grasped object",
                         True,
-                        f"Object: {state.get('grasped_object')}",
+                        f"Object: {agent_object}",
                     )
                 else:
                     self.log_result(
                         "Apollo reads grasped object",
                         False,
-                        f"Object: {state.get('grasped_object')}",
+                        f"Object: {agent_object}",
                     )
 
-                pos = state.get("position")
-                if pos and pos["x"] == 1.0 and pos["y"] == 1.0 and pos["z"] == 0.5:
+                pos = agent_position or {}
+                if pos and pos.get("x") == 1.0 and pos.get("y") == 1.0 and pos.get("z") == 0.5:
                     self.log_result(
                         "Apollo reads updated position",
                         True,
@@ -445,25 +469,24 @@ class E2ETestRunner:
             response = self.sophia_client.get_plans(limit=10)
 
             if response.success and response.data:
-                plans = response.data.get("plans", [])
-                logger.info(f"Retrieved {len(plans)} plan(s)")
+                plans_found = 0
+                if isinstance(response.data, dict):
+                    if "plans" in response.data:
+                        plans_found = len(response.data.get("plans", []))
+                    elif "states" in response.data:
+                        plan_ids = [
+                            state.get("links", {}).get("plan_id")
+                            for state in response.data.get("states", [])
+                            if state.get("links", {}).get("plan_id")
+                        ]
+                        plans_found = len(plan_ids)
 
-                if len(plans) > 0:
-                    self.log_result(
-                        "Plans retrieved", True, f"{len(plans)} plan(s) found"
-                    )
-
-                    # Log first plan details
-                    if plans:
-                        plan = plans[0]
-                        logger.info(f"  Latest plan: {plan['id']}")
-                        logger.info(f"  Goal: {plan['goal']}")
-                        logger.info(f"  Status: {plan['status']}")
-
+                if plans_found > 0:
+                    self.log_result("Plans retrieved", True, f"{plans_found} plan(s) found")
                     return True
-                else:
-                    self.log_result("Plans retrieved", False, "No plans found")
-                    return False
+
+                self.log_result("Plans retrieved", False, "No plans found")
+                return False
             else:
                 self.log_result("Plans retrieval", False, response.error)
                 return False

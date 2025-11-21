@@ -94,6 +94,20 @@ def build_cwm_state(plan_id=None):
     snapshot = fetch_agent_snapshot()
     state_id = f"cwm_state_{uuid4().hex}"
     linked_plan = plan_id or get_latest_plan_id()
+    agent_entity = {
+        "id": snapshot.get("agent_id", "agent-1"),
+        "type": "Agent",
+        "status": snapshot.get("status", "idle"),
+        "position": snapshot.get("position"),
+        "grasped_object": snapshot.get("grasped_object"),
+    }
+    cwm_data = {
+        "entities": [agent_entity],
+        "relations": [],
+        "violations": [],
+        "validation": {"status": "ok", "message": None},
+    }
+
     return {
         "states": [
             {
@@ -109,14 +123,7 @@ def build_cwm_state(plan_id=None):
                     "persona_entry_id": None,
                     "media_sample_id": None,
                 },
-                "data": {
-                    "agent": {
-                        "id": snapshot.get("agent_id", "agent-1"),
-                        "status": snapshot.get("status", "idle"),
-                        "position": snapshot.get("position"),
-                        "grasped_object": snapshot.get("grasped_object"),
-                    }
-                },
+                "data": cwm_data,
             }
         ]
     }
