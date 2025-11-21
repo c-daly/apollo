@@ -24,7 +24,9 @@
     /* Path mapping */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@logos/hermes-sdk": ["./vendor/@logos/hermes-sdk/src/index.ts"],
+      "@logos/sophia-sdk": ["./vendor/@logos/sophia-sdk/src/index.ts"]
     }
   },
   "include": ["src"]
