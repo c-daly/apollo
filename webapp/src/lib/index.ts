@@ -26,17 +26,11 @@ export { SophiaClient, createSophiaClient, sophiaClient } from './sophia-client'
 export type {
   SophiaClientConfig,
   SophiaResponse,
-  HealthResponse as SophiaHealthResponse,
-  StateResponse,
-  GoalResponse,
-  CreateGoalRequest,
+  PlanRequest,
   PlanResponse,
-  PlansResponse,
-  CreatePlanRequest,
-  ExecuteStepRequest,
-  ExecuteStepResponse,
-  SimulatePlanRequest,
-  SimulatePlanResponse,
+  SimulationResponse,
+  SophiaStateResponse as StateResponse,
+  HealthResponse as SophiaHealthResponse,
 } from './sophia-client'
 
 // Hermes Client
@@ -44,15 +38,14 @@ export { HermesClient, createHermesClient, hermesClient } from './hermes-client'
 export type {
   HermesClientConfig,
   HermesResponse,
-  HealthResponse as HermesHealthResponse,
-  EmbeddingResponse,
   EmbedTextRequest,
-  BatchEmbeddingResponse,
-  EmbedBatchRequest,
-  SearchResult,
-  SearchResponse,
-  SearchRequest,
+  SimpleNlpOptions,
+  EmbedText200Response as EmbeddingResponse,
+  SimpleNlp200Response,
+  LLMRequest,
+  LLMResponse,
 } from './hermes-client'
+export type { HermesHealthResponse } from './hermes-client'
 
 // HCG Client (existing)
 export { HCGAPIClient, hcgClient } from './hcg-client'

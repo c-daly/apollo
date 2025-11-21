@@ -7,14 +7,14 @@
 
 import React, { useState } from 'react'
 import { sophiaClient } from '../lib'
-import type { GoalResponse } from '../lib'
+import type { PlanResponse, StateResponse } from '../lib'
 
 export function GoalCreator() {
   const [goalText, setGoalText] = useState('')
   const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [createdGoal, setCreatedGoal] = useState<GoalResponse | null>(null)
+  const [createdGoal, setCreatedGoal] = useState<PlanResponse | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -105,22 +105,23 @@ export function GoalCreator() {
 
       {createdGoal && (
         <div className="success-message">
-          <h3>Goal Created Successfully!</h3>
+          <h3>Plan Created Successfully!</h3>
           <dl>
-            <dt>Goal ID:</dt>
-            <dd>{createdGoal.goal_id}</dd>
-
-            <dt>Description:</dt>
-            <dd>{createdGoal.description}</dd>
-
-            <dt>Priority:</dt>
-            <dd>{createdGoal.priority || 'not specified'}</dd>
+            <dt>Plan ID:</dt>
+            <dd>{createdGoal.planId || 'N/A'}</dd>
 
             <dt>Status:</dt>
-            <dd>{createdGoal.status}</dd>
+            <dd>{createdGoal.status || 'pending'}</dd>
 
-            <dt>Created At:</dt>
-            <dd>{new Date(createdGoal.created_at).toLocaleString()}</dd>
+            <dt>Submitted:</dt>
+            <dd>
+              {createdGoal.submittedAt
+                ? createdGoal.submittedAt.toISOString()
+                : 'unknown'}
+            </dd>
+
+            <dt>Diagnostics:</dt>
+            <dd>{createdGoal.diagnostics?.join(', ') || 'none'}</dd>
           </dl>
         </div>
       )}
@@ -157,8 +158,9 @@ export function EmbeddingGenerator() {
       const response = await hermesClient.embedText({ text })
 
       if (response.success && response.data) {
-        setEmbedding(response.data.embedding)
-        setDimensions(response.data.dimensions)
+        const vector = response.data.embedding ?? null
+        setEmbedding(vector)
+        setDimensions(response.data.dimension ?? vector?.length ?? 0)
       } else {
         setError(response.error || 'Failed to generate embedding')
       }
@@ -228,14 +230,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 // Query hook for agent state
 export function useAgentState() {
-  return useQuery({
+  return useQuery<StateResponse>({
     queryKey: ['agentState'],
     queryFn: async () => {
       const response = await sophiaClient.getState()
       if (!response.success) {
         throw new Error(response.error)
       }
-      return response.data
+      return response.data as StateResponse
     },
     refetchInterval: 5000, // Refetch every 5 seconds
   })
@@ -251,7 +253,7 @@ export function useCreateGoal() {
       if (!response.success) {
         throw new Error(response.error)
       }
-      return response.data
+      return response.data as PlanResponse
     },
     onSuccess: () => {
       // Invalidate and refetch agent state after creating a goal
@@ -268,29 +270,25 @@ export function AgentDashboard() {
   if (isLoading) return <div>Loading agent state...</div>
   if (error) return <div>Error: {error.message}</div>
 
+  const recentStates = state?.states ? state.states.slice(0, 10) : []
+
   return (
     <div className="agent-dashboard">
       <h2>Agent State</h2>
 
       <section>
-        <h3>Active Goals ({state?.state.goals.length || 0})</h3>
+        <h3>Recent CWM States ({state?.states?.length || 0})</h3>
         <ul>
-          {state?.state.goals.map(goal => (
-            <li key={goal.id}>
-              {goal.description} - <em>{goal.status}</em>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h3>Plans ({state?.state.plans.length || 0})</h3>
-        <ul>
-          {state?.state.plans.map(plan => (
-            <li key={plan.id}>
-              Plan {plan.id} - {plan.steps.length} steps
-            </li>
-          ))}
+          {recentStates.length > 0 ? (
+            recentStates.map(cwmState => (
+              <li key={cwmState.stateId}>
+                <strong>{cwmState.modelType}</strong> — {cwmState.status} (
+                {cwmState.source})
+              </li>
+            ))
+          ) : (
+            <li>No state records yet</li>
+          )}
         </ul>
       </section>
 

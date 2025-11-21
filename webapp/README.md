@@ -47,6 +47,13 @@ npm install
 
 This will install all required dependencies and devDependencies as defined in `package.json`.
 
+> **Note:** The generated `@logos/sophia-sdk` and `@logos/hermes-sdk` packages are
+> vendored under `webapp/vendor/@logos/*` (copied from
+> [`c-daly/logos`](https://github.com/c-daly/logos) commit
+> `9549b089203ed1d8bb6560ab56ba02e7dbbefb61`). If the OpenAPI contracts change,
+> refresh these folders using the instructions in `webapp/vendor/README.md` to keep
+> the snapshot in sync.
+
 ## Development
 
 Start the development server:

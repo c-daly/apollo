@@ -1,9 +1,23 @@
 /**
- * TypeScript client for Hermes Language & Embedding API
+ * Hermes client backed by the generated @logos/hermes-sdk package.
  *
- * Provides type-safe interface to Hermes's text embedding and semantic search
- * capabilities. Matches Python CLI client functionality.
+ * Provides a minimal wrapper that keeps the existing response envelope
+ * (`HermesResponse`) while delegating transport details to the shared SDK.
+ * A lightweight legacy fallback is retained for environments that still
+ * expose the older /api/* endpoints.
  */
+
+import {
+  Configuration,
+  DefaultApi,
+  EmbedText200Response,
+  EmbedTextRequest as HermesEmbedTextRequest,
+  LLMRequest,
+  LLMResponse,
+  ResponseError,
+  SimpleNlp200Response,
+  SimpleNlpRequest,
+} from '@logos/hermes-sdk'
 
 export interface HermesClientConfig {
   baseUrl?: string
@@ -17,106 +31,237 @@ export interface HermesResponse<T = unknown> {
   error?: string
 }
 
-// Response types based on Hermes OpenAPI spec
-export interface HealthResponse {
+export interface HermesHealthResponse {
   status: string
   version?: string
   models?: string[]
 }
 
-export interface EmbeddingResponse {
-  embedding: number[]
-  model: string
-  dimensions: number
-  normalized: boolean
-}
-
 export interface EmbedTextRequest {
   text: string
   model?: string
-  normalize?: boolean
 }
 
-export interface BatchEmbeddingResponse {
-  embeddings: number[][]
-  model: string
-  dimensions: number
-  normalized: boolean
-  count: number
+export interface SimpleNlpOptions {
+  text: string
+  operations?: Array<'tokenize' | 'pos_tag' | 'lemmatize' | 'ner'>
 }
 
-export interface EmbedBatchRequest {
-  texts: string[]
-  model?: string
-  normalize?: boolean
+interface HermesClientDependencies {
+  defaultApi: DefaultApi
 }
 
-export interface SearchResult {
-  id: string
-  score: number
-  text?: string
-  metadata?: Record<string, unknown>
-}
+const DEFAULT_TIMEOUT_MS = 30_000
+type FetchInput = Parameters<typeof fetch>[0]
+type FetchInit = Parameters<typeof fetch>[1]
 
-export interface SearchResponse {
-  results: SearchResult[]
-  query_embedding?: number[]
-  model: string
-  total_results: number
-}
-
-export interface SearchRequest {
-  query: string
-  k?: number
-  model?: string
-  filter?: Record<string, unknown>
-}
-
-/**
- * Client for Hermes Language & Embedding API
- *
- * Provides methods for:
- * - Health checks
- * - Text embedding (single and batch)
- * - Semantic search
- */
 export class HermesClient {
-  private baseUrl: string
-  private apiKey?: string
-  private timeout: number
+  private readonly defaultApi: DefaultApi
+  private readonly timeout: number
+  private readonly baseUrl: string
+  private readonly apiKey?: string
 
-  constructor(config: HermesClientConfig = {}) {
+  constructor(
+    config: HermesClientConfig = {},
+    deps?: Partial<HermesClientDependencies>
+  ) {
     this.baseUrl = config.baseUrl || 'http://localhost:8081'
     this.apiKey = config.apiKey
-    this.timeout = config.timeout || 30000
+    this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
+
+    const configuration = new Configuration({
+      basePath: this.baseUrl,
+      accessToken: this.apiKey ? async () => this.apiKey as string : undefined,
+      fetchApi: (input, init) => this.fetchWithTimeout(input, init),
+    })
+
+    this.defaultApi = deps?.defaultApi ?? new DefaultApi(configuration)
   }
 
-  /**
-   * Internal fetch with timeout and error handling
-   */
+  async healthCheck(): Promise<boolean> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/health`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.authHeaders(),
+        },
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  async getHealth(): Promise<HermesResponse<HermesHealthResponse>> {
+    try {
+      const response = await this.fetchWithTimeout(`${this.baseUrl}/health`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.authHeaders(),
+        },
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        return {
+          success: false,
+          error: text || response.statusText,
+        }
+      }
+
+      const data = (await response.json()) as HermesHealthResponse
+      return { success: true, data }
+    } catch (error) {
+      if (this.isAbortError(error)) {
+        return {
+          success: false,
+          error: `Request timed out after ${this.timeout}ms while retrieving Hermes health`,
+        }
+      }
+
+      if (error instanceof Error) {
+        return {
+          success: false,
+          error: `Failed to retrieve Hermes health: ${error.message}`,
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Failed to retrieve Hermes health',
+      }
+    }
+  }
+
+  async embedText(
+    request: EmbedTextRequest
+  ): Promise<HermesResponse<EmbedText200Response>> {
+    if (!request.text.trim()) {
+      return { success: false, error: 'Text is required for embedding' }
+    }
+
+    const payload: HermesEmbedTextRequest = {
+      text: request.text,
+      model: request.model || 'default',
+    }
+
+    try {
+      const response = await this.defaultApi.embedText({
+        embedTextRequest: payload,
+      })
+      return this.success(response)
+    } catch (error) {
+      if (this.isNotFound(error)) {
+        return this.legacyEmbedText(payload)
+      }
+      return this.failure('generating embedding', error)
+    }
+  }
+
+  async simpleNlp(
+    request: SimpleNlpOptions
+  ): Promise<HermesResponse<SimpleNlp200Response>> {
+    if (!request.text.trim()) {
+      return { success: false, error: 'Text is required for NLP processing' }
+    }
+
+    const payload: SimpleNlpRequest = {
+      text: request.text,
+      operations: request.operations,
+    }
+
+    try {
+      const response = await this.defaultApi.simpleNlp({
+        simpleNlpRequest: payload,
+      })
+      return this.success(response)
+    } catch (error) {
+      return this.failure('running simple NLP', error)
+    }
+  }
+
+  async llmGenerate(request: LLMRequest): Promise<HermesResponse<LLMResponse>> {
+    try {
+      const response = await this.defaultApi.llmGenerate({
+        lLMRequest: request,
+      })
+      return this.success(response)
+    } catch (error) {
+      return this.failure('calling the LLM gateway', error)
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+  private success<T>(data: T): HermesResponse<T> {
+    return { success: true, data }
+  }
+
+  private async failure(
+    action: string,
+    error: unknown
+  ): Promise<HermesResponse<never>> {
+    if (this.isAbortError(error)) {
+      return {
+        success: false,
+        error: `Request timed out after ${this.timeout}ms while ${action}`,
+      }
+    }
+
+    if (error instanceof ResponseError) {
+      let details: string | undefined
+      try {
+        details = await error.response.text()
+      } catch {
+        details = error.message
+      }
+
+      return {
+        success: false,
+        error: `Hermes API error while ${action}: ${details}`,
+      }
+    }
+
+    if (error instanceof Error) {
+      return {
+        success: false,
+        error: `Unexpected error while ${action}: ${error.message}`,
+      }
+    }
+
+    return {
+      success: false,
+      error: `Unknown error while ${action}`,
+    }
+  }
+
+  private isAbortError(error: unknown): error is DOMException {
+    return error instanceof DOMException && error.name === 'AbortError'
+  }
+
+  private isNotFound(error: unknown): boolean {
+    return error instanceof ResponseError && error.response.status === 404
+  }
+
   private async fetchWithTimeout(
-    url: string,
-    options: RequestInit = {}
+    input: FetchInput,
+    init: FetchInit = {}
   ): Promise<Response> {
+    const requestInput = input instanceof URL ? input.toString() : input
+
+    if (this.timeout <= 0 || init.signal) {
+      return fetch(requestInput, init)
+    }
+
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(options.headers as Record<string, string>),
-      }
-
-      if (this.apiKey) {
-        headers['Authorization'] = `Bearer ${this.apiKey}`
-      }
-
-      const response = await fetch(url, {
-        ...options,
-        headers,
+      const response = await fetch(requestInput, {
+        ...init,
         signal: controller.signal,
       })
-
       clearTimeout(timeoutId)
       return response
     } catch (error) {
@@ -125,140 +270,81 @@ export class HermesClient {
     }
   }
 
-  /**
-   * Wrap API calls with consistent error handling
-   */
-  private async handleRequest<T>(
-    requestFn: () => Promise<Response>
-  ): Promise<HermesResponse<T>> {
+  private authHeaders(): Record<string, string> {
+    if (!this.apiKey) {
+      return {}
+    }
+    return {
+      Authorization: `Bearer ${this.apiKey}`,
+    }
+  }
+
+  private async legacyEmbedText(
+    payload: HermesEmbedTextRequest
+  ): Promise<HermesResponse<EmbedText200Response>> {
     try {
-      const response = await requestFn()
+      const response = await this.fetchWithTimeout(
+        `${this.baseUrl}/api/embed_text`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.authHeaders(),
+          },
+          body: JSON.stringify({
+            text: payload.text,
+            model: payload.model,
+          }),
+        }
+      )
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
+        const text = await response.text()
         return {
           success: false,
-          error: errorData.error || `Request failed: ${response.statusText}`,
+          error: text || `Hermes legacy request failed: ${response.statusText}`,
         }
       }
 
-      const data = await response.json()
-      return {
-        success: true,
-        data: data as T,
-      }
+      const data = (await response.json()) as EmbedText200Response
+      return { success: true, data }
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === 'AbortError') {
-          return {
-            success: false,
-            error: `Request timed out after ${this.timeout}ms`,
-          }
-        }
+      if (this.isAbortError(error)) {
         return {
           success: false,
-          error: `Request failed: ${error.message}`,
+          error: `Request timed out after ${this.timeout}ms while generating embedding`,
         }
       }
+
+      if (error instanceof Error) {
+        return {
+          success: false,
+          error: `Legacy embedding failed: ${error.message}`,
+        }
+      }
+
       return {
         success: false,
-        error: 'Unknown error occurred',
+        error: 'Legacy embedding failed',
       }
     }
-  }
-
-  /**
-   * Health check - verify Hermes service is running
-   */
-  async healthCheck(): Promise<boolean> {
-    try {
-      const response = await this.fetchWithTimeout(`${this.baseUrl}/health`)
-      return response.ok
-    } catch {
-      return false
-    }
-  }
-
-  /**
-   * Get detailed health information including available models
-   */
-  async getHealth(): Promise<HermesResponse<HealthResponse>> {
-    return this.handleRequest<HealthResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/health`)
-    )
-  }
-
-  /**
-   * Generate embedding for a single text
-   */
-  async embedText(
-    request: EmbedTextRequest
-  ): Promise<HermesResponse<EmbeddingResponse>> {
-    const payload = {
-      text: request.text,
-      model: request.model || 'sentence-transformers',
-      normalize: request.normalize !== undefined ? request.normalize : true,
-    }
-
-    return this.handleRequest<EmbeddingResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/embed_text`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-    )
-  }
-
-  /**
-   * Generate embeddings for multiple texts in a batch
-   */
-  async embedBatch(
-    request: EmbedBatchRequest
-  ): Promise<HermesResponse<BatchEmbeddingResponse>> {
-    const payload = {
-      texts: request.texts,
-      model: request.model || 'sentence-transformers',
-      normalize: request.normalize !== undefined ? request.normalize : true,
-    }
-
-    return this.handleRequest<BatchEmbeddingResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/embed_batch`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-    )
-  }
-
-  /**
-   * Perform semantic search using query text
-   */
-  async search(
-    request: SearchRequest
-  ): Promise<HermesResponse<SearchResponse>> {
-    const payload = {
-      query: request.query,
-      k: request.k || 10,
-      model: request.model || 'sentence-transformers',
-      filter: request.filter,
-    }
-
-    return this.handleRequest<SearchResponse>(() =>
-      this.fetchWithTimeout(`${this.baseUrl}/api/search`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
-    )
   }
 }
 
-/**
- * Create a Hermes client from environment variables
- */
-export function createHermesClient(): HermesClient {
+export function createHermesClient(config?: HermesClientConfig): HermesClient {
   return new HermesClient({
-    baseUrl: import.meta.env.VITE_HERMES_API_URL,
-    apiKey: import.meta.env.VITE_HERMES_API_KEY,
+    baseUrl: config?.baseUrl ?? import.meta.env.VITE_HERMES_API_URL,
+    apiKey: config?.apiKey ?? import.meta.env.VITE_HERMES_API_KEY,
+    timeout: config?.timeout,
   })
 }
 
-// Default client instance for convenience
 export const hermesClient = createHermesClient()
+
+export type {
+  EmbedText200Response,
+  LLMRequest,
+  LLMResponse,
+  SimpleNlp200Response,
+  SimpleNlpRequest,
+}

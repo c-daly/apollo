@@ -60,7 +60,7 @@ The sections below describe the TypeScript SDKs that power the Apollo web applic
 Apollo provides type-safe, fully tested API clients for the LOGOS ecosystem:
 
 - **Sophia Client**: Interact with the cognitive core for goal planning and execution
-- **Hermes Client**: Generate text embeddings and perform semantic search
+- **Hermes Client**: Generate text embeddings, run simple NLP helpers, and proxy LLM calls
 - **Configuration**: Centralized config management with environment variable support
 
 ## Installation
@@ -71,6 +71,29 @@ The API clients are part of the Apollo webapp. No additional installation is req
 cd webapp
 npm install
 ```
+
+### Shared SDK Packages
+
+The TypeScript clients wrap the generated `@logos/sophia-sdk` and
+`@logos/hermes-sdk` packages. To keep CI simple, the SDKs are vendored under
+`webapp/vendor/@logos/*` and were copied from
+[`c-daly/logos`](https://github.com/c-daly/logos) commit
+`9549b089203ed1d8bb6560ab56ba02e7dbbefb61` (folders `sdk-web/sophia` and
+`sdk-web/hermes`).
+
+To refresh them after the OpenAPI contracts change:
+
+```bash
+# From the apollo repo root (with ../logos pointing at the desired commit)
+rm -rf webapp/vendor
+mkdir -p webapp/vendor/@logos
+rsync -a --exclude node_modules ../logos/sdk-web/sophia/ webapp/vendor/@logos/sophia-sdk
+rsync -a --exclude node_modules ../logos/sdk-web/hermes/ webapp/vendor/@logos/hermes-sdk
+npm install --prefix webapp
+```
+
+Please update `webapp/vendor/README.md` with the new commit hash whenever you
+refresh the snapshot.
 
 ## Quick Start
 
@@ -273,7 +296,8 @@ if (healthResponse.success) {
 
 ## Hermes Client
 
-The Hermes client provides text embedding and semantic search capabilities.
+The Hermes client provides text embedding plus auxiliary language utilities such as
+lightweight NLP preprocessing and proxying requests to the configured LLM provider.
 
 ### Generating Embeddings
 
@@ -291,57 +315,41 @@ if (response.success) {
   console.log('Model:', response.data.model)
 }
 
-// Custom model and normalization
+// Custom model
 const response = await hermesClient.embedText({
   text: 'Pick up the red block',
   model: 'all-MiniLM-L6-v2',
-  normalize: false,
 })
 ```
 
-### Batch Embeddings
+### Simple NLP
 
 ```typescript
-const batchResponse = await hermesClient.embedBatch({
-  texts: [
-    'Navigate to the kitchen',
-    'Pick up the red block',
-    'Place object on table',
+const nlpResponse = await hermesClient.simpleNlp({
+  text: 'Pick up the red block near the table.',
+  operations: ['tokenize', 'ner'],
+})
+
+if (nlpResponse.success) {
+  console.log('Tokens:', nlpResponse.data.tokens)
+  console.log('Entities:', nlpResponse.data.entities)
+}
+```
+
+### LLM Gateway
+
+```typescript
+const completion = await hermesClient.llmGenerate({
+  model: 'echo',
+  messages: [
+    { role: 'system', content: 'You are a helpful assistant.' },
+    { role: 'user', content: 'Summarize the plan output.' },
   ],
 })
 
-if (batchResponse.success) {
-  console.log('Embeddings:', batchResponse.data.embeddings)
-  console.log('Count:', batchResponse.data.count)
+if (completion.success) {
+  console.log('LLM response:', completion.data.output)
 }
-```
-
-### Semantic Search
-
-```typescript
-// Basic search
-const searchResponse = await hermesClient.search({
-  query: 'Find navigation goals',
-})
-
-if (searchResponse.success) {
-  const results = searchResponse.data.results
-  results.forEach((result) => {
-    console.log(`ID: ${result.id}, Score: ${result.score}`)
-    console.log(`Text: ${result.text}`)
-  })
-}
-
-// Search with custom parameters
-const searchResponse = await hermesClient.search({
-  query: 'object manipulation',
-  k: 5, // Top 5 results
-  model: 'sentence-transformers',
-  filter: {
-    category: 'goals',
-    status: 'active',
-  },
-})
 ```
 
 ### Health Checks
@@ -415,69 +423,26 @@ try {
 ### Sophia Types
 
 ```typescript
-interface CreateGoalRequest {
-  goal: string
-  priority?: string
-  metadata?: Record<string, unknown>
-}
-
-interface GoalResponse {
-  goal_id: string
-  description: string
-  priority?: string
-  status: string
-  created_at: string
-}
-
-interface PlanResponse {
-  plan_id: string
-  goal_id: string
-  steps: Array<{
-    step_id: string
-    action: string
-    parameters?: Record<string, unknown>
-    preconditions?: string[]
-    effects?: string[]
-  }>
-  status: string
-  created_at: string
-}
-
-interface ExecuteStepRequest {
-  plan_id: string
-  step_index: number
-}
+import type {
+  PlanRequest,
+  PlanResponse,
+  SimulationRequest,
+  SimulationResponse,
+  StateResponse,
+} from '@logos/sophia-sdk'
 ```
 
 ### Hermes Types
 
 ```typescript
-interface EmbedTextRequest {
-  text: string
-  model?: string
-  normalize?: boolean
-}
-
-interface EmbeddingResponse {
-  embedding: number[]
-  model: string
-  dimensions: number
-  normalized: boolean
-}
-
-interface SearchRequest {
-  query: string
-  k?: number
-  model?: string
-  filter?: Record<string, unknown>
-}
-
-interface SearchResult {
-  id: string
-  score: number
-  text?: string
-  metadata?: Record<string, unknown>
-}
+import type {
+  EmbedText200Response as EmbeddingResponse,
+  EmbedTextRequest,
+  LLMRequest,
+  LLMResponse,
+  SimpleNlp200Response,
+  SimpleNlpRequest,
+} from '@logos/hermes-sdk'
 ```
 
 ## CLI/Web Parity
@@ -494,7 +459,6 @@ The TypeScript API clients are designed to match the functionality of the Python
 | `sophia_client.execute_step()` | `sophiaClient.executeStep()` |
 | `sophia_client.simulate_plan()` | `sophiaClient.simulatePlan()` |
 | `hermes_client.embed_text()` | `hermesClient.embedText()` |
-| `hermes_client.embed_batch()` | `hermesClient.embedBatch()` |
 
 ## Testing
 
