@@ -438,7 +438,12 @@ class E2ETestRunner:
                     )
 
                 pos = agent_position or {}
-                if pos and pos.get("x") == 1.0 and pos.get("y") == 1.0 and pos.get("z") == 0.5:
+                if (
+                    pos
+                    and pos.get("x") == 1.0
+                    and pos.get("y") == 1.0
+                    and pos.get("z") == 0.5
+                ):
                     self.log_result(
                         "Apollo reads updated position",
                         True,
@@ -482,7 +487,9 @@ class E2ETestRunner:
                         plans_found = len(plan_ids)
 
                 if plans_found > 0:
-                    self.log_result("Plans retrieved", True, f"{plans_found} plan(s) found")
+                    self.log_result(
+                        "Plans retrieved", True, f"{plans_found} plan(s) found"
+                    )
                     return True
 
                 self.log_result("Plans retrieved", False, "No plans found")
