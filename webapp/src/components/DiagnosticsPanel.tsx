@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePlanHistory, useProcesses } from '../hooks/useHCG'
-import { useDiagnosticsLogs, useTelemetryMetrics } from '../hooks/useDiagnostics'
+import {
+  useDiagnosticsLogs,
+  useTelemetryMetrics,
+} from '../hooks/useDiagnostics'
 import { useDiagnosticsStream } from '../hooks/useDiagnosticsStream'
 import type {
   DiagnosticLogEntry,
@@ -143,7 +146,9 @@ function DiagnosticsPanel() {
             <div className="logs-header">
               <h3>System Logs</h3>
               <div className="logs-controls">
-                <span className={`stream-status ${streamConnected ? 'online' : 'offline'}`}>
+                <span
+                  className={`stream-status ${streamConnected ? 'online' : 'offline'}`}
+                >
                   {streamConnected ? 'Live' : 'Offline'}
                 </span>
                 <select
