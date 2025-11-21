@@ -44,7 +44,23 @@ Legend: ✅ = covered, ⚠️ = partially covered or manual, ❌ = missing.
 - `ci.yml`: Ruff/Black/mypy, pytest with 95% coverage gate, Codecov upload only for Python 3.12.
 - **Gaps:** no integration/e2e tests, workflow triggers only on `main`, so branches lack automatic feedback.
 
+## Standard Workflow Adoption (Nov 21 Update)
+
+| Repo | Template adoption | Notes |
+| --- | --- | --- |
+| logos | ✅ Template lives in `.github/workflows/reusable-standard-ci.yml`; existing `test.yml` remains bespoke for ontology gates. |
+| apollo | ✅ `ci.yml` consumes the template (pip) + Node overrides. |
+| sophia | ✅ Switched to the template with Poetry + the `-m "not integration"` pytest filter. |
+| hermes | ✅ Base lint/type/test job uses the template; package build + optional Milvus integration job remain custom. |
+| talos | ✅ Template drives Ruff/Black/mypy + the 95% coverage gate via Poetry. |
+
 ## Next Steps
-1. Finish review of this inventory with the team (issues #32/#33). Move the LOGOS doc to “PR awaiting merge” once accepted.
-2. Implement the shared workflow template (issue #294) and reference it from each repo (issue #295 + per-repo subtasks).
-3. Once the template lands, gradually enable stricter gates (mypy, coverage thresholds, integration toggles) per repo.
+1. Keep this inventory in sync with template changes (issues #32/#33). Move the LOGOS doc to “PR awaiting merge” once accepted.
+2. Track reusable workflow updates in issue #294 and mirror them with per-repo subtasks (issue #295 et al.).
+3. Use the template inputs to ratchet up gates (coverage thresholds, optional integration jobs) once each repo stabilizes.
+
+## Follow-up backlog
+
+- **Hermes:** Integration tests still depend on a manual label; file/track a follow-up to require them once Milvus/minio provisioning is faster.
+- **Talos:** Add a simulator/hardware smoke workflow when deterministic fixtures exist.
+- **Logos:** Run mypy inside `test.yml` (it's already installed) and publish Codecov summaries instead of raw XML artifacts.

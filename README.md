@@ -139,6 +139,29 @@ Running `pip install -e .` (or `pip install -e ".[dev]"`) will automatically pul
 3. Commit the regenerated SDKs inside `logos`, then bump the `git+https://...` commit hashes in `pyproject.toml` here so Poetry picks up the new artifacts.
 4. `poetry lock --no-update && poetry install` (or `pip install -e .`) to refresh your virtualenv.
 
+## Local Testing (CI Parity)
+
+Apollo’s `.github/workflows/ci.yml` invokes the reusable LOGOS workflow plus the webapp job. Run the same commands locally before opening a PR:
+
+```bash
+# Python CLI
+python -m pip install --upgrade pip
+pip install -e ".[dev]"
+ruff check src tests
+black --check src tests
+mypy src
+pytest --cov=apollo --cov-report=term --cov-report=xml
+
+# Web dashboard
+cd webapp
+npm install
+npm run lint
+npm run type-check
+npm run test -- --run
+```
+
+Keeping these commands green locally mirrors the CI signal.
+
 ### Running the Web Dashboard
 
 ```bash
