@@ -75,11 +75,8 @@ apollo-cli goal "Navigate to the kitchen"
 # Create a goal with priority
 apollo-cli goal "Pick up the red block" --priority high
 
-# Invoke planner to generate a plan (Phase 1)
-apollo-cli plan "goal_12345"
-
-# Execute a plan step (Phase 1)
-apollo-cli execute "plan_456" --step 0
+# Invoke planner with a natural-language goal (Phase 2)
+apollo-cli plan "Inspect the kitchen counters"
 
 # View current agent state
 apollo-cli state
@@ -87,23 +84,23 @@ apollo-cli state
 # Show recent plans
 apollo-cli plans --recent 5
 
-# Send a command to Sophia
+# Send a command to Sophia (alias for plan)
 apollo-cli send "pick up the red block"
 
 # Display command history
 apollo-cli history
 ```
 
-**Phase 1 Goal→Plan→Execute→State Loop**:
+**Phase 2 Goal→Plan→Simulate→State Loop**:
 ```bash
-# 1. Create a goal
+# 1. Create (or restate) the goal
 apollo-cli goal "Navigate to kitchen" --priority high
 
 # 2. Generate a plan for the goal
-apollo-cli plan <goal_id>
+apollo-cli plan "Navigate to kitchen"
 
-# 3. Execute the first step
-apollo-cli execute <plan_id> --step 0
+# 3. Run a dry-run simulation to verify the plan
+apollo-cli simulate <plan_id>
 
 # 4. Check updated state
 apollo-cli state
@@ -123,8 +120,17 @@ apollo-cli simulate "plan_12345"
 apollo-cli embed "Navigate to the kitchen"
 
 # Use specific model
-apollo-cli embed "Pick up the red block" --model sentence-transformers
+apollo-cli embed "Pick up the red block" --model small-e5
 ```
+
+### Shared SDK Clients
+
+Apollo CLI now depends on the generated Python SDKs that live in the [`logos`](https://github.com/c-daly/logos) repository:
+
+- `logos-sophia-sdk` (commit `9549b08`): exposes `PlanRequest`, `StateResponse`, and JEPA simulation types.
+- `logos-hermes-sdk` (commit `9549b08`): exposes embedding/NLP helpers used by the `embed` command.
+
+Running `pip install -e .` (or `pip install -e ".[dev]"`) will automatically pull both SDKs from GitHub. To regenerate them after OpenAPI changes, run the generator scripts in the `logos` repo and bump the commit hash inside `pyproject.toml`.
 
 ### Running the Web Dashboard
 
@@ -181,11 +187,13 @@ sophia:
   host: localhost
   port: 8080
   timeout: 30
+  api_key: ${SOPHIA_API_KEY}  # Optional bearer token
 
 hermes:
   host: localhost
   port: 8081
   timeout: 30
+  api_key: ${HERMES_API_KEY}
   
 hcg:
   neo4j:

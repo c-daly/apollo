@@ -5,6 +5,13 @@ sophia:
   host: localhost
   port: 8080
   timeout: 30
+  api_key: ""  # Optional bearer token for Sophia API
+
+hermes:
+  host: localhost
+  port: 8081
+  timeout: 30
+  api_key: ""  # Optional bearer token for Hermes API
 
 hcg:
   neo4j:
