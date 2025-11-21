@@ -246,8 +246,12 @@ def plan(ctx: click.Context, goal: Optional[str]) -> None:
 
     if not goal:
         console.print("[yellow]Usage:[/yellow] apollo-cli plan '<goal description>'")
-        console.print("\n[dim]Example:[/dim] apollo-cli plan 'Inspect the kitchen counters'")
-        console.print("\n[dim]Tip:[/dim] Include constraints in plain English if needed")
+        console.print(
+            "\n[dim]Example:[/dim] apollo-cli plan 'Inspect the kitchen counters'"
+        )
+        console.print(
+            "\n[dim]Tip:[/dim] Include constraints in plain English if needed"
+        )
         return
 
     client: SophiaClient = ctx.obj["client"]
@@ -339,7 +343,9 @@ def history() -> None:
     help="Number of imagined steps (1-50). Defaults to SDK value.",
 )
 @click.pass_context
-def simulate(ctx: click.Context, plan_id: Optional[str], horizon: Optional[int]) -> None:
+def simulate(
+    ctx: click.Context, plan_id: Optional[str], horizon: Optional[int]
+) -> None:
     """Simulate plan execution without committing changes.
 
     Args:
@@ -398,9 +404,7 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
             "\n[dim]Example:[/dim] apollo-cli embed 'Navigate to the kitchen'"
         )
         console.print("\n[dim]Options:[/dim]")
-        console.print(
-            "  --model <name>  Embedding model (default: default)"
-        )
+        console.print("  --model <name>  Embedding model (default: default)")
         return
 
     hermes: HermesClient = ctx.obj["hermes"]

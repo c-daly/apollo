@@ -79,7 +79,9 @@ class HermesClient:
     def _handle_exception(self, action: str, error: Exception) -> HermesResponse:
         if isinstance(error, ApiException):
             details = error.body or error.reason or str(error)
-            return HermesResponse(success=False, error=f"Hermes API error while {action}: {details}")
+            return HermesResponse(
+                success=False, error=f"Hermes API error while {action}: {details}"
+            )
 
         return HermesResponse(
             success=False,

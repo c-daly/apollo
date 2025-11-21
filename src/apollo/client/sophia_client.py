@@ -59,7 +59,10 @@ class SophiaClient:
         return self._submit_plan(request, context="sending command")
 
     def get_state(
-        self, limit: int = 10, cursor: Optional[str] = None, model_type: Optional[str] = None
+        self,
+        limit: int = 10,
+        cursor: Optional[str] = None,
+        model_type: Optional[str] = None,
     ) -> SophiaResponse:
         """Get current agent state from Sophia."""
         try:
@@ -82,7 +85,9 @@ class SophiaClient:
     ) -> SophiaResponse:
         """Create a goal by submitting a plan request."""
         if not goal:
-            return SophiaResponse(success=False, error="Goal description cannot be empty")
+            return SophiaResponse(
+                success=False, error="Goal description cannot be empty"
+            )
 
         metadata_copy = dict(metadata) if metadata else {}
         priority = metadata_copy.pop("priority", None)
@@ -97,7 +102,9 @@ class SophiaClient:
     def invoke_planner(self, goal_id: str) -> SophiaResponse:
         """Invoke the planner (mapped to /plan)."""
         if not goal_id:
-            return SophiaResponse(success=False, error="Goal identifier cannot be empty")
+            return SophiaResponse(
+                success=False, error="Goal identifier cannot be empty"
+            )
 
         request = PlanRequest(goal=goal_id)
         return self._submit_plan(request, context="invoking planner")
@@ -117,7 +124,9 @@ class SophiaClient:
     ) -> SophiaResponse:
         """Simulate a plan using the shared SDK."""
         if not plan_id:
-            return SophiaResponse(success=False, error="Plan identifier is required for simulation")
+            return SophiaResponse(
+                success=False, error="Plan identifier is required for simulation"
+            )
 
         simulation_context: Dict[str, Any] = {"plan_id": plan_id}
         if context:
@@ -174,7 +183,9 @@ class SophiaClient:
                     "Unauthorized response from Sophia. "
                     "Set sophia.api_key in config.yaml or SOPHIA_API_KEY env var."
                 )
-            return SophiaResponse(success=False, error=f"Sophia API error while {action}: {details}")
+            return SophiaResponse(
+                success=False, error=f"Sophia API error while {action}: {details}"
+            )
 
         return SophiaResponse(
             success=False,
