@@ -13,6 +13,9 @@ class SophiaConfig(BaseModel):
     host: str = Field(default="localhost", description="Sophia API host")
     port: int = Field(default=8080, description="Sophia API port")
     timeout: int = Field(default=30, description="Request timeout in seconds")
+    api_key: Optional[str] = Field(
+        default=None, description="Bearer token for Sophia API access"
+    )
 
 
 class HermesConfig(BaseModel):
@@ -21,6 +24,9 @@ class HermesConfig(BaseModel):
     host: str = Field(default="localhost", description="Hermes API host")
     port: int = Field(default=8081, description="Hermes API port")
     timeout: int = Field(default=30, description="Request timeout in seconds")
+    api_key: Optional[str] = Field(
+        default=None, description="Bearer token for Hermes API access"
+    )
 
 
 class Neo4jConfig(BaseModel):

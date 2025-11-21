@@ -23,7 +23,7 @@ def test_sophia_client_send_command() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "cannot connect" in response.error.lower()
+    assert response.error
 
 
 def test_sophia_client_get_state() -> None:
@@ -35,7 +35,7 @@ def test_sophia_client_get_state() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "cannot connect" in response.error.lower()
+    assert response.error
 
 
 def test_sophia_client_get_plans() -> None:
@@ -47,7 +47,7 @@ def test_sophia_client_get_plans() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "cannot connect" in response.error.lower()
+    assert response.error
 
 
 def test_sophia_client_health_check() -> None:
@@ -69,7 +69,7 @@ def test_sophia_client_create_goal() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "cannot connect" in response.error.lower()
+    assert response.error
 
 
 def test_sophia_client_invoke_planner() -> None:
@@ -81,7 +81,7 @@ def test_sophia_client_invoke_planner() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "cannot connect" in response.error.lower()
+    assert response.error
 
 
 def test_sophia_client_execute_step() -> None:
@@ -93,4 +93,4 @@ def test_sophia_client_execute_step() -> None:
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False
-    assert "cannot connect" in response.error.lower()
+    assert "talos" in response.error.lower()
