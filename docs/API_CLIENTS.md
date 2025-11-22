@@ -392,6 +392,49 @@ if (completion.success && completion.data) {
 
 The same `/llm` endpoint is exposed through the CLI via `apollo-cli chat "..."`. By default the CLI (and the browser chat panel) fetch the five most recent persona-diary entries, fold them into the system prompt, and tag each request with metadata (`persona_entry_ids`, sentiment counts, etc.) so diagnostics can reconstruct the conversation history. Override the provider/model/temperature with `--provider`, `--model`, `--temperature`, `--max-tokens`, or disable persona context with `--no-persona`.
 
+### Apollo Chat Streaming API
+
+Browsers now talk to Apollo’s API instead of Hermes directly. `POST /api/chat/stream`
+accepts the same conversation payload that Hermes expects plus optional metadata
+and relays chunks back via SSE. The server forwards the call to Hermes, records
+telemetry, and persists persona diary entries so clients don’t need to call
+multiple endpoints.
+
+```typescript
+const response = await fetch('http://localhost:8082/api/chat/stream', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    messages: [
+      { role: 'system', content: 'You are helping with Apollo operations.' },
+      { role: 'user', content: 'List the last three plans.' },
+    ],
+    metadata: {
+      surface: 'apollo-webapp.chat-panel',
+      session_id: crypto.randomUUID(),
+    },
+    provider: 'openai',
+    model: 'gpt-4o-mini',
+  }),
+})
+
+if (!response.ok || !response.body) throw new Error('Chat stream failed')
+const reader = response.body.getReader()
+const decoder = new TextDecoder()
+let buffer = ''
+while (true) {
+  const { done, value } = await reader.read()
+  if (done) break
+  buffer += decoder.decode(value, { stream: true })
+  for (const event of buffer.split('\n\n')) {
+    if (!event.startsWith('data:')) continue
+    const payload = JSON.parse(event.slice(5))
+    if (payload.type === 'chunk') renderChunk(payload.content)
+    if (payload.type === 'end') finalize(payload.content)
+  }
+}
+```
+
 ### Health Checks
 
 ```typescript

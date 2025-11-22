@@ -6,16 +6,29 @@ stream telemetry, and serve real-time diagnostics.
 
 import asyncio
 import contextlib
+import json
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Deque, Dict, List, Optional, Union
+import time
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Deque,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from apollo.client.hermes_client import HermesClient
 from apollo.config.settings import ApolloConfig
 from apollo.data.hcg_client import HCGClient
 from apollo.data.persona_store import PersonaDiaryStore
@@ -29,11 +42,14 @@ from apollo.data.models import (
     GraphSnapshot,
     PersonaEntry,
 )
+from logos_hermes_sdk.models.llm_message import LLMMessage
+from logos_hermes_sdk.models.llm_request import LLMRequest
 
 
 # Global HCG client instance
 hcg_client: Optional[HCGClient] = None
 persona_store: Optional[PersonaDiaryStore] = None
+hermes_client: Optional[HermesClient] = None
 
 diagnostics_task: Optional[asyncio.Task] = None
 
@@ -181,7 +197,7 @@ diagnostics_manager = DiagnosticsManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan context manager."""
-    global hcg_client, diagnostics_task, persona_store
+    global hcg_client, diagnostics_task, persona_store, hermes_client
 
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
@@ -203,6 +219,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await diagnostics_manager.record_log(
                 "warning",
                 f"Persona diary store unavailable, falling back to memory: {exc}",
+            )
+    if config.hermes:
+        try:
+            hermes_client = HermesClient(config.hermes)
+            await diagnostics_manager.record_log("info", "Hermes client configured")
+        except Exception as exc:  # noqa: BLE001
+            hermes_client = None
+            await diagnostics_manager.record_log(
+                "error", f"Hermes client unavailable: {exc}"
             )
 
     async def telemetry_poller() -> None:
@@ -305,6 +330,24 @@ class LLMTelemetryPayload(BaseModel):
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional diagnostic metadata"
     )
+
+
+class ChatMessagePayload(BaseModel):
+    """Represents an inbound chat message."""
+
+    role: str
+    content: str
+
+
+class ChatStreamRequest(BaseModel):
+    """Request envelope for streaming chat completions."""
+
+    messages: List[ChatMessagePayload]
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    provider: Optional[str] = None
+    model: Optional[str] = None
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(default=None, ge=1)
 
 
 @app.get("/api/hcg/health", response_model=HealthResponse)
@@ -485,109 +528,188 @@ async def get_graph_snapshot(
         )
 
 
-class CreatePersonaEntryRequest(BaseModel):
-    """Request model for creating a persona entry."""
+@app.post("/api/chat/stream")
+async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
+    """Stream Hermes completions back to the client while logging telemetry/persona."""
 
-    entry_type: str
-    content: str
-    summary: Optional[str] = None
-    sentiment: Optional[str] = None
-    confidence: Optional[float] = None
-    related_process_ids: List[str] = []
-    related_goal_ids: List[str] = []
-    emotion_tags: List[str] = []
-    metadata: dict = {}
+    if not hermes_client:
+        raise HTTPException(status_code=503, detail="Hermes client not configured")
+
+    async def event_stream() -> AsyncGenerator[str, None]:
+        metadata = _sanitize_metadata(dict(request.metadata or {}))
+        start_time = time.perf_counter()
+        try:
+            llm_request = _build_llm_request(request, metadata)
+            hermes_response = await asyncio.to_thread(
+                hermes_client.llm_generate, llm_request
+            )
+            if not hermes_response.success or not hermes_response.data:
+                message = (
+                    hermes_response.error
+                    or "Hermes did not return a completion response."
+                )
+                yield _sse_event({"type": "error", "message": message})
+                return
+
+            llm_payload = hermes_response.data
+            content = _extract_completion_text(llm_payload)
+            accumulated = ""
+            for chunk in _chunk_text(content):
+                accumulated += chunk
+                yield _sse_event({"type": "chunk", "content": chunk})
+
+            usage = llm_payload.get("usage") or {}
+            latency_ms = (time.perf_counter() - start_time) * 1000.0
+            session_id = metadata.get("session_id")
+            await diagnostics_manager.record_llm_metrics(
+                latency_ms=latency_ms,
+                prompt_tokens=usage.get("prompt_tokens") or usage.get("promptTokens"),
+                completion_tokens=usage.get("completion_tokens")
+                or usage.get("completionTokens"),
+                total_tokens=usage.get("total_tokens") or usage.get("totalTokens"),
+                persona_sentiment=None,
+                persona_confidence=None,
+                session_id=session_id,
+            )
+
+            persona_metadata = {
+                **metadata,
+                "hermes_response_id": llm_payload.get("id"),
+                "hermes_provider": llm_payload.get("provider"),
+                "hermes_model": llm_payload.get("model"),
+            }
+            latest_user_message = _latest_user_message(request.messages)
+            await _persist_persona_entry_from_chat(
+                content=accumulated,
+                summary=latest_user_message or accumulated,
+                metadata=persona_metadata,
+            )
+
+            await diagnostics_manager.record_log(
+                "info",
+                (
+                    "Hermes chat completion | "
+                    f"session={session_id or 'n/a'} latency={latency_ms:.1f}ms "
+                    f"tokens={usage.get('total_tokens') or usage.get('totalTokens') or 'n/a'}"
+                ),
+            )
+
+            yield _sse_event(
+                {
+                    "type": "end",
+                    "content": accumulated,
+                    "usage": usage,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            await diagnostics_manager.record_log("error", f"Chat stream failed: {exc}")
+            yield _sse_event({"type": "error", "message": str(exc)})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
-@app.post("/api/persona/entries", response_model=PersonaEntry, status_code=201)
-async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEntry:
-    """Create a new persona diary entry.
+def _build_llm_request(
+    stream_request: ChatStreamRequest, metadata: Dict[str, Any]
+) -> LLMRequest:
+    messages = [
+        LLMMessage(role=msg.role, content=msg.content)
+        for msg in stream_request.messages
+    ]
+    if not messages:
+        raise HTTPException(status_code=400, detail="Messages cannot be empty")
+    return LLMRequest(
+        messages=messages,
+        metadata=metadata or None,
+        provider=stream_request.provider,
+        model=stream_request.model,
+        temperature=stream_request.temperature,
+        max_tokens=stream_request.max_tokens,
+    )
 
-    This endpoint allows creation of new diary entries capturing the agent's
-    internal reasoning, decisions, beliefs, and observations.
-    """
+
+def _chunk_text(content: str, chunk_size: int = 200) -> List[str]:
+    if not content:
+        return []
+    chunks: List[str] = []
+    buffer = ""
+    for token in content.split(" "):
+        candidate = f"{buffer} {token}".strip()
+        if len(candidate) > chunk_size and buffer:
+            chunks.append(buffer)
+            buffer = token
+        else:
+            buffer = candidate
+    if buffer:
+        chunks.append(buffer)
+    return chunks
+
+
+def _extract_completion_text(llm_payload: Dict[str, Any]) -> str:
+    choices = llm_payload.get("choices") or []
+    for choice in choices:
+        message = choice.get("message") or {}
+        content = message.get("content")
+        if content:
+            return str(content)
+    return ""
+
+
+def _sse_event(payload: Dict[str, Any]) -> str:
+    return f"data: {json.dumps(payload)}\n\n"
+
+
+def _latest_user_message(messages: List[ChatMessagePayload]) -> Optional[str]:
+    for msg in reversed(messages):
+        if msg.role == "user" and msg.content:
+            return msg.content
+    return None
+
+
+async def _persist_persona_entry_from_chat(
+    *, content: str, summary: str, metadata: Dict[str, Any]
+) -> None:
     if not persona_store:
-        raise HTTPException(status_code=503, detail="Persona store not available")
-
+        return
     entry = PersonaEntry(
         id=f"persona_{uuid4().hex}",
         timestamp=datetime.now(),
-        entry_type=request.entry_type,
-        content=request.content,
-        summary=request.summary,
-        sentiment=request.sentiment,
-        confidence=request.confidence,
-        related_process_ids=request.related_process_ids,
-        related_goal_ids=request.related_goal_ids,
-        emotion_tags=request.emotion_tags,
-        metadata=request.metadata,
+        entry_type="observation",
+        content=content,
+        summary=_truncate_summary(summary),
+        sentiment=None,
+        confidence=None,
+        related_process_ids=[],
+        related_goal_ids=[],
+        emotion_tags=[],
+        metadata=metadata,
     )
-
     try:
         stored_entry = persona_store.create_entry(entry)
-        await diagnostics_manager.record_log(
-            "info", f"Persona entry created ({request.entry_type})"
-        )
         await diagnostics_manager.broadcast_persona_entry(stored_entry)
-        return stored_entry
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to create persona entry: {exc}"
+    except Exception as exc:  # noqa: BLE001
+        await diagnostics_manager.record_log(
+            "error", f"Failed to persist persona diary entry: {exc}"
         )
 
 
-@app.get("/api/persona/entries", response_model=List[PersonaEntry])
-async def get_persona_entries(
-    entry_type: Optional[str] = Query(None, description="Filter by entry type"),
-    sentiment: Optional[str] = Query(None, description="Filter by sentiment"),
-    related_process_id: Optional[str] = Query(
-        None, description="Filter by related process ID"
-    ),
-    related_goal_id: Optional[str] = Query(
-        None, description="Filter by related goal ID"
-    ),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of entries"),
-    offset: int = Query(0, ge=0, description="Number of entries to skip"),
-) -> List[PersonaEntry]:
-    """Get persona diary entries with optional filtering.
-
-    Returns a list of diary entries sorted by timestamp (most recent first).
-    """
-    if not persona_store:
-        raise HTTPException(status_code=503, detail="Persona store not available")
-
-    try:
-        return persona_store.list_entries(
-            entry_type=entry_type,
-            sentiment=sentiment,
-            related_process_id=related_process_id,
-            related_goal_id=related_goal_id,
-            limit=limit,
-            offset=offset,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch persona entries: {exc}"
-        )
+def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    sanitized: Dict[str, Any] = {}
+    for key, value in metadata.items():
+        if value in (None, "", [], {}):
+            continue
+        sanitized[key] = value
+    return sanitized
 
 
-@app.get("/api/persona/entries/{entry_id}", response_model=PersonaEntry)
-async def get_persona_entry(entry_id: str) -> PersonaEntry:
-    """Get a specific persona diary entry by ID."""
-    if not persona_store:
-        raise HTTPException(status_code=503, detail="Persona store not available")
-
-    try:
-        entry = persona_store.get_entry(entry_id)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch persona entry: {exc}"
-        )
-
-    if not entry:
-        raise HTTPException(status_code=404, detail="Persona entry not found")
-
-    return entry
+def _truncate_summary(text: str, max_length: int = 160) -> str:
+    text = text.strip()
+    if len(text) <= max_length:
+        return text
+    return f"{text[:max_length].rstrip()}…"
 
 
 @app.get(
@@ -679,3 +801,101 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+class CreatePersonaEntryRequest(BaseModel):
+    """Request model for creating a persona entry."""
+
+    entry_type: str
+    content: str
+    summary: Optional[str] = None
+    sentiment: Optional[str] = None
+    confidence: Optional[float] = None
+    related_process_ids: List[str] = []
+    related_goal_ids: List[str] = []
+    emotion_tags: List[str] = []
+    metadata: dict = {}
+
+
+@app.post("/api/persona/entries", response_model=PersonaEntry, status_code=201)
+async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEntry:
+    """Create a new persona diary entry."""
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
+
+    entry = PersonaEntry(
+        id=f"persona_{uuid4().hex}",
+        timestamp=datetime.now(),
+        entry_type=request.entry_type,
+        content=request.content,
+        summary=request.summary,
+        sentiment=request.sentiment,
+        confidence=request.confidence,
+        related_process_ids=request.related_process_ids,
+        related_goal_ids=request.related_goal_ids,
+        emotion_tags=request.emotion_tags,
+        metadata=request.metadata,
+    )
+
+    try:
+        stored_entry = persona_store.create_entry(entry)
+        await diagnostics_manager.record_log(
+            "info", f"Persona entry created ({request.entry_type})"
+        )
+        await diagnostics_manager.broadcast_persona_entry(stored_entry)
+        return stored_entry
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create persona entry: {exc}"
+        ) from exc
+
+
+@app.get("/api/persona/entries", response_model=List[PersonaEntry])
+async def get_persona_entries(
+    entry_type: Optional[str] = Query(None, description="Filter by entry type"),
+    sentiment: Optional[str] = Query(None, description="Filter by sentiment"),
+    related_process_id: Optional[str] = Query(
+        None, description="Filter by related process ID"
+    ),
+    related_goal_id: Optional[str] = Query(
+        None, description="Filter by related goal ID"
+    ),
+    limit: int = Query(100, ge=1, le=500, description="Maximum number of entries"),
+    offset: int = Query(0, ge=0, description="Number of entries to skip"),
+) -> List[PersonaEntry]:
+    """Get persona diary entries with optional filtering."""
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
+
+    try:
+        return persona_store.list_entries(
+            entry_type=entry_type,
+            sentiment=sentiment,
+            related_process_id=related_process_id,
+            related_goal_id=related_goal_id,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch persona entries: {exc}"
+        ) from exc
+
+
+@app.get("/api/persona/entries/{entry_id}", response_model=PersonaEntry)
+async def get_persona_entry(entry_id: str) -> PersonaEntry:
+    """Get a specific persona diary entry by ID."""
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
+
+    try:
+        entry = persona_store.get_entry(entry_id)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch persona entry: {exc}"
+        ) from exc
+
+    if not entry:
+        raise HTTPException(status_code=404, detail="Persona entry not found")
+
+    return entry

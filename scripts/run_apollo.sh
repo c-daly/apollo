@@ -61,9 +61,8 @@ if [[ ! -d node_modules ]]; then
   npm install >/dev/null
 fi
 
-echo "[run_apollo] Starting Vite dev server on port 5173..."
-npm run dev >/tmp/apollo-webapp.log 2>&1 &
 WEBAPP_PORT="${WEBAPP_PORT:-3000}"
+echo "[run_apollo] Starting Vite dev server on port ${WEBAPP_PORT}..."
 npm run dev -- --port "${WEBAPP_PORT}" >/tmp/apollo-webapp.log 2>&1 &
 WEB_PID=$!
 
