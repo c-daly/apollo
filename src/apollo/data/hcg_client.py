@@ -58,7 +58,7 @@ class HCGClient:
         """Context manager exit."""
         self.close()
 
-    def _convert_datetime(self, dt: Any) -> Optional[datetime]:
+    def _convert_datetime(self, dt: Any) -> Any:
         """Convert Neo4j DateTime or string to python datetime."""
         if dt is None:
             return None
@@ -84,7 +84,7 @@ class HCGClient:
 
     def _sanitize_props(self, props: Dict[str, Any]) -> Dict[str, Any]:
         """Recursively convert Neo4j types to Python native types in a dictionary."""
-        sanitized = {}
+        sanitized: Dict[str, Any] = {}
         for key, value in props.items():
             if isinstance(value, dict):
                 sanitized[key] = self._sanitize_props(value)
