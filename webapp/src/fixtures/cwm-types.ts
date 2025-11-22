@@ -19,7 +19,7 @@ export interface CWMState<T> {
 }
 
 export interface CWMAPayload {
-  entities: Array<{ id: string; type: string; properties: Record<string, any> }>;
+  entities: Array<{ id: string; type: string; properties: Record<string, unknown> }>;
   relations: Array<{ source: string; target: string; type: string }>;
 }
 
