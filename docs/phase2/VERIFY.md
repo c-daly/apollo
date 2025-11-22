@@ -108,6 +108,8 @@ This document verifies the completion of P2-M2, which implements browser diagnos
 - Entry statistics (total count, latest timestamp)
 - Maintains 100 most recent entries
 - Converts Neo4j state history to diary format
+- Entries are backed by Sophia's `/persona/entries` API (proxied through `apollo-api`)
+- Real-time updates still stream via diagnostics logs/telemetry; persona data refreshes through HTTP polling
 
 **Data Sources:**
 - `useStateHistory()` hook → `/api/hcg/history`

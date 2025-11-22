@@ -49,7 +49,7 @@ state = response.data  # already serialized via SDK model.to_dict()
 
 ### Persona Diary Helper
 
-Persona diary endpoints live on the `apollo-api` FastAPI service. Until those routes are folded into the shared OpenAPI contracts, the CLI uses `PersonaClient` (`src/apollo/client/persona_client.py`) as a thin HTTP wrapper. It still returns `ServiceResponse` objects so callers handle success/error the same way as Sophia/Hermes, and it reads connection details from the `persona_api` block in `config.yaml`.
+Sophia now exposes the canonical `/persona/entries` contract. Apollo keeps the same CLI/web routes, but `PersonaClient` (`src/apollo/client/persona_client.py`) simply proxies requests to Sophia using the `persona_api` config block (host/port/API key). The client still returns `ServiceResponse` objects so callers treat diary operations just like Sophia/Hermes replies, but all persistence and filtering logic lives in Sophia’s service.
 
 ## TypeScript (Web) Clients
 
