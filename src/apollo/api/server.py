@@ -11,7 +11,16 @@ from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
 import time
-from typing import Any, AsyncGenerator, AsyncIterator, Deque, Dict, List, Optional, Union
+from typing import (
+    Any,
+    AsyncGenerator,
+    AsyncIterator,
+    Deque,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
@@ -554,8 +563,7 @@ async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
             session_id = metadata.get("session_id")
             await diagnostics_manager.record_llm_metrics(
                 latency_ms=latency_ms,
-                prompt_tokens=usage.get("prompt_tokens")
-                or usage.get("promptTokens"),
+                prompt_tokens=usage.get("prompt_tokens") or usage.get("promptTokens"),
                 completion_tokens=usage.get("completion_tokens")
                 or usage.get("completionTokens"),
                 total_tokens=usage.get("total_tokens") or usage.get("totalTokens"),
@@ -594,9 +602,7 @@ async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
                 }
             )
         except Exception as exc:  # noqa: BLE001
-            await diagnostics_manager.record_log(
-                "error", f"Chat stream failed: {exc}"
-            )
+            await diagnostics_manager.record_log("error", f"Chat stream failed: {exc}")
             yield _sse_event({"type": "error", "message": str(exc)})
 
     return StreamingResponse(
@@ -795,6 +801,8 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
 class CreatePersonaEntryRequest(BaseModel):
     """Request model for creating a persona entry."""
 
