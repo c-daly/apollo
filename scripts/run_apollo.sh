@@ -1,90 +1,134 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="${ROOT_DIR}/../logos/infra/docker-compose.hcg.dev.yml"
-CONFIG_FILE="${ROOT_DIR}/config.yaml"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WORKSPACE_ROOT="$(cd "${PROJECT_ROOT}/.." && pwd)"
+LOGOS_ROOT="${WORKSPACE_ROOT}/logos"
+DOCKER_COMPOSE_FILE="${LOGOS_ROOT}/infra/docker-compose.hcg.dev.yml"
+CONFIG_FILE="${PROJECT_ROOT}/config.yaml"
+APOLLO_API_PID_FILE="/tmp/apollo-api.pid"
+APOLLO_WEB_PID_FILE="/tmp/apollo-web.pid"
 
-# Config file is optional now that we support env vars
-if [[ -f "${CONFIG_FILE}" ]]; then
-  echo "[run_apollo] Using config file: ${CONFIG_FILE}"
-else
-  echo "[run_apollo] No config.yaml found. Using environment variables/defaults."
-fi
+# Import common library
+source "${PROJECT_ROOT}/scripts/lib/common.sh"
 
-# Source .env if present (for standalone usage)
-if [[ -f "${ROOT_DIR}/../.env" ]]; then
-  echo "[run_apollo] Sourcing .env file..."
+# Source .env if present
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  log_info "Sourcing .env file..."
   set -a
-  source "${ROOT_DIR}/../.env"
+  source "${PROJECT_ROOT}/.env"
   set +a
 fi
 
+DETACH=false
+for arg in "$@"; do
+  case $arg in
+    -d|--detach)
+      DETACH=true
+      shift
+      ;;
+  esac
+done
+
 cleanup() {
+  log_info "Stopping Apollo services..."
   if [[ -n "${API_PID:-}" ]]; then
     kill "${API_PID}" >/dev/null 2>&1 || true
   fi
   if [[ -n "${WEB_PID:-}" ]]; then
     kill "${WEB_PID}" >/dev/null 2>&1 || true
   fi
-}
-trap cleanup EXIT
-
-cd "${ROOT_DIR}"
-
-ensure_dependency_container() {
-  local container_name=$1
-  local service_name=$2
-
-  if ! command -v docker >/dev/null 2>&1; then
-    echo "[run_apollo] Docker not found; skipping autostart for ${service_name}. Start it manually if needed." >&2
-    return
-  fi
-
-  if [[ ! -f "${COMPOSE_FILE}" ]]; then
-    echo "[run_apollo] Compose file ${COMPOSE_FILE} not found; skipping autostart for ${service_name}." >&2
-    return
-  fi
-
-  if docker ps --filter "name=${container_name}" --format '{{.Names}}' | grep -q "${container_name}"; then
-    echo "[run_apollo] ${service_name} (${container_name}) already running; skipping."
-    return
-  fi
-
-  echo "[run_apollo] Starting ${service_name} via docker compose..."
-  docker compose -f "${COMPOSE_FILE}" up -d "${service_name}"
+  rm -f "${APOLLO_API_PID_FILE}" "${APOLLO_WEB_PID_FILE}"
 }
 
-ensure_dependency_container "logos-hcg-neo4j" "neo4j"
-ensure_dependency_container "logos-hcg-milvus" "milvus-standalone"
+start_api() {
+    local status=$(get_pid_status "${APOLLO_API_PID_FILE}")
+    if [[ "$status" == "running"* ]]; then
+        log_info "Apollo API is already $status."
+        API_PID=$(cat "${APOLLO_API_PID_FILE}")
+    else
+        if [[ "$status" == "stale pid file" ]]; then
+            log_warn "Removing stale Apollo API PID file."
+            rm -f "${APOLLO_API_PID_FILE}"
+        fi
+        
+        APOLLO_PORT="${APOLLO_PORT:-8082}"
+        log_info "Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
+        
+        # Ensure poetry env is ready
+        poetry install --sync >/dev/null
 
-echo "[run_apollo] Installing Python deps via Poetry (if needed)..."
-poetry install --sync >/dev/null
+        if [ "$DETACH" = true ]; then
+            nohup poetry run apollo-api >/tmp/apollo-api.log 2>&1 &
+            API_PID=$!
+            echo $API_PID > "${APOLLO_API_PID_FILE}"
+        else
+            poetry run apollo-api >/tmp/apollo-api.log 2>&1 &
+            API_PID=$!
+            echo $API_PID > "${APOLLO_API_PID_FILE}"
+        fi
+    fi
+}
 
-APOLLO_PORT="${APOLLO_PORT:-8082}"
-echo "[run_apollo] Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
-poetry run apollo-api >/tmp/apollo-api.log 2>&1 &
-API_PID=$!
+start_webapp() {
+    local status=$(get_pid_status "${APOLLO_WEB_PID_FILE}")
+    if [[ "$status" == "running"* ]]; then
+        log_info "Apollo Webapp is already $status."
+        WEB_PID=$(cat "${APOLLO_WEB_PID_FILE}")
+    else
+        if [[ "$status" == "stale pid file" ]]; then
+            log_warn "Removing stale Apollo Webapp PID file."
+            rm -f "${APOLLO_WEB_PID_FILE}"
+        fi
 
-cd "${ROOT_DIR}/webapp"
-if [[ ! -d node_modules ]]; then
-  echo "[run_apollo] Installing webapp dependencies..."
-  npm install >/dev/null
+        WEBAPP_PORT="${WEBAPP_PORT:-3000}"
+        log_info "Starting Vite dev server on port ${WEBAPP_PORT}..."
+        
+        cd "${PROJECT_ROOT}/webapp"
+        if [[ ! -d node_modules ]]; then
+            log_info "Installing webapp dependencies..."
+            npm install >/dev/null
+        fi
+
+        if [ "$DETACH" = true ]; then
+            nohup npm run dev -- --port "${WEBAPP_PORT}" >/tmp/apollo-webapp.log 2>&1 &
+            WEB_PID=$!
+            echo $WEB_PID > "${APOLLO_WEB_PID_FILE}"
+        else
+            npm run dev -- --port "${WEBAPP_PORT}" >/tmp/apollo-webapp.log 2>&1 &
+            WEB_PID=$!
+            echo $WEB_PID > "${APOLLO_WEB_PID_FILE}"
+        fi
+        cd "${PROJECT_ROOT}"
+    fi
+}
+
+# Main execution
+cd "${PROJECT_ROOT}"
+
+# Check infra (redundant if called from start_demo but good for standalone)
+if [[ -f "${DOCKER_COMPOSE_FILE}" ]]; then
+    log_info "Ensuring infra containers are up..."
+    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d neo4j milvus-standalone >/dev/null 2>&1 || true
 fi
 
-WEBAPP_PORT="${WEBAPP_PORT:-3000}"
-echo "[run_apollo] Starting Vite dev server on port ${WEBAPP_PORT}..."
-npm run dev -- --port "${WEBAPP_PORT}" >/tmp/apollo-webapp.log 2>&1 &
-WEB_PID=$!
+start_api
+start_webapp
 
-cd "${ROOT_DIR}"
-
-echo ""
-echo "[run_apollo] Apollo stack is up:"
-echo "  • API logs: tail -f /tmp/apollo-api.log"
-echo "  • Webapp logs: tail -f /tmp/apollo-webapp.log"
-echo "  • UI: http://localhost:${WEBAPP_PORT}"
-echo ""
-echo "Press Ctrl+C to stop both services."
-
-wait
+if [ "$DETACH" = true ]; then
+    log_success "Apollo stack started in background."
+    log_info "API logs: /tmp/apollo-api.log"
+    log_info "Web logs: /tmp/apollo-webapp.log"
+else
+    trap cleanup EXIT INT TERM
+    
+    echo ""
+    log_success "Apollo stack is up:"
+    echo "  • API logs: tail -f /tmp/apollo-api.log"
+    echo "  • Webapp logs: tail -f /tmp/apollo-webapp.log"
+    echo "  • UI: http://localhost:${WEBAPP_PORT:-3000}"
+    echo ""
+    echo "Press Ctrl+C to stop both services."
+    
+    wait $API_PID $WEB_PID
+fi
