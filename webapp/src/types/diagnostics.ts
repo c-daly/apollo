@@ -15,6 +15,8 @@ export interface TelemetrySnapshot {
   last_update: string
 }
 
+import type { PersonaEntry } from './hcg'
+
 export type DiagnosticsEvent =
   | {
       type: 'log'
@@ -27,6 +29,10 @@ export type DiagnosticsEvent =
   | {
       type: 'telemetry'
       data: TelemetrySnapshot
+    }
+  | {
+      type: 'persona_entry'
+      data: PersonaEntry
     }
   | {
       type: 'error' | 'pong'

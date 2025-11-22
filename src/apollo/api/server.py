@@ -114,6 +114,15 @@ class DiagnosticsManager:
             ).model_dump()
         )
 
+    async def broadcast_persona_entry(self, entry: PersonaEntry) -> None:
+        """Broadcast a newly created persona entry to subscribers."""
+        await self._broadcast(
+            DiagnosticsEvent(
+                type="persona_entry",
+                data=entry.model_dump(),
+            ).model_dump()
+        )
+
     def register(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue()
         self._subscribers.add(queue)
@@ -456,6 +465,7 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
         await diagnostics_manager.record_log(
             "info", f"Persona entry created ({request.entry_type})"
         )
+        await diagnostics_manager.broadcast_persona_entry(stored_entry)
         return stored_entry
     except Exception as exc:
         raise HTTPException(
