@@ -25,17 +25,35 @@ The data layer consists of three main components:
 
 ### Data Models
 
-The HCG ontology is represented by the following models in `src/apollo/data/models.py`:
+The HCG ontology is represented by the following models in `src/apollo/data/models.py`, now aligned with the **Unified CWM State Contract** (see `logos/docs/hcg/CWM_SPEC.md`):
 
-- **Entity**: Base entity in the HCG graph
-- **State**: Agent or world state snapshot
-- **Process**: Action or transformation
-- **CausalEdge**: Causal relationship between entities
-- **PlanHistory**: Historical plan record
-- **StateHistory**: State change history
-- **GraphSnapshot**: Complete graph state
+- **CWMState**: The unified envelope for all world model emissions.
+- **CWM-A (Abstract)**:
+    - **Entity**: Base entity in the HCG graph
+    - **State**: Agent or world state snapshot
+    - **Process**: Action or transformation
+- **CWM-G (Generative)**:
+    - **PerceptionFrame**: Raw sensor data
+    - **ImaginedState**: Predicted future state
+- **CWM-E (Emotional)**:
+    - **PersonaEntry**: Diary/reflection entry
+    - **EmotionState**: Affective tags
 
 All models follow the HCG ontology specification (Section 4.1) and are SHACL-compliant.
+
+### CWM State Integration
+
+The data layer now exposes a unified stream of `CWMState` objects. This allows the frontend to render mixed timelines of abstract plans, generative predictions, and emotional reflections without custom parsers for each type.
+
+```typescript
+interface CWMState<T> {
+  state_id: string;
+  model_type: 'cwm-a' | 'cwm-g' | 'cwm-e';
+  timestamp: string;
+  status: 'hypothetical' | 'observed' | 'validated' | 'rejected';
+  data: T;
+}
+```
 
 ### Neo4j Client
 

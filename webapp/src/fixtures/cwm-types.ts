@@ -10,17 +10,29 @@
 /**
  * Unified envelope format for all CWM records
  */
-export interface CWMEnvelope<T = unknown> {
-  record_type: 'CWM-A' | 'CWM-G' | 'CWM-E'
-  record_id: string
-  timestamp: string
-  sequence_number: number
-  payload: T
-  metadata: {
-    source: string
-    version: string
-    [key: string]: unknown
-  }
+export interface CWMState<T> {
+  state_id: string;
+  model_type: 'cwm-a' | 'cwm-g' | 'cwm-e';
+  timestamp: string;
+  status: 'hypothetical' | 'observed' | 'validated' | 'rejected';
+  data: T;
+}
+
+export interface CWMAPayload {
+  entities: Array<{ id: string; type: string; properties: Record<string, any> }>;
+  relations: Array<{ source: string; target: string; type: string }>;
+}
+
+export interface CWMGPayload {
+  modality: 'visual' | 'lidar' | 'text';
+  raw_data_ref: string;
+  interpretation: string;
+}
+
+export interface CWMEPayload {
+  valence: number;
+  arousal: number;
+  reflection: string;
 }
 
 /**
