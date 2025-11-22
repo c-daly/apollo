@@ -1,13 +1,10 @@
 import { useState, useRef, useEffect, useMemo, type FormEvent } from 'react'
-import { hermesClient, type LLMResponse } from '../lib/hermes-client'
+import { DEFAULT_SYSTEM_PROMPT, type ChatHistoryMessage } from '../lib/chat-llm'
 import {
-  buildHermesRequest,
-  summarizeHermesResponse,
-  DEFAULT_SYSTEM_PROMPT,
-  type ChatHistoryMessage,
-} from '../lib/chat-llm'
-import { getHermesConfig, type HermesLLMConfig } from '../lib/config'
-import { sendLLMTelemetry } from '../lib/diagnostics-client'
+  getHermesConfig,
+  getHCGConfig,
+  type HermesLLMConfig,
+} from '../lib/config'
 import { hcgClient } from '../lib/hcg-client'
 import type { PersonaEntry } from '../types/hcg'
 import './ChatPanel.css'
@@ -24,11 +21,14 @@ const CHAT_METADATA = {
   version: import.meta.env.VITE_APP_VERSION ?? 'dev',
 }
 
-const MAX_HISTORY = 12
 const PERSONA_CONTEXT_LIMIT = 5
 
 function ChatPanel() {
   const hermesConfig = useMemo(() => getHermesConfig(), [])
+  const apolloApiBase = useMemo(
+    () => (getHCGConfig().apiUrl || 'http://localhost:8082').replace(/\/$/, ''),
+    []
+  )
   const sessionIdRef = useRef<string>(
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -47,6 +47,7 @@ function ChatPanel() {
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -55,6 +56,11 @@ function ChatPanel() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -71,8 +77,8 @@ function ChatPanel() {
     setInput('')
     setIsLoading(true)
 
+    let inflightAssistantId: string | null = null
     try {
-      const startedAt = performance.now()
       const conversationHistory: ChatHistoryMessage[] = [
         ...messages,
         userMessage,
@@ -111,50 +117,101 @@ function ChatPanel() {
       ]
         .filter(Boolean)
         .join('\n\n')
+      const streamingMessages = [
+        { role: 'system', content: compositeSystemPrompt },
+        ...conversationHistory,
+      ]
 
-      const hermesRequest = buildHermesRequest(conversationHistory, {
-        metadata,
-        maxHistory: MAX_HISTORY,
-        systemPrompt: compositeSystemPrompt,
-        overrides: llmOverrides,
-      })
-
-      const response = await hermesClient.llmGenerate(hermesRequest)
-
-      if (!response.success || !response.data) {
-        throw new Error(
-          response.error || 'Hermes did not return a completion response.'
+      const assistantId = `${Date.now()}-assistant`
+      const updateAssistantMessage = (content: string) => {
+        setMessages(prev =>
+          prev.map(message =>
+            message.id === assistantId ? { ...message, content } : message
+          )
         )
       }
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+      inflightAssistantId = assistantId
+      const placeholder: Message = {
+        id: assistantId,
         role: 'assistant',
-        content: summarizeHermesResponse(response.data),
+        content: '',
         timestamp: new Date(),
       }
+      setMessages(prev => [...prev, placeholder])
 
-      setMessages(prev => [...prev, assistantMessage])
-      setErrorMessage(null)
-
-      const latencyMs = performance.now() - startedAt
-      void sendLLMTelemetry(
-        buildTelemetryPayload({
-          latencyMs,
-          response: response.data,
+      const controller = new AbortController()
+      abortControllerRef.current = controller
+      const response = await fetch(`${apolloApiBase}/api/chat/stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messages: streamingMessages,
           metadata,
-          sessionId: sessionIdRef.current,
-        })
-      ).catch(err => {
-        console.warn('Failed to emit Hermes telemetry', err)
+          provider: llmOverrides.provider,
+          model: llmOverrides.model,
+          temperature: llmOverrides.temperature,
+          max_tokens: llmOverrides.maxTokens,
+        }),
+        signal: controller.signal,
       })
-      void persistPersonaEntry({
-        userMessage: userMessage.content,
-        assistantMessage: assistantMessage.content,
-        response: response.data,
-        metadata,
-      })
+
+      if (!response.ok || !response.body) {
+        throw new Error('Failed to open chat stream via Apollo API.')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let assistantBuffer = ''
+      let streamCompleted = false
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) {
+          break
+        }
+        buffer += decoder.decode(value, { stream: true })
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
+
+        for (const event of events) {
+          if (!event.startsWith('data:')) continue
+          const payload = event.replace(/^data:\s*/, '')
+          if (!payload) continue
+          const parsed = JSON.parse(payload) as {
+            type: string
+            content?: string
+            message?: string
+          }
+          if (parsed.type === 'chunk' && parsed.content) {
+            assistantBuffer += parsed.content
+            updateAssistantMessage(assistantId, assistantBuffer)
+          } else if (parsed.type === 'end') {
+            if (parsed.content) {
+              assistantBuffer = parsed.content
+              updateAssistantMessage(assistantId, assistantBuffer)
+            }
+            streamCompleted = true
+          } else if (parsed.type === 'error') {
+            throw new Error(parsed.message || 'Hermes streaming error')
+          }
+        }
+      }
+
+      abortControllerRef.current = null
+      if (!streamCompleted) {
+        throw new Error('Chat stream ended unexpectedly.')
+      }
+      setErrorMessage(null)
     } catch (error) {
+      abortControllerRef.current = null
+      if (inflightAssistantId) {
+        setMessages(prev =>
+          prev.filter(message => message.id !== inflightAssistantId)
+        )
+      }
       const fallbackMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
@@ -272,52 +329,6 @@ function buildChatMetadata({
   )
 }
 
-function buildTelemetryPayload({
-  latencyMs,
-  response,
-  metadata,
-  sessionId,
-}: {
-  latencyMs: number
-  response?: LLMResponse
-  metadata: Record<string, unknown>
-  sessionId: string
-}) {
-  const personaRaw = response?.raw as Record<string, unknown> | undefined
-  const personaSentiment =
-    typeof personaRaw?.persona_sentiment === 'string'
-      ? personaRaw?.persona_sentiment
-      : typeof (personaRaw as { persona?: { sentiment?: string } })?.persona
-            ?.sentiment === 'string'
-        ? (personaRaw as { persona?: { sentiment?: string } }).persona
-            ?.sentiment
-        : undefined
-  const personaConfidence =
-    typeof personaRaw?.persona_confidence === 'number'
-      ? personaRaw?.persona_confidence
-      : typeof (personaRaw as { persona?: { confidence?: number } })?.persona
-            ?.confidence === 'number'
-        ? (personaRaw as { persona?: { confidence?: number } }).persona
-            ?.confidence
-        : undefined
-
-  return {
-    latency_ms: Math.max(0, Math.round(latencyMs)),
-    prompt_tokens: response?.usage?.promptTokens,
-    completion_tokens: response?.usage?.completionTokens,
-    total_tokens: response?.usage?.totalTokens,
-    persona_sentiment: personaSentiment,
-    persona_confidence: personaConfidence,
-    metadata: {
-      ...metadata,
-      response_id: response?.id,
-      hermes_provider: response?.provider,
-      hermes_model: response?.model,
-      session_id: sessionId,
-    },
-  }
-}
-
 async function loadPersonaContext(limit: number): Promise<PersonaEntry[]> {
   try {
     return await hcgClient.getPersonaEntries({ limit })
@@ -371,44 +382,4 @@ function countBy(
     acc[bucket] = (acc[bucket] ?? 0) + 1
     return acc
   }, {})
-}
-
-function truncateSummary(text: string, maxLength = 160): string {
-  if (text.length <= maxLength) {
-    return text
-  }
-  return `${text.slice(0, maxLength).trim()}…`
-}
-
-async function persistPersonaEntry({
-  userMessage,
-  assistantMessage,
-  response,
-  metadata,
-}: {
-  userMessage: string
-  assistantMessage: string
-  response: LLMResponse
-  metadata: Record<string, unknown>
-}) {
-  try {
-    await hcgClient.createPersonaEntry({
-      entry_type: 'observation',
-      content: assistantMessage,
-      summary: truncateSummary(userMessage),
-      sentiment: undefined,
-      confidence: undefined,
-      related_process_ids: [],
-      related_goal_ids: [],
-      emotion_tags: [],
-      metadata: {
-        ...metadata,
-        hermes_response_id: response.id,
-        hermes_provider: response.provider,
-        hermes_model: response.model,
-      },
-    })
-  } catch (error) {
-    console.warn('Failed to persist persona diary entry', error)
-  }
 }
