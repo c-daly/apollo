@@ -170,7 +170,9 @@ class PersonaDiaryStore:
 
         timestamp_value = props.get("timestamp")
         if timestamp_value is None:
-            raise ValueError(f"PersonaEntry node {node_id} missing 'timestamp' property")
+            raise ValueError(
+                f"PersonaEntry node {node_id} missing 'timestamp' property"
+            )
 
         if isinstance(timestamp_value, datetime):
             timestamp = timestamp_value

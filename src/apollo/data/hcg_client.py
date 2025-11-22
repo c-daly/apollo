@@ -90,9 +90,11 @@ class HCGClient:
                 sanitized[key] = self._sanitize_props(value)
             elif isinstance(value, list):
                 sanitized[key] = [
-                    self._sanitize_props(item)
-                    if isinstance(item, dict)
-                    else self._convert_datetime(item)
+                    (
+                        self._sanitize_props(item)
+                        if isinstance(item, dict)
+                        else self._convert_datetime(item)
+                    )
                     for item in value
                 ]
             else:
@@ -394,12 +396,19 @@ class HCGClient:
             for record in result:
                 node = record["p"]
                 props = dict(node)
-                
+
                 steps_raw = self._parse_json_field(props.get("steps"), [])
-                steps = [self._sanitize_props(s) if isinstance(s, dict) else s for s in steps_raw]
-                
+                steps = [
+                    self._sanitize_props(s) if isinstance(s, dict) else s
+                    for s in steps_raw
+                ]
+
                 result_raw = self._parse_json_field(props.get("result"))
-                plan_result = self._sanitize_props(result_raw) if isinstance(result_raw, dict) else result_raw
+                plan_result = (
+                    self._sanitize_props(result_raw)
+                    if isinstance(result_raw, dict)
+                    else result_raw
+                )
 
                 plans.append(
                     PlanHistory(
@@ -447,12 +456,20 @@ class HCGClient:
             for record in result:
                 node = record["h"]
                 props = dict(node)
-                
+
                 changes_raw = self._parse_json_field(props.get("changes"), {})
-                changes = self._sanitize_props(changes_raw) if isinstance(changes_raw, dict) else changes_raw
-                
+                changes = (
+                    self._sanitize_props(changes_raw)
+                    if isinstance(changes_raw, dict)
+                    else changes_raw
+                )
+
                 prev_raw = self._parse_json_field(props.get("previous_values"))
-                previous_values = self._sanitize_props(prev_raw) if isinstance(prev_raw, dict) else prev_raw
+                previous_values = (
+                    self._sanitize_props(prev_raw)
+                    if isinstance(prev_raw, dict)
+                    else prev_raw
+                )
 
                 history.append(
                     StateHistory(
