@@ -131,26 +131,6 @@ apollo-cli chat "Draft a plan for tidying the lab" --provider openai --model gpt
 
 Both the CLI `chat` command and the Apollo web chat automatically pull the most recent persona-diary entries (default: 5) and prepend them to the Hermes system prompt so responses stay grounded in Sophia's latest beliefs/decisions. Use `--persona-limit` or `--no-persona` to tune that behaviour in the CLI.
 
-### Hermes LLM Gateway
-
-Hermes defaults to a deterministic `echo` provider so demos work without credentials. To hit a real model:
-
-1. Export provider credentials (OpenAI-compatible today):
-   ```bash
-   export HERMES_LLM_PROVIDER=openai
-   export HERMES_LLM_API_KEY=sk-...
-   export HERMES_LLM_MODEL=gpt-4o-mini
-   ```
-2. Start the gateway from the sibling repo:
-   ```bash
-   cd ../hermes
-   poetry install --with dev
-   poetry run hermes   # serves http://localhost:8080
-   ```
-3. Point Apollo at it (`VITE_HERMES_*` in `.env`, `hermes.*` in `config.yaml`).
-
-See [docs/HERMES_SETUP.md](docs/HERMES_SETUP.md) for a complete walkthrough, including verification commands and Milvus/ML extras.
-
 ### Shared SDK Clients
 
 Apollo CLI now depends exclusively on the generated Python SDKs that live in the [`logos`](https://github.com/c-daly/logos) repository:
