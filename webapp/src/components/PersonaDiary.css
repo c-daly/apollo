@@ -14,9 +14,12 @@
   margin: 0 0 0.5rem 0;
 }
 
-.diary-subtitle {
-  color: #888;
-  margin: 0 0 0.5rem 0;
+.diary-status {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  color: #94a3b8;
 }
 
 .diary-stats {
@@ -181,6 +184,59 @@
   background-color: rgba(74, 222, 128, 0.1);
 }
 
+.diary-session-filter {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.diary-session-filter input {
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #333;
+  background-color: #1a1a1a;
+  color: #ddd;
+  font-size: 0.85rem;
+}
+
+.session-clear {
+  padding: 0.45rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background-color: transparent;
+  color: #ddd;
+  cursor: pointer;
+}
+
+.stream-pill {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.stream-pill.online {
+  background-color: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+}
+
+.stream-pill.connecting {
+  background-color: rgba(250, 204, 21, 0.2);
+  color: #facc15;
+}
+
+.stream-pill.offline {
+  background-color: rgba(148, 163, 184, 0.2);
+  color: #cbd5f5;
+}
+
+.stream-pill.error {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
 /* Entry metadata */
 .entry-summary {
   font-style: italic;
@@ -218,13 +274,49 @@
 
 .entry-links {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
 }
 
 .link-info {
   color: #60a5fa;
   font-size: 0.75rem;
+}
+
+.session-chip {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #93c5fd;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.response-chip {
+  font-size: 0.7rem;
+  color: #a5b4fc;
+}
+
+.entry-metadata-details {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+  background-color: rgba(15, 23, 42, 0.5);
+}
+
+.entry-metadata-details pre {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.75rem;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.diary-entry.recent .entry-content {
+  border-color: rgba(59, 130, 246, 0.6);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
 }
 
 /* Empty state */
