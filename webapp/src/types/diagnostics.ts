@@ -13,6 +13,14 @@ export interface TelemetrySnapshot {
   success_rate: number
   active_plans: number
   last_update: string
+  llm_latency_ms?: number | null
+  llm_prompt_tokens?: number | null
+  llm_completion_tokens?: number | null
+  llm_total_tokens?: number | null
+  persona_sentiment?: string | null
+  persona_confidence?: number | null
+  last_llm_update?: string | null
+  last_llm_session?: string | null
 }
 
 import type { PersonaEntry } from './hcg'

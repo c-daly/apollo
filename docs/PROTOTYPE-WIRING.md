@@ -40,8 +40,9 @@ Execution (`apollo-cli execute`) remains informational in Phase 2 because the Ta
 | CLI Command | SDK Call                       | HTTP Endpoint      |
 |-------------|--------------------------------|--------------------|
 | `embed`     | `DefaultApi.embed_text`        | `POST /embed_text` |
+| `chat`      | `DefaultApi.llm_generate`      | `POST /llm`        |
 
-Additional Hermes endpoints (LLM generation, speech, etc.) are available via the same SDK but are not yet wired into the CLI.
+Speech/text-to-speech endpoints are still available via the same SDK but remain out of scope for Phase 2. The new `apollo-cli chat` command shares its implementation with the browser chat panel: both compose metadata, inject persona diary context, and route responses/telemetry through Hermes + `/api/diagnostics/llm`.
 
 ## Configuration Path
 
@@ -53,7 +54,7 @@ Additional Hermes endpoints (LLM generation, speech, etc.) are available via the
 ```
 config.yaml
 └── sophia.host / sophia.port / sophia.timeout / sophia.api_key
-└── hermes.host / hermes.port / hermes.timeout / hermes.api_key
+└── hermes.host / hermes.port / hermes.timeout / hermes.api_key / hermes.provider / hermes.model / hermes.temperature / hermes.max_tokens / hermes.system_prompt
 ```
 
 ## Error Handling

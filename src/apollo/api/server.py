@@ -14,7 +14,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from apollo.config.settings import ApolloConfig
 from apollo.data.hcg_client import HCGClient
@@ -51,6 +51,14 @@ class TelemetrySnapshot(BaseModel):
     success_rate: float
     active_plans: int
     last_update: datetime
+    llm_latency_ms: Optional[float] = None
+    llm_prompt_tokens: Optional[int] = None
+    llm_completion_tokens: Optional[int] = None
+    llm_total_tokens: Optional[int] = None
+    persona_sentiment: Optional[str] = None
+    persona_confidence: Optional[float] = None
+    last_llm_update: Optional[datetime] = None
+    last_llm_session: Optional[str] = None
 
 
 DiagnosticsPayload = Union[Dict[str, Any], List[Dict[str, Any]], None]
@@ -101,12 +109,43 @@ class DiagnosticsManager:
         success_rate: float,
         active_plans: int,
     ) -> None:
-        self._telemetry = TelemetrySnapshot(
-            api_latency_ms=round(api_latency_ms, 2),
-            request_count=self._telemetry.request_count + request_increment,
-            success_rate=round(success_rate, 2),
-            active_plans=active_plans,
-            last_update=datetime.utcnow(),
+        self._telemetry = self._telemetry.model_copy(
+            update={
+                "api_latency_ms": round(api_latency_ms, 2),
+                "request_count": self._telemetry.request_count + request_increment,
+                "success_rate": round(success_rate, 2),
+                "active_plans": active_plans,
+                "last_update": datetime.utcnow(),
+            }
+        )
+        await self._broadcast(
+            DiagnosticsEvent(
+                type="telemetry", data=self._telemetry.model_dump()
+            ).model_dump()
+        )
+
+    async def record_llm_metrics(
+        self,
+        *,
+        latency_ms: float,
+        prompt_tokens: Optional[int],
+        completion_tokens: Optional[int],
+        total_tokens: Optional[int],
+        persona_sentiment: Optional[str],
+        persona_confidence: Optional[float],
+        session_id: Optional[str],
+    ) -> None:
+        self._telemetry = self._telemetry.model_copy(
+            update={
+                "llm_latency_ms": round(latency_ms, 2),
+                "llm_prompt_tokens": prompt_tokens,
+                "llm_completion_tokens": completion_tokens,
+                "llm_total_tokens": total_tokens,
+                "persona_sentiment": persona_sentiment,
+                "persona_confidence": persona_confidence,
+                "last_llm_update": datetime.utcnow(),
+                "last_llm_session": session_id,
+            }
         )
         await self._broadcast(
             DiagnosticsEvent(
@@ -242,6 +281,30 @@ class HealthResponse(BaseModel):
     status: str
     timestamp: str
     neo4j_connected: bool
+
+
+class LLMTelemetryPayload(BaseModel):
+    """Schema for ingesting Hermes LLM telemetry."""
+
+    latency_ms: float = Field(gt=0, description="Round-trip latency in ms")
+    prompt_tokens: Optional[int] = Field(
+        default=None, ge=0, description="Prompt token count"
+    )
+    completion_tokens: Optional[int] = Field(
+        default=None, ge=0, description="Completion token count"
+    )
+    total_tokens: Optional[int] = Field(
+        default=None, ge=0, description="Total token count"
+    )
+    persona_sentiment: Optional[str] = Field(
+        default=None, description="Persona sentiment label"
+    )
+    persona_confidence: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Confidence for persona sentiment"
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional diagnostic metadata"
+    )
 
 
 @app.get("/api/hcg/health", response_model=HealthResponse)
@@ -537,6 +600,38 @@ async def get_diagnostic_logs(
 ) -> List[DiagnosticLogEntry]:
     """Return recent diagnostic log entries."""
     return diagnostics_manager.get_logs(limit)
+
+
+@app.post(
+    "/api/diagnostics/llm",
+    status_code=202,
+    name="diagnostics_llm_ingest",
+)
+async def ingest_llm_telemetry(payload: LLMTelemetryPayload) -> dict[str, str]:
+    """Ingest Hermes LLM telemetry so the dashboard reflects chat activity."""
+
+    session_id = payload.metadata.get("session_id") if payload.metadata else None
+    await diagnostics_manager.record_llm_metrics(
+        latency_ms=payload.latency_ms,
+        prompt_tokens=payload.prompt_tokens,
+        completion_tokens=payload.completion_tokens,
+        total_tokens=payload.total_tokens,
+        persona_sentiment=payload.persona_sentiment,
+        persona_confidence=payload.persona_confidence,
+        session_id=session_id,
+    )
+
+    await diagnostics_manager.record_log(
+        "info",
+        (
+            "Hermes chat completion | "
+            f"session={session_id or 'n/a'} "
+            f"latency={payload.latency_ms:.1f}ms "
+            f"tokens={payload.total_tokens or 'n/a'}"
+        ),
+    )
+
+    return {"status": "accepted"}
 
 
 @app.get(

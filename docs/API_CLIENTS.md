@@ -163,6 +163,11 @@ VITE_SOPHIA_TIMEOUT=30000               # Optional, in milliseconds
 VITE_HERMES_API_URL=http://localhost:8081
 VITE_HERMES_API_KEY=                    # Optional
 VITE_HERMES_TIMEOUT=30000               # Optional, in milliseconds
+VITE_HERMES_LLM_PROVIDER=               # Optional provider override (e.g., openai)
+VITE_HERMES_LLM_MODEL=                  # Optional model override
+VITE_HERMES_LLM_TEMPERATURE=0.1         # Optional sampling temperature
+VITE_HERMES_LLM_MAX_TOKENS=512          # Optional max completion tokens
+VITE_HERMES_SYSTEM_PROMPT=              # Optional system prompt override
 
 # Feature Flags
 VITE_ENABLE_CHAT=true
@@ -175,6 +180,7 @@ The diagnostics panel consumes the telemetry/log endpoints exposed by `apollo-ap
 
 - `GET /api/diagnostics/logs?limit=100` → latest log entries.
 - `GET /api/diagnostics/metrics` → aggregated telemetry snapshot.
+- `POST /api/diagnostics/llm` → ingest Hermes `/llm` telemetry (latency + token usage + persona sentiment) so the dashboard reflects chat usage.
 - `WS /ws/diagnostics` → streaming feed for real-time updates.
 
 See `webapp/src/lib/diagnostics-client.ts` and `webapp/src/hooks/useDiagnosticsStream.ts` for example usage.
@@ -361,17 +367,30 @@ if (nlpResponse.success) {
 
 ```typescript
 const completion = await hermesClient.llmGenerate({
+  provider: 'echo',
   model: 'echo',
+  metadata: {
+    surface: 'apollo-webapp.chat-panel',
+    persona_entry_ids: ['entry_123', 'entry_456'],
+  },
   messages: [
-    { role: 'system', content: 'You are a helpful assistant.' },
-    { role: 'user', content: 'Summarize the plan output.' },
+    { role: 'system', content: 'You are supporting Apollo operators.' },
+    {
+      role: 'system',
+      content: 'Persona context:\n- Observation @ 10:00: Picked up the red block',
+    },
+    { role: 'user', content: 'Summarize the last process execution.' },
   ],
 })
 
-if (completion.success) {
-  console.log('LLM response:', completion.data.output)
+if (completion.success && completion.data) {
+  const content = completion.data.choices?.[0]?.message?.content
+  console.log('LLM response:', content)
+  console.log('Usage:', completion.data.usage)
 }
 ```
+
+The same `/llm` endpoint is exposed through the CLI via `apollo-cli chat "..."`. By default the CLI (and the browser chat panel) fetch the five most recent persona-diary entries, fold them into the system prompt, and tag each request with metadata (`persona_entry_ids`, sentiment counts, etc.) so diagnostics can reconstruct the conversation history. Override the provider/model/temperature with `--provider`, `--model`, `--temperature`, `--max-tokens`, or disable persona context with `--no-persona`.
 
 ### Health Checks
 

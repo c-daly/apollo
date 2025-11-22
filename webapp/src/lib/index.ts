@@ -18,6 +18,7 @@ export {
 export type {
   SophiaConfig,
   HermesConfig,
+  HermesLLMConfig,
   HCGConfig,
   FeatureFlags,
   ApolloConfig,

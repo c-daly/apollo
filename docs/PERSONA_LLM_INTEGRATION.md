@@ -82,3 +82,27 @@ def build_chat_prompt(user_message, system_context=""):
 {persona_context}
 
 User: {user_message}
+
+## Chat Panel Metadata & Telemetry
+
+The Apollo web chat now forwards every Hermes `/llm` invocation with a consistent metadata envelope so downstream services (Hermes, diagnostics, persona diary) can reason about the conversation context:
+
+- `surface`: Always `apollo-webapp.chat-panel` for the browser UI.
+- `version`: The `VITE_APP_VERSION` string baked into the build (defaults to `dev`).
+- `session_id`: Stable UUID for the browser session so multiple turns can be stitched together.
+- `message_count`: Number of messages in the trimmed history buffer that Hermes receives.
+- `locale`, `timezone`, `user_agent`: Lightweight client hints for analytics and prompt adaptation.
+- `hermes_provider_hint` / `hermes_model_hint`: Optional overrides derived from the `.env` LLM settings.
+
+Once Hermes responds, the webapp measures round-trip latency, extracts token usage, and attaches persona sentiment (if Hermes populates `raw.persona.sentiment`). That telemetry is POSTed to `POST /api/diagnostics/llm`, allowing the diagnostics panel to display live LLM latency, token counts, and persona sentiment next to the existing API/plan metrics.
+
+### CLI Chat Command
+
+The new `apollo-cli chat "..."` command uses the same integration stack:
+
+1. Fetch the latest persona-diary entries (`--persona-limit` controls the count; use `--no-persona` to disable).
+2. Append a formatted “Persona diary context” block to the Hermes system prompt.
+3. Send metadata such as `persona_entry_ids`, entry-type/sentiment histograms, CLI version, and provider/model hints.
+4. Emit latency + token usage telemetry back to `POST /api/diagnostics/llm` so the dashboard mirrors CLI conversations just like browser chats.
+
+Provider/model/temperature/max-token overrides can be supplied via `config.yaml` (under `hermes.*`) or ad-hoc CLI flags. This keeps the CLI, browser, and diagnostics timelines in sync whenever Hermes is consulted.

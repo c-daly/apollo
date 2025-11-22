@@ -1,7 +1,10 @@
-"""Tests for Sophia client."""
+"""Tests for Sophia and Hermes clients."""
 
 from apollo.client.sophia_client import SophiaClient, SophiaResponse
-from apollo.config.settings import SophiaConfig
+from apollo.client.hermes_client import HermesClient, HermesResponse
+from apollo.config.settings import HermesConfig, SophiaConfig
+from logos_hermes_sdk.models.llm_message import LLMMessage
+from logos_hermes_sdk.models.llm_request import LLMRequest
 
 
 def test_sophia_client_initialization() -> None:
@@ -94,3 +97,19 @@ def test_sophia_client_execute_step() -> None:
     assert isinstance(response, SophiaResponse)
     assert response.success is False
     assert "talos" in response.error.lower()
+
+
+def test_hermes_client_llm_generate_failure() -> None:
+    """Hermes LL.M call should fail gracefully when the service is unavailable."""
+    config = HermesConfig()
+    client = HermesClient(config)
+
+    request = LLMRequest(
+        messages=[LLMMessage(role="user", content="Hello Hermes")],
+        metadata={"surface": "test"},
+    )
+    response = client.llm_generate(request)
+
+    assert isinstance(response, HermesResponse)
+    assert response.success is False
+    assert response.error is not None

@@ -6,6 +6,7 @@ from pathlib import Path
 from apollo.config.settings import (
     ApolloConfig,
     HCGConfig,
+    HermesConfig,
     MilvusConfig,
     Neo4jConfig,
     PersonaApiConfig,
@@ -34,6 +35,19 @@ def test_milvus_config_defaults() -> None:
     config = MilvusConfig()
     assert config.host == "localhost"
     assert config.port == 19530
+
+
+def test_hermes_config_defaults() -> None:
+    """Test HermesConfig default values."""
+    config = HermesConfig()
+    assert config.host == "localhost"
+    assert config.port == 8081
+    assert config.timeout == 30
+    assert config.provider is None
+    assert config.model is None
+    assert config.temperature is None
+    assert config.max_tokens is None
+    assert config.system_prompt is None
 
 
 def test_hcg_config_defaults() -> None:

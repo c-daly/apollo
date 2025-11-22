@@ -31,3 +31,31 @@ export async function fetchTelemetryMetrics(): Promise<TelemetrySnapshot> {
   const response = await fetch(`${base}/metrics`)
   return handleResponse<TelemetrySnapshot>(response)
 }
+
+export interface LLMTelemetryPayload {
+  latency_ms: number
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+  persona_sentiment?: string | null
+  persona_confidence?: number | null
+  metadata?: Record<string, unknown>
+}
+
+export async function sendLLMTelemetry(
+  payload: LLMTelemetryPayload
+): Promise<void> {
+  const base = buildDiagnosticsBaseUrl()
+  const response = await fetch(`${base}/llm`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+
+  if (!response.ok) {
+    const detail = await response.text()
+    throw new Error(detail || 'Failed to submit LLM telemetry')
+  }
+}
