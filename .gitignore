@@ -87,6 +87,7 @@ webapp/.vite/
 *.local
 
 # Configuration
+config.yaml
 config.local.yaml
 config.local.yml
 secrets.yaml

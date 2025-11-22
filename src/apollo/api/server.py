@@ -7,6 +7,7 @@ stream telemetry, and serve real-time diagnostics.
 from datetime import datetime
 from typing import AsyncIterator, List, Optional
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 
 from apollo.config.settings import ApolloConfig
 from apollo.data.hcg_client import HCGClient
+from apollo.data.persona_store import PersonaDiaryStore
 from apollo.data.models import (
     Entity,
     State,
@@ -29,14 +31,14 @@ from apollo.data.models import (
 # Global HCG client instance
 hcg_client: Optional[HCGClient] = None
 
-# In-memory storage for persona entries (in production, use a database)
-persona_entries: List[PersonaEntry] = []
+# Persona diary persistence layer
+persona_store: Optional[PersonaDiaryStore] = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan context manager."""
-    global hcg_client
+    global hcg_client, persona_store
 
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
@@ -45,12 +47,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         hcg_client.connect()
         print("HCG client connected to Neo4j")
 
+        persona_store = PersonaDiaryStore(config.hcg.neo4j)
+        persona_store.connect()
+        print("Persona diary store connected to Neo4j")
+
     yield
 
     # Shutdown: Close HCG client
     if hcg_client:
         hcg_client.close()
         print("HCG client disconnected")
+
+    if persona_store:
+        persona_store.close()
+        print("Persona diary store disconnected")
 
 
 app = FastAPI(
@@ -277,14 +287,11 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
     This endpoint allows creation of new diary entries capturing the agent's
     internal reasoning, decisions, beliefs, and observations.
     """
-    global persona_entries
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
 
-    # Generate unique ID
-    entry_id = f"entry_{len(persona_entries) + 1}_{int(datetime.now().timestamp())}"
-
-    # Create the entry
     entry = PersonaEntry(
-        id=entry_id,
+        id=f"persona_{uuid4().hex}",
         timestamp=datetime.now(),
         entry_type=request.entry_type,
         content=request.content,
@@ -297,10 +304,12 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
         metadata=request.metadata,
     )
 
-    # Store the entry
-    persona_entries.append(entry)
-
-    return entry
+    try:
+        return persona_store.create_entry(entry)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create persona entry: {exc}"
+        )
 
 
 @app.get("/api/persona/entries", response_model=List[PersonaEntry])
@@ -320,42 +329,41 @@ async def get_persona_entries(
 
     Returns a list of diary entries sorted by timestamp (most recent first).
     """
-    global persona_entries
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
 
-    # Apply filters
-    filtered = persona_entries
-
-    if entry_type:
-        filtered = [e for e in filtered if e.entry_type == entry_type]
-
-    if sentiment:
-        filtered = [e for e in filtered if e.sentiment == sentiment]
-
-    if related_process_id:
-        filtered = [e for e in filtered if related_process_id in e.related_process_ids]
-
-    if related_goal_id:
-        filtered = [e for e in filtered if related_goal_id in e.related_goal_ids]
-
-    # Sort by timestamp (most recent first)
-    sorted_entries = sorted(filtered, key=lambda e: e.timestamp, reverse=True)
-
-    # Apply pagination
-    paginated = sorted_entries[offset : offset + limit]
-
-    return paginated
+    try:
+        return persona_store.list_entries(
+            entry_type=entry_type,
+            sentiment=sentiment,
+            related_process_id=related_process_id,
+            related_goal_id=related_goal_id,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch persona entries: {exc}"
+        )
 
 
 @app.get("/api/persona/entries/{entry_id}", response_model=PersonaEntry)
 async def get_persona_entry(entry_id: str) -> PersonaEntry:
     """Get a specific persona diary entry by ID."""
-    global persona_entries
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
 
-    for entry in persona_entries:
-        if entry.id == entry_id:
-            return entry
+    try:
+        entry = persona_store.get_entry(entry_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch persona entry: {exc}"
+        )
 
-    raise HTTPException(status_code=404, detail="Persona entry not found")
+    if not entry:
+        raise HTTPException(status_code=404, detail="Persona entry not found")
+
+    return entry
 
 
 def main() -> None:

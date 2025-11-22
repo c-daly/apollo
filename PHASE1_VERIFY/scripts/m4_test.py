@@ -12,7 +12,6 @@ Requirements:
 
 import subprocess
 import sys
-import json
 from typing import Dict, Any, Optional
 
 try:
@@ -319,7 +318,7 @@ def run_m4_test() -> bool:
     # Step 5: Execute a plan step (simulate execution)
     if plan_data:
         plan_id = plan_data.get("plan_id", goal_id)
-        execution_data = execute_plan_step_via_cli(plan_id, step_index=0)
+        execute_plan_step_via_cli(plan_id, step_index=0)
         # Note: We don't fail if executor is not fully implemented yet
     
     # Step 6: Fetch state after execution to verify changes
