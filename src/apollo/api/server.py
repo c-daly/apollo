@@ -67,6 +67,8 @@ class TelemetrySnapshot(BaseModel):
     success_rate: float
     active_plans: int
     last_update: datetime
+    active_websockets: int = 0
+    last_broadcast: Optional[datetime] = None
     llm_latency_ms: Optional[float] = None
     llm_prompt_tokens: Optional[int] = None
     llm_completion_tokens: Optional[int] = None
@@ -96,6 +98,8 @@ class DiagnosticsManager:
             success_rate=100.0,
             active_plans=0,
             last_update=datetime.utcnow(),
+            active_websockets=0,
+            last_broadcast=None,
         )
         self._subscribers: set[asyncio.Queue] = set()
 
@@ -134,6 +138,7 @@ class DiagnosticsManager:
                 "success_rate": round(success_rate, 2),
                 "active_plans": active_plans,
                 "last_update": datetime.utcnow(),
+                "active_websockets": len(self._subscribers),
             }
         )
         await self._broadcast(
@@ -183,12 +188,21 @@ class DiagnosticsManager:
     def register(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue()
         self._subscribers.add(queue)
+        self._telemetry = self._telemetry.model_copy(
+            update={"active_websockets": len(self._subscribers)}
+        )
         return queue
 
     def unregister(self, queue: asyncio.Queue) -> None:
         self._subscribers.discard(queue)
+        self._telemetry = self._telemetry.model_copy(
+            update={"active_websockets": len(self._subscribers)}
+        )
 
     async def _broadcast(self, event: dict) -> None:
+        self._telemetry = self._telemetry.model_copy(
+            update={"last_broadcast": datetime.utcnow()}
+        )
         for queue in list(self._subscribers):
             await queue.put(event)
 
@@ -773,6 +787,27 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
     """Broadcast diagnostic logs + telemetry over WebSocket."""
     await websocket.accept()
     queue = diagnostics_manager.register()
+
+    async def listener() -> None:
+        try:
+            while True:
+                data = await websocket.receive_text()
+                try:
+                    message = json.loads(data)
+                    if message.get("type") == "ping":
+                        await websocket.send_json(
+                            {
+                                "type": "pong",
+                                "timestamp": datetime.utcnow().isoformat(),
+                            }
+                        )
+                except json.JSONDecodeError:
+                    pass
+        except Exception:
+            pass
+
+    listen_task = asyncio.create_task(listener())
+
     try:
         await websocket.send_json(
             DiagnosticsEvent(
@@ -794,6 +829,8 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
             await websocket.send_json(event)
     except WebSocketDisconnect:
         diagnostics_manager.unregister(queue)
+    finally:
+        listen_task.cancel()
 
 
 def main() -> None:

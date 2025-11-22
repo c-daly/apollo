@@ -19,11 +19,17 @@ const wsMocks = vi.hoisted(() => {
     connected = false
   })
   const isConnected = vi.fn(() => connected)
+  const getHealth = vi.fn(() => ({
+    connected,
+    lastHeartbeat: null,
+    retryCount: 0,
+  }))
 
   return {
     connect,
     disconnect,
     isConnected,
+    getHealth,
     getMessageHandler: () => messageHandler,
     setMessageHandler: (handler: MessageHandler | null) => {
       messageHandler = handler
@@ -43,6 +49,7 @@ vi.mock('../../lib/websocket-client', () => ({
     connect: wsMocks.connect,
     disconnect: wsMocks.disconnect,
     isConnected: wsMocks.isConnected,
+    getHealth: wsMocks.getHealth,
     onMessage: vi.fn((handler: MessageHandler) => {
       wsMocks.setMessageHandler(handler)
       return () => {
@@ -139,27 +146,27 @@ describe('useDiagnosticsStream', () => {
       useDiagnosticsStream({ onConnectionChange })
     )
 
-    expect(result.current).toBe('connecting')
+    expect(result.current.status).toBe('connecting')
     expect(onConnectionChange).not.toHaveBeenCalled()
 
     act(() => {
       wsMocks.setConnected(true)
       wsMocks.getConnectionHandler()?.('connected')
     })
-    expect(result.current).toBe('online')
+    expect(result.current.status).toBe('online')
     expect(onConnectionChange).toHaveBeenCalledWith('online')
 
     act(() => {
       wsMocks.getConnectionHandler()?.('error')
     })
-    expect(result.current).toBe('error')
+    expect(result.current.status).toBe('error')
     expect(onConnectionChange).toHaveBeenLastCalledWith('error')
 
     act(() => {
       wsMocks.setConnected(false)
       wsMocks.getConnectionHandler()?.('disconnected')
     })
-    expect(result.current).toBe('offline')
+    expect(result.current.status).toBe('offline')
     expect(onConnectionChange).toHaveBeenLastCalledWith('offline')
   })
 

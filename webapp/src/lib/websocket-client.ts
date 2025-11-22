@@ -17,24 +17,59 @@ export type ConnectionState =
   | 'connecting'
   | 'connected'
   | 'disconnected'
+  | 'reconnecting'
   | 'error'
+
+class ExponentialBackoff {
+  private attempt = 0
+  private baseDelay: number
+  private maxDelay: number
+
+  constructor(baseDelay = 1000, maxDelay = 30000) {
+    this.baseDelay = baseDelay
+    this.maxDelay = maxDelay
+  }
+
+  next(): number {
+    const delay = Math.min(
+      this.maxDelay,
+      this.baseDelay * Math.pow(1.5, this.attempt)
+    )
+    // Add jitter (±20%)
+    const jitter = delay * 0.2 * (Math.random() * 2 - 1)
+    this.attempt++
+    return Math.max(this.baseDelay, delay + jitter)
+  }
+
+  reset(): void {
+    this.attempt = 0
+  }
+
+  get currentAttempt(): number {
+    return this.attempt
+  }
+}
 
 export class HCGWebSocketClient<TMessage = WebSocketMessage> {
   private ws: WebSocket | null = null
   private url: string
-  private reconnectInterval: number
   private maxReconnectAttempts: number
-  private reconnectAttempts: number = 0
   private reconnectTimeout: number | null = null
   private messageHandlers: Set<MessageHandler<TMessage>> = new Set()
   private connectionHandlers: Set<(state: ConnectionState) => void> = new Set()
   private connected: boolean = false
+  private backoff: ExponentialBackoff
+  private pingInterval: number | null = null
+  private lastHeartbeat: Date | null = null
 
   constructor(config: WebSocketClientConfig = {}) {
     const hcgConfig = getHCGConfig()
     this.url = config.url || hcgConfig.wsUrl || 'ws://localhost:8765'
-    this.reconnectInterval = config.reconnectInterval || 3000
-    this.maxReconnectAttempts = config.maxReconnectAttempts || 10
+    this.maxReconnectAttempts = config.maxReconnectAttempts || 20
+    this.backoff = new ExponentialBackoff(
+      config.reconnectInterval || 1000,
+      30000
+    )
   }
 
   connect(): void {
@@ -49,8 +84,10 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
       this.ws.onopen = () => {
         console.log('HCG WebSocket connected')
         this.connected = true
-        this.reconnectAttempts = 0
+        this.backoff.reset()
+        this.lastHeartbeat = new Date()
         this.notifyConnection('connected')
+        this.startPing()
 
         // Send subscribe message
         this.send({ type: 'subscribe' })
@@ -58,8 +95,12 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
 
       this.ws.onmessage = event => {
         try {
-          const message = JSON.parse(event.data) as TMessage
-          this.notifyHandlers(message)
+          const message = JSON.parse(event.data)
+          if (message.type === 'pong') {
+            this.lastHeartbeat = new Date()
+            return
+          }
+          this.notifyHandlers(message as TMessage)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
         }
@@ -74,6 +115,7 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
         console.log('HCG WebSocket disconnected')
         this.connected = false
         this.ws = null
+        this.stopPing()
         this.notifyConnection('disconnected')
         this.scheduleReconnect()
       }
@@ -90,18 +132,36 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
       this.reconnectTimeout = null
     }
 
+    this.stopPing()
+
     if (this.ws) {
       this.ws.close()
       this.ws = null
     }
 
     this.connected = false
-    this.reconnectAttempts = 0
+    this.backoff.reset()
     this.notifyConnection('disconnected')
   }
 
+  private startPing() {
+    this.stopPing()
+    this.pingInterval = window.setInterval(() => {
+      if (this.connected) {
+        this.send({ type: 'ping' })
+      }
+    }, 10000)
+  }
+
+  private stopPing() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval)
+      this.pingInterval = null
+    }
+  }
+
   private scheduleReconnect(): void {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (this.backoff.currentAttempt >= this.maxReconnectAttempts) {
       console.error('Max reconnect attempts reached')
       this.notifyConnection('error')
       return
@@ -111,20 +171,22 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
       return
     }
 
-    this.reconnectAttempts++
+    const delay = this.backoff.next()
     console.log(
-      `Scheduling reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
+      `Scheduling reconnect attempt ${this.backoff.currentAttempt}/${this.maxReconnectAttempts} in ${Math.round(delay)}ms`
     )
+
+    this.notifyConnection('reconnecting')
 
     this.reconnectTimeout = window.setTimeout(() => {
       this.reconnectTimeout = null
       this.connect()
-    }, this.reconnectInterval)
+    }, delay)
   }
 
   send(message: Record<string, unknown>): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket is not connected, cannot send message')
+      // console.warn('WebSocket is not connected, cannot send message')
       return
     }
 
@@ -164,6 +226,14 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
 
   isConnected(): boolean {
     return this.connected
+  }
+
+  getHealth() {
+    return {
+      connected: this.connected,
+      retryCount: this.backoff.currentAttempt,
+      lastHeartbeat: this.lastHeartbeat,
+    }
   }
 
   onConnectionChange(handler: (state: ConnectionState) => void): () => void {

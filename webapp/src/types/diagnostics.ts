@@ -13,6 +13,8 @@ export interface TelemetrySnapshot {
   success_rate: number
   active_plans: number
   last_update: string
+  active_websockets?: number
+  last_broadcast?: string | null
   llm_latency_ms?: number | null
   llm_prompt_tokens?: number | null
   llm_completion_tokens?: number | null

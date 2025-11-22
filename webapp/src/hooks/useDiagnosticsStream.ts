@@ -20,7 +20,14 @@ export type DiagnosticsConnectionStatus =
   | 'connecting'
   | 'online'
   | 'offline'
+  | 'reconnecting'
   | 'error'
+
+export interface DiagnosticsHealth {
+  status: DiagnosticsConnectionStatus
+  retryCount: number
+  lastHeartbeat: Date | null
+}
 
 const DISCONNECT_DELAY_MS = 5000
 let subscriberCount = 0
@@ -55,7 +62,7 @@ function stopSubscription(): void {
 
 export function useDiagnosticsStream(
   options: DiagnosticsStreamOptions
-): DiagnosticsConnectionStatus {
+): DiagnosticsHealth {
   const {
     onLog,
     onTelemetry,
@@ -64,9 +71,16 @@ export function useDiagnosticsStream(
     onError,
     onConnectionChange,
   } = options
-  const [status, setStatus] = useState<DiagnosticsConnectionStatus>(() =>
-    diagnosticsWebSocket.isConnected() ? 'online' : 'connecting'
-  )
+
+  const [health, setHealth] = useState<DiagnosticsHealth>(() => {
+    const clientHealth = diagnosticsWebSocket.getHealth()
+    return {
+      status: clientHealth.connected ? 'online' : 'connecting',
+      retryCount: clientHealth.retryCount,
+      lastHeartbeat: clientHealth.lastHeartbeat,
+    }
+  })
+
   const callbacksRef = useRef({
     onLog,
     onTelemetry,
@@ -97,8 +111,18 @@ export function useDiagnosticsStream(
   useEffect(() => {
     startSubscription()
 
+    const updateHealth = () => {
+      const clientHealth = diagnosticsWebSocket.getHealth()
+      setHealth(prev => ({
+        ...prev,
+        retryCount: clientHealth.retryCount,
+        lastHeartbeat: clientHealth.lastHeartbeat,
+      }))
+    }
+
     const unsubscribe = diagnosticsWebSocket.onMessage(
       (event: DiagnosticsEvent) => {
+        updateHealth()
         const callbacks = callbacksRef.current
         switch (event.type) {
           case 'log':
@@ -127,25 +151,37 @@ export function useDiagnosticsStream(
 
     const unsubscribeConnection = diagnosticsWebSocket.onConnectionChange(
       state => {
-        const mapped =
+        const mapped: DiagnosticsConnectionStatus =
           state === 'connected'
             ? 'online'
             : state === 'connecting'
               ? 'connecting'
-              : state === 'error'
-                ? 'error'
-                : 'offline'
-        setStatus(mapped)
+              : state === 'reconnecting'
+                ? 'reconnecting'
+                : state === 'error'
+                  ? 'error'
+                  : 'offline'
+
+        const clientHealth = diagnosticsWebSocket.getHealth()
+        setHealth({
+          status: mapped,
+          retryCount: clientHealth.retryCount,
+          lastHeartbeat: clientHealth.lastHeartbeat,
+        })
         callbacksRef.current.onConnectionChange?.(mapped)
       }
     )
 
+    // Poll for heartbeat updates every second to keep UI fresh
+    const heartbeatTimer = setInterval(updateHealth, 1000)
+
     return () => {
+      clearInterval(heartbeatTimer)
       unsubscribe()
       unsubscribeConnection()
       stopSubscription()
     }
   }, [])
 
-  return status
+  return health
 }
