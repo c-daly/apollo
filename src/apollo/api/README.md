@@ -356,6 +356,7 @@ mypy src/apollo/api/
 
 - `GET /api/diagnostics/logs` → Recent log entries stored by the FastAPI server.
 - `GET /api/diagnostics/metrics` → Telemetry snapshot consumed by the Diagnostics panel.
+- `POST /api/diagnostics/llm` → Accepts Hermes `/llm` telemetry (latency, token usage, persona sentiment) from the CLI/webapp and rebroadcasts it to the dashboard.
 - `WebSocket /ws/diagnostics` → Live stream for logs + telemetry. Each message has a `type` field (`log`, `logs`, `telemetry`) with structured payloads matching the TypeScript models under `webapp/src/types/diagnostics.ts`.
 
 Use the REST fallback for debugging, and point the webapp at the WebSocket endpoint to see live updates without refreshing.

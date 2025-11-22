@@ -12,6 +12,11 @@ hermes:
   port: 8081
   timeout: 30
   api_key: ""  # Optional bearer token for Hermes API
+  provider: ""  # Optional provider override (e.g., openai, echo)
+  model: ""     # Optional model override (e.g., gpt-4o, hermes-test)
+  temperature: 0.7  # Optional temperature (0.0 - 2.0)
+  max_tokens:       # Optional maximum completion tokens
+  system_prompt: "" # Optional default system prompt for Hermes
 
 persona_api:
   host: localhost

@@ -121,7 +121,15 @@ apollo-cli embed "Navigate to the kitchen"
 
 # Use specific model
 apollo-cli embed "Pick up the red block" --model small-e5
+
+# Chat through Hermes (/llm) with persona context
+apollo-cli chat "Summarize current HCG status and next steps"
+
+# Override provider/model/temperature for an ad-hoc run
+apollo-cli chat "Draft a plan for tidying the lab" --provider openai --model gpt-4o-mini --temperature 0.2
 ```
+
+Both the CLI `chat` command and the Apollo web chat automatically pull the most recent persona-diary entries (default: 5) and prepend them to the Hermes system prompt so responses stay grounded in Sophia's latest beliefs/decisions. Use `--persona-limit` or `--no-persona` to tune that behaviour in the CLI.
 
 ### Shared SDK Clients
 
@@ -164,9 +172,9 @@ npm run dev:mock
 The dashboard will be available at `http://localhost:5173`
 
 **Web Dashboard Features:**
-- **Chat Panel**: Conversational interface for natural language commands
+- **Chat Panel**: Conversational interface for natural language commands routed through Hermes `/llm` with automatic telemetry + token usage reporting
 - **Graph Viewer**: Interactive visualization of HCG (goals, plans, steps)
-- **Diagnostics**: Real-time logs & telemetry streamed from `/ws/diagnostics` with REST fallback (`/api/diagnostics/logs`, `/api/diagnostics/metrics`)
+- **Diagnostics**: Real-time logs & telemetry streamed from `/ws/diagnostics` with REST fallback (`/api/diagnostics/logs`, `/api/diagnostics/metrics`, `/api/diagnostics/llm`)
 - **Persona Diary**: Agent's internal reasoning and decision-making trace
 
 **Mock Data Fixtures:**
@@ -203,10 +211,15 @@ hermes:
   port: 8081
   timeout: 30
   api_key: ${HERMES_API_KEY}
+  provider: openai        # Optional provider override
+  model: gpt-4o-mini      # Optional model override
+  temperature: 0.7        # Optional temperature (0.0 - 2.0)
+  max_tokens: 512         # Optional max completion tokens
+  system_prompt: ""       # Optional custom system prompt for chat
 
 persona_api:
   host: localhost
-  port: 8080
+  port: 8082
   timeout: 15
   api_key: ${PERSONA_API_KEY}
   
@@ -227,7 +240,7 @@ export SOPHIA_API_KEY=your_sophia_key
 export HERMES_API_KEY=your_hermes_key
 ```
 
-The `persona_api` block configures how the CLI and `apollo-api` proxy reach Sophia's persona diary endpoints. Leave the defaults if Sophia runs locally on port `8080`; otherwise adjust host/port/API key so the `apollo-cli diary` command and the webapp can submit entries.
+The `persona_api` block configures how the CLI and `apollo-api` proxy reach Sophia's persona diary endpoints. Leave the defaults if `apollo-api` is running locally on port `8082`; otherwise adjust host/port/API key so the `apollo-cli diary`/`chat` commands and the webapp can submit entries.
 
 ### Web Dashboard Configuration
 
@@ -255,10 +268,18 @@ VITE_SOPHIA_TIMEOUT=30000
 VITE_HERMES_API_URL=http://localhost:8081
 VITE_HERMES_API_KEY=
 VITE_HERMES_TIMEOUT=30000
+VITE_HERMES_LLM_PROVIDER=
+VITE_HERMES_LLM_MODEL=
+VITE_HERMES_LLM_TEMPERATURE=
+VITE_HERMES_LLM_MAX_TOKENS=
+VITE_HERMES_SYSTEM_PROMPT=
 
 # Features
 VITE_ENABLE_CHAT=true
 VITE_ENABLE_DIAGNOSTICS=true
+
+# App metadata
+VITE_APP_VERSION=dev
 ```
 
 ## Development

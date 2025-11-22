@@ -11,10 +11,19 @@ export interface SophiaConfig {
   timeout: number
 }
 
+export interface HermesLLMConfig {
+  provider?: string
+  model?: string
+  temperature?: number
+  maxTokens?: number
+  systemPrompt?: string
+}
+
 export interface HermesConfig {
   baseUrl: string
   apiKey?: string
   timeout: number
+  llm: HermesLLMConfig
 }
 
 export interface HCGConfig {
@@ -56,6 +65,17 @@ function parseTimeout(value: string | undefined, defaultValue: number): number {
   return isNaN(parsed) || parsed <= 0 ? defaultValue : parsed
 }
 
+function parseOptionalNumber(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === '') {
+    return undefined
+  }
+  const parsed = Number(value)
+  if (Number.isNaN(parsed)) {
+    return undefined
+  }
+  return parsed
+}
+
 /**
  * Load Apollo configuration from environment variables
  *
@@ -83,6 +103,15 @@ export function loadConfig(): ApolloConfig {
       baseUrl: import.meta.env.VITE_HERMES_API_URL || 'http://localhost:8081',
       apiKey: import.meta.env.VITE_HERMES_API_KEY || undefined,
       timeout: parseTimeout(import.meta.env.VITE_HERMES_TIMEOUT, 30000),
+      llm: {
+        provider: import.meta.env.VITE_HERMES_LLM_PROVIDER || undefined,
+        model: import.meta.env.VITE_HERMES_LLM_MODEL || undefined,
+        temperature: parseOptionalNumber(
+          import.meta.env.VITE_HERMES_LLM_TEMPERATURE
+        ),
+        maxTokens: parseOptionalNumber(import.meta.env.VITE_HERMES_LLM_MAX_TOKENS),
+        systemPrompt: import.meta.env.VITE_HERMES_SYSTEM_PROMPT || undefined,
+      },
     },
     hcg: {
       apiUrl: import.meta.env.VITE_HCG_API_URL || 'http://localhost:8082',

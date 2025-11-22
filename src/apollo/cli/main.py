@@ -1,21 +1,32 @@
 """Apollo CLI - Command-line interface for Project LOGOS."""
 
+from collections import Counter
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+import time
 
 import click
+import requests
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.syntax import Syntax
 import yaml
+from logos_hermes_sdk.models.llm_message import LLMMessage
+from logos_hermes_sdk.models.llm_request import LLMRequest
 
 from apollo.client.sophia_client import SophiaClient
-from apollo.client.hermes_client import HermesClient
+from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.client.persona_client import PersonaClient
-from apollo.config.settings import ApolloConfig
+from apollo.config.settings import ApolloConfig, PersonaApiConfig
 
 console = Console()
+
+DEFAULT_CHAT_SYSTEM_PROMPT = (
+    "You are the Hermes gateway assisting Apollo operators. "
+    "Provide concise guidance, reference Hybrid Causal Graph facts when useful, "
+    "and assume Sophia + Talos will handle execution."
+)
 
 
 @click.group()
@@ -448,6 +459,143 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
 
 
 @cli.command()
+@click.argument("prompt", required=False)
+@click.option("--provider", help="Override Hermes provider for this request")
+@click.option(
+    "--model",
+    "model_override",
+    help="Override Hermes model identifier (default: config value)",
+)
+@click.option(
+    "--temperature",
+    type=click.FloatRange(0.0, 2.0),
+    help="Override sampling temperature (0.0-2.0)",
+)
+@click.option(
+    "--max-tokens",
+    type=click.IntRange(1),
+    help="Override maximum completion tokens",
+)
+@click.option(
+    "--system",
+    "system_prompt_override",
+    help="Custom system prompt (defaults to config or CLI standard)",
+)
+@click.option(
+    "--persona-limit",
+    default=5,
+    show_default=True,
+    type=click.IntRange(0),
+    help="Number of recent persona diary entries to include for context",
+)
+@click.option(
+    "--no-persona",
+    is_flag=True,
+    help="Skip persona diary context for this request",
+)
+@click.pass_context
+def chat(
+    ctx: click.Context,
+    prompt: Optional[str],
+    provider: Optional[str],
+    model_override: Optional[str],
+    temperature: Optional[float],
+    max_tokens: Optional[int],
+    system_prompt_override: Optional[str],
+    persona_limit: int,
+    no_persona: bool,
+) -> None:
+    """Send a conversational query through Hermes' LLM gateway."""
+
+    if not prompt:
+        prompt = click.prompt("Enter your prompt")
+
+    config: ApolloConfig = ctx.obj["config"]
+    hermes: HermesClient = ctx.obj["hermes"]
+    persona_client: PersonaClient = ctx.obj["persona"]
+
+    overrides = {
+        "provider": provider or config.hermes.provider,
+        "model": model_override or config.hermes.model,
+        "temperature": (
+            temperature
+            if temperature is not None
+            else config.hermes.temperature
+        ),
+        "max_tokens": (
+            max_tokens if max_tokens is not None else config.hermes.max_tokens
+        ),
+    }
+
+    persona_entries: List[Dict[str, Any]] = []
+    if not no_persona and persona_limit > 0:
+        persona_entries = _fetch_persona_entries(persona_client, persona_limit)
+        if persona_entries:
+            console.print(
+                Panel(
+                    _format_persona_summary(persona_entries),
+                    title="Persona Context",
+                    border_style="cyan",
+                )
+            )
+
+    persona_metadata = _build_persona_metadata(persona_entries)
+    system_prompt = (
+        system_prompt_override
+        or config.hermes.system_prompt
+        or DEFAULT_CHAT_SYSTEM_PROMPT
+    )
+    persona_block = persona_metadata.pop("persona_context_block", None)
+    if persona_block:
+        system_prompt = f"{system_prompt}\n\nPersona diary context:\n{persona_block}"
+
+    llm_request = _build_llm_request(
+        prompt=prompt,
+        system_prompt=system_prompt,
+        overrides=overrides,
+        metadata=_sanitize_metadata(
+            {
+                "surface": "apollo-cli.chat",
+                "cli_version": "0.1.0",
+                **persona_metadata,
+            }
+        ),
+    )
+
+    console.print("[bold]Contacting Hermes...[/bold]\n")
+    started = time.perf_counter()
+    response: HermesResponse = hermes.llm_generate(llm_request)
+    latency_ms = (time.perf_counter() - started) * 1000.0
+
+    if response.success and isinstance(response.data, dict):
+        completion_text = _extract_completion_text(response.data)
+        usage_note = _format_usage(response.data.get("usage"))
+        console.print(
+            Panel(
+                completion_text or "[dim]Hermes returned an empty message[/dim]",
+                title="Hermes Response",
+                border_style="green",
+            )
+        )
+        if usage_note:
+            console.print(f"[dim]{usage_note}[/dim]")
+        console.print(f"[dim]Latency:[/dim] {latency_ms:.1f} ms\n")
+
+        _emit_llm_telemetry(
+            config.persona_api,
+            response.data,
+            latency_ms,
+            llm_request.metadata or {},
+        )
+    else:
+        console.print("[red]✗ Hermes request failed[/red]")
+        console.print(
+            response.error
+            or "Hermes did not return a completion response. Check the service logs."
+        )
+
+
+@cli.command()
 @click.argument("content", required=False)
 @click.option(
     "--type",
@@ -531,6 +679,226 @@ def diary(
         console.print(
             "\n[dim]Tip: Ensure apollo-api server is running (apollo-api command)[/dim]"
         )
+
+
+def _fetch_persona_entries(
+    persona_client: PersonaClient, limit: int
+) -> List[Dict[str, Any]]:
+    response = persona_client.list_entries(
+        entry_type=None,
+        sentiment=None,
+        related_process_id=None,
+        related_goal_id=None,
+        limit=limit,
+        offset=0,
+    )
+    if response.success and isinstance(response.data, list):
+        return response.data
+    if response.error:
+        console.log(
+            f"[yellow]Warning:[/yellow] Unable to fetch persona context: {response.error}"
+        )
+    return []
+
+
+def _format_persona_summary(entries: Sequence[Dict[str, Any]]) -> str:
+    lines: List[str] = []
+    for entry in entries:
+        entry_type = str(entry.get("entry_type", "entry")).title()
+        sentiment = entry.get("sentiment")
+        timestamp = entry.get("timestamp", "recently")
+        summary = entry.get("summary") or entry.get("content", "")
+        snippet = summary.strip()
+        if len(snippet) > 160:
+            snippet = f"{snippet[:157]}..."
+        sentiment_note = f" ({sentiment})" if sentiment else ""
+        lines.append(f"- {entry_type}{sentiment_note} @ {timestamp}: {snippet}")
+    return "\n".join(lines)
+
+
+def _build_persona_metadata(entries: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    metadata: Dict[str, Any] = {"persona_context_used": bool(entries)}
+    if not entries:
+        return metadata
+
+    entry_ids = [entry.get("id") for entry in entries if entry.get("id")]
+    entry_types = [
+        str(entry.get("entry_type")).lower()
+        for entry in entries
+        if entry.get("entry_type")
+    ]
+    sentiments = [
+        str(entry.get("sentiment")).lower()
+        for entry in entries
+        if entry.get("sentiment")
+    ]
+
+    if entry_ids:
+        metadata["persona_entry_ids"] = entry_ids
+    if entry_types:
+        metadata["persona_entry_types"] = dict(Counter(entry_types))
+    if sentiments:
+        metadata["persona_sentiments"] = dict(Counter(sentiments))
+
+    metadata["persona_context_block"] = _format_persona_summary(entries)
+    metadata["persona_context_count"] = len(entries)
+    return metadata
+
+
+def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
+    sanitized: Dict[str, Any] = {}
+    for key, value in metadata.items():
+        if value in (None, "", [], {}):
+            continue
+        if isinstance(value, dict):
+            nested = _sanitize_metadata(value)
+            if nested:
+                sanitized[key] = nested
+        elif isinstance(value, (list, tuple)):
+            cleaned = [
+                item
+                for item in value
+                if isinstance(item, (str, int, float, bool))
+            ]
+            if cleaned:
+                sanitized[key] = cleaned
+        elif isinstance(value, (str, int, float, bool)):
+            sanitized[key] = value
+    return sanitized
+
+
+def _build_llm_request(
+    *,
+    prompt: str,
+    system_prompt: str,
+    overrides: Dict[str, Optional[Any]],
+    metadata: Dict[str, Any],
+) -> LLMRequest:
+    messages = [
+        LLMMessage(role="system", content=system_prompt.strip()),
+        LLMMessage(role="user", content=prompt.strip()),
+    ]
+
+    kwargs: Dict[str, Any] = {
+        "messages": messages,
+    }
+    if metadata:
+        kwargs["metadata"] = metadata
+
+    if overrides.get("provider"):
+        kwargs["provider"] = overrides["provider"]
+    if overrides.get("model"):
+        kwargs["model"] = overrides["model"]
+    if overrides.get("temperature") is not None:
+        kwargs["temperature"] = overrides["temperature"]
+    if overrides.get("max_tokens") is not None:
+        kwargs["max_tokens"] = overrides["max_tokens"]
+
+    return LLMRequest(**kwargs)
+
+
+def _extract_completion_text(response_data: Dict[str, Any]) -> str:
+    choices = response_data.get("choices") or []
+    for choice in choices:
+        message = choice.get("message") or {}
+        content = message.get("content")
+        if content:
+            return str(content)
+    raw_text = response_data.get("text")
+    return str(raw_text) if raw_text else ""
+
+
+def _format_usage(usage: Optional[Dict[str, Any]]) -> str:
+    if not isinstance(usage, dict):
+        return ""
+    prompt_tokens = usage.get("prompt_tokens") or usage.get("promptTokens")
+    completion_tokens = usage.get("completion_tokens") or usage.get(
+        "completionTokens"
+    )
+    total_tokens = usage.get("total_tokens") or usage.get("totalTokens")
+
+    parts: List[str] = []
+    if prompt_tokens is not None:
+        parts.append(f"prompt {prompt_tokens}")
+    if completion_tokens is not None:
+        parts.append(f"completion {completion_tokens}")
+    if total_tokens is not None:
+        parts.append(f"total {total_tokens}")
+    return f"Usage: {', '.join(parts)}" if parts else ""
+
+
+def _extract_persona_signal(
+    response_data: Dict[str, Any]
+) -> Tuple[Optional[str], Optional[float]]:
+    raw = response_data.get("raw")
+    if isinstance(raw, dict):
+        sentiment = raw.get("persona_sentiment")
+        confidence = raw.get("persona_confidence")
+        if isinstance(sentiment, str):
+            return sentiment, (
+                float(confidence) if isinstance(confidence, (int, float)) else None
+            )
+        persona_block = raw.get("persona")
+        if isinstance(persona_block, dict):
+            sentiment = persona_block.get("sentiment")
+            confidence = persona_block.get("confidence")
+            if isinstance(sentiment, str):
+                return sentiment, (
+                    float(confidence) if isinstance(confidence, (int, float)) else None
+                )
+    return None, None
+
+
+def _emit_llm_telemetry(
+    persona_config: PersonaApiConfig,
+    response_data: Dict[str, Any],
+    latency_ms: float,
+    metadata: Dict[str, Any],
+) -> None:
+    base_url = _persona_api_base_url(persona_config)
+    url = f"{base_url}/api/diagnostics/llm"
+    usage = response_data.get("usage") or {}
+    persona_sentiment, persona_confidence = _extract_persona_signal(response_data)
+
+    payload = {
+        "latency_ms": round(latency_ms, 2),
+        "prompt_tokens": usage.get("prompt_tokens") or usage.get("promptTokens"),
+        "completion_tokens": usage.get("completion_tokens")
+        or usage.get("completionTokens"),
+        "total_tokens": usage.get("total_tokens") or usage.get("totalTokens"),
+        "persona_sentiment": persona_sentiment,
+        "persona_confidence": persona_confidence,
+        "metadata": _sanitize_metadata(
+            {
+                **metadata,
+                "response_id": response_data.get("id"),
+                "hermes_provider": response_data.get("provider"),
+                "hermes_model": response_data.get("model"),
+            }
+        ),
+    }
+
+    headers = {"Content-Type": "application/json"}
+    if persona_config.api_key:
+        headers["Authorization"] = f"Bearer {persona_config.api_key}"
+
+    try:
+        requests.post(
+            url,
+            json=payload,
+            headers=headers,
+            timeout=persona_config.timeout,
+        )
+    except requests.RequestException as exc:
+        console.log(
+            f"[yellow]Warning:[/yellow] Unable to emit Hermes telemetry: {exc}"
+        )
+
+
+def _persona_api_base_url(config: PersonaApiConfig) -> str:
+    if config.host.startswith(("http://", "https://")):
+        return config.host.rstrip("/")
+    return f"http://{config.host}:{config.port}"
 
 
 def main() -> None:

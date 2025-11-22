@@ -27,6 +27,27 @@ class HermesConfig(BaseModel):
     api_key: Optional[str] = Field(
         default=None, description="Bearer token for Hermes API access"
     )
+    provider: Optional[str] = Field(
+        default=None, description="Preferred Hermes provider override"
+    )
+    model: Optional[str] = Field(
+        default=None, description="Preferred provider-specific model identifier"
+    )
+    temperature: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="Default sampling temperature for Hermes LLM requests",
+    )
+    max_tokens: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description="Default maximum completion tokens for Hermes LLM requests",
+    )
+    system_prompt: Optional[str] = Field(
+        default=None,
+        description="Optional default system prompt prepended to Hermes conversations",
+    )
 
 
 class PersonaApiConfig(BaseModel):

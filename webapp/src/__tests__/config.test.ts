@@ -37,6 +37,7 @@ describe('Config', () => {
       expect(loadedConfig.hermes.baseUrl).toBeDefined()
       expect(typeof loadedConfig.hermes.baseUrl).toBe('string')
       expect(loadedConfig.hermes.timeout).toBeGreaterThan(0)
+      expect(loadedConfig.hermes.llm).toBeDefined()
     })
 
     it('should have valid HCG config', () => {
@@ -73,6 +74,7 @@ describe('Config', () => {
       expect(hermesConfig.baseUrl).toBeDefined()
       expect(typeof hermesConfig.baseUrl).toBe('string')
       expect(hermesConfig.timeout).toBeGreaterThan(0)
+      expect(hermesConfig.llm).toBeDefined()
     })
   })
 

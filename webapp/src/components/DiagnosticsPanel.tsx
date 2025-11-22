@@ -332,6 +332,43 @@ function DiagnosticsPanel() {
                   {telemetry ? telemetry.active_plans : '—'}
                 </span>
               </div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">LLM Latency</span>
+                <span className="telemetry-value">
+                  {telemetry?.llm_latency_ms != null
+                    ? `${telemetry.llm_latency_ms} ms`
+                    : '—'}
+                </span>
+              </div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">LLM Tokens</span>
+                <span className="telemetry-value">
+                  {telemetry?.llm_total_tokens ?? '—'}
+                  {telemetry?.llm_prompt_tokens != null &&
+                    telemetry?.llm_completion_tokens != null && (
+                      <span className="telemetry-subtext">
+                        {telemetry.llm_prompt_tokens} prompt /{' '}
+                        {telemetry.llm_completion_tokens} completion
+                      </span>
+                    )}
+                </span>
+              </div>
+              <div className="telemetry-card">
+                <span className="telemetry-label">Persona Sentiment</span>
+                <span
+                  className={`telemetry-value sentiment ${
+                    telemetry?.persona_sentiment || ''
+                  }`}
+                >
+                  {telemetry?.persona_sentiment
+                    ? `${telemetry.persona_sentiment}${
+                        telemetry.persona_confidence != null
+                          ? ` (${Math.round(telemetry.persona_confidence * 100)}%)`
+                          : ''
+                      }`
+                    : '—'}
+                </span>
+              </div>
             </div>
             <div className="telemetry-actions">
               <button className="btn-secondary" onClick={handleManualRefresh}>

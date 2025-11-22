@@ -133,6 +133,7 @@ This document verifies the completion of P2-M2, which implements browser diagnos
 - `GET /api/hcg/snapshot` - Get complete graph snapshot
 - `GET /api/diagnostics/logs` - Structured, recent log entries for Apollo surfaces
 - `GET /api/diagnostics/metrics` - Aggregated telemetry snapshot (latency/request count/etc.)
+- `POST /api/diagnostics/llm` - Ingest Hermes `/llm` telemetry so the dashboard can reflect chat usage
 - `WebSocket /ws/diagnostics` - Live log + telemetry streaming for the browser
 - `POST /api/persona/entries` - Persist persona diary entries into Neo4j
 - `GET /api/persona/entries` + `/api/persona/entries/{id}` - Query diary history with filters
@@ -413,6 +414,15 @@ Tested and working on:
 - Request count
 - Success rate
 - Active plans
+- Hermes LLM telemetry (latency + prompt/completion tokens)
+- Persona sentiment indicators sourced from Hermes responses
+
+### Hermes Chat Surfaces
+1. Run `apollo-cli chat "Summarize current plan status"` and confirm:
+   - Persona diary context is printed before Hermes responds.
+   - Hermes completion text + token usage + latency are displayed.
+2. Open the web chat panel, send a prompt, and ensure the UI also tags persona context in the system prompt (inspect network request metadata for `persona_entry_ids`).
+3. In both cases, verify `/api/diagnostics/llm` receives telemetry (telemetry tab should show LLM latency/tokens updating) and logs include the `surface` values `apollo-cli.chat` / `apollo-webapp.chat-panel`.
 
 ### Persona Diary
 - Timeline visualization

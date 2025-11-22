@@ -81,6 +81,7 @@ React diagnostics panes, CLI renderers, and persona diaries only switch on `mode
 - `/state` - Enhanced state retrieval with graph data
 - `/simulate` - Plan simulation and validation
 - `/embed_text` - Text embedding for semantic search
+- `/llm` - Hermes chat relay (exposed via `apollo-cli chat` and browser panel)
 
 **Structured Logging**:
 All CLI commands output structured JSON logs for the diagnostics pipeline:
@@ -102,6 +103,7 @@ All CLI commands output structured JSON logs for the diagnostics pipeline:
 - Natural language command input
 - Response streaming
 - Command history
+- Persona diary context injection (latest N entries) for grounded responses
 
 #### 3.2 Plan/Graph Viewer
 - Interactive HCG visualization using Cytoscape
@@ -125,6 +127,7 @@ All CLI commands output structured JSON logs for the diagnostics pipeline:
 - System metrics
 - API latency
 - Resource usage
+- Hermes chat telemetry (latency, token counts, persona sentiment feed)
 
 #### 3.4 Persona Diary
 - Agent's internal state narrative
@@ -149,6 +152,11 @@ VITE_SOPHIA_TIMEOUT=30000
 # Hermes API
 VITE_HERMES_API_URL=http://localhost:8081
 VITE_HERMES_API_KEY=<api_key>
+VITE_HERMES_LLM_PROVIDER=
+VITE_HERMES_LLM_MODEL=
+VITE_HERMES_LLM_TEMPERATURE=
+VITE_HERMES_LLM_MAX_TOKENS=
+VITE_HERMES_SYSTEM_PROMPT=
 
 # Features
 VITE_ENABLE_CHAT=true

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from logos_hermes_sdk.models.embed_text_request import EmbedTextRequest
+from logos_hermes_sdk.models.llm_request import LLMRequest
 
 from apollo.config.settings import HermesConfig
 from apollo.sdk import (
@@ -38,6 +39,19 @@ class HermesClient:
             self._sdk,
             "generating embeddings",
             lambda: self._sdk.default.embed_text(
+                request,
+                _request_timeout=self.timeout,
+            ),
+        )
+        return HermesResponse(success=success, data=data, error=error)
+
+    def llm_generate(self, request: LLMRequest) -> HermesResponse:
+        """Invoke the Hermes LLM gateway."""
+
+        success, data, error = execute_hermes_call(
+            self._sdk,
+            "calling Hermes LLM gateway",
+            lambda: self._sdk.default.llm_generate(  # noqa: PLC0415
                 request,
                 _request_timeout=self.timeout,
             ),
