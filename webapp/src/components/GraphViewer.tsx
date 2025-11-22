@@ -162,6 +162,7 @@ function GraphViewer() {
 
   const snapshot: GraphSnapshot | null =
     apiSnapshot ?? (error ? createMockSnapshot() : null)
+  const usingMockData = !apiSnapshot && !!snapshot && !!error
   const summaryMap = useMemo(
     () => (snapshot ? summarizeSnapshot(snapshot) : null),
     [snapshot]
@@ -322,8 +323,6 @@ function GraphViewer() {
   const lastUpdated = snapshot
     ? new Date(snapshot.timestamp).toLocaleTimeString()
     : '—'
-  const usingMockData = !apiSnapshot && !!snapshot && !!error
-
   return (
     <div className="graph-viewer">
       <div className="graph-toolbar">
