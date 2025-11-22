@@ -518,9 +518,7 @@ def chat(
         "provider": provider or config.hermes.provider,
         "model": model_override or config.hermes.model,
         "temperature": (
-            temperature
-            if temperature is not None
-            else config.hermes.temperature
+            temperature if temperature is not None else config.hermes.temperature
         ),
         "max_tokens": (
             max_tokens if max_tokens is not None else config.hermes.max_tokens
@@ -756,9 +754,7 @@ def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
                 sanitized[key] = nested
         elif isinstance(value, (list, tuple)):
             cleaned = [
-                item
-                for item in value
-                if isinstance(item, (str, int, float, bool))
+                item for item in value if isinstance(item, (str, int, float, bool))
             ]
             if cleaned:
                 sanitized[key] = cleaned
@@ -812,9 +808,7 @@ def _format_usage(usage: Optional[Dict[str, Any]]) -> str:
     if not isinstance(usage, dict):
         return ""
     prompt_tokens = usage.get("prompt_tokens") or usage.get("promptTokens")
-    completion_tokens = usage.get("completion_tokens") or usage.get(
-        "completionTokens"
-    )
+    completion_tokens = usage.get("completion_tokens") or usage.get("completionTokens")
     total_tokens = usage.get("total_tokens") or usage.get("totalTokens")
 
     parts: List[str] = []
@@ -828,7 +822,7 @@ def _format_usage(usage: Optional[Dict[str, Any]]) -> str:
 
 
 def _extract_persona_signal(
-    response_data: Dict[str, Any]
+    response_data: Dict[str, Any],
 ) -> Tuple[Optional[str], Optional[float]]:
     raw = response_data.get("raw")
     if isinstance(raw, dict):
@@ -890,9 +884,7 @@ def _emit_llm_telemetry(
             timeout=persona_config.timeout,
         )
     except requests.RequestException as exc:
-        console.log(
-            f"[yellow]Warning:[/yellow] Unable to emit Hermes telemetry: {exc}"
-        )
+        console.log(f"[yellow]Warning:[/yellow] Unable to emit Hermes telemetry: {exc}")
 
 
 def _persona_api_base_url(config: PersonaApiConfig) -> str:
