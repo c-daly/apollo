@@ -69,7 +69,7 @@ VITE_SOPHIA_API_KEY=              # Optional
 VITE_SOPHIA_TIMEOUT=30000         # Optional, milliseconds
 
 # Hermes API
-VITE_HERMES_API_URL=http://localhost:8081
+VITE_HERMES_API_URL=http://localhost:8080
 VITE_HERMES_API_KEY=              # Optional
 VITE_HERMES_TIMEOUT=30000         # Optional, milliseconds
 

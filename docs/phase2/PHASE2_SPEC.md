@@ -150,7 +150,7 @@ VITE_SOPHIA_API_KEY=<api_key>
 VITE_SOPHIA_TIMEOUT=30000
 
 # Hermes API
-VITE_HERMES_API_URL=http://localhost:8081
+VITE_HERMES_API_URL=http://localhost:8080
 VITE_HERMES_API_KEY=<api_key>
 VITE_HERMES_LLM_PROVIDER=
 VITE_HERMES_LLM_MODEL=
@@ -170,7 +170,7 @@ sophia:
   api_key: ${SOPHIA_API_KEY}
 
 hermes:
-  api_url: http://localhost:8081
+  api_url: http://localhost:8080
   api_key: ${HERMES_API_KEY}
 ```
 

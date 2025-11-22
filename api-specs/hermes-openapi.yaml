@@ -9,9 +9,9 @@ info:
     name: Project LOGOS Team
 
 servers:
-  - url: http://localhost:8081
+  - url: http://localhost:8080
     description: Local development server
-  - url: http://hermes:8081
+  - url: http://hermes:8080
     description: Docker compose service
 
 tags:

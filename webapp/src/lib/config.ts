@@ -83,7 +83,7 @@ function parseOptionalNumber(value: string | undefined): number | undefined {
  * - VITE_SOPHIA_API_URL: Sophia API base URL (default: http://localhost:8080)
  * - VITE_SOPHIA_API_KEY: Optional API key for Sophia authentication
  * - VITE_SOPHIA_TIMEOUT: Request timeout in milliseconds (default: 30000)
- * - VITE_HERMES_API_URL: Hermes API base URL (default: http://localhost:8081)
+ * - VITE_HERMES_API_URL: Hermes API base URL (default: http://localhost:8080)
  * - VITE_HERMES_API_KEY: Optional API key for Hermes authentication
  * - VITE_HERMES_TIMEOUT: Request timeout in milliseconds (default: 30000)
  * - VITE_HCG_API_URL: HCG REST API base URL (default: http://localhost:8082)
@@ -100,7 +100,7 @@ export function loadConfig(): ApolloConfig {
       timeout: parseTimeout(import.meta.env.VITE_SOPHIA_TIMEOUT, 30000),
     },
     hermes: {
-      baseUrl: import.meta.env.VITE_HERMES_API_URL || 'http://localhost:8081',
+      baseUrl: import.meta.env.VITE_HERMES_API_URL || 'http://localhost:8080',
       apiKey: import.meta.env.VITE_HERMES_API_KEY || undefined,
       timeout: parseTimeout(import.meta.env.VITE_HERMES_TIMEOUT, 30000),
       llm: {

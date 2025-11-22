@@ -41,7 +41,7 @@ def test_hermes_config_defaults() -> None:
     """Test HermesConfig default values."""
     config = HermesConfig()
     assert config.host == "localhost"
-    assert config.port == 8081
+    assert config.port == 8080
     assert config.timeout == 30
     assert config.provider is None
     assert config.model is None

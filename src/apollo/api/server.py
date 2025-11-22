@@ -114,7 +114,9 @@ class DiagnosticsManager:
         )
         self._logs.appendleft(entry)
         await self._broadcast(
-            DiagnosticsEvent(type="log", data=entry.model_dump()).model_dump()
+            DiagnosticsEvent(
+                type="log", data=entry.model_dump(mode="json")
+            ).model_dump(mode="json")
         )
 
     async def update_telemetry(
@@ -136,8 +138,8 @@ class DiagnosticsManager:
         )
         await self._broadcast(
             DiagnosticsEvent(
-                type="telemetry", data=self._telemetry.model_dump()
-            ).model_dump()
+                type="telemetry", data=self._telemetry.model_dump(mode="json")
+            ).model_dump(mode="json")
         )
 
     async def record_llm_metrics(
@@ -165,8 +167,8 @@ class DiagnosticsManager:
         )
         await self._broadcast(
             DiagnosticsEvent(
-                type="telemetry", data=self._telemetry.model_dump()
-            ).model_dump()
+                type="telemetry", data=self._telemetry.model_dump(mode="json")
+            ).model_dump(mode="json")
         )
 
     async def broadcast_persona_entry(self, entry: PersonaEntry) -> None:
@@ -174,8 +176,8 @@ class DiagnosticsManager:
         await self._broadcast(
             DiagnosticsEvent(
                 type="persona_entry",
-                data=entry.model_dump(),
-            ).model_dump()
+                data=entry.model_dump(mode="json"),
+            ).model_dump(mode="json")
         )
 
     def register(self) -> asyncio.Queue:
@@ -774,16 +776,18 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
     try:
         await websocket.send_json(
             DiagnosticsEvent(
-                type="telemetry", data=diagnostics_manager.get_telemetry().model_dump()
-            ).model_dump()
+                type="telemetry",
+                data=diagnostics_manager.get_telemetry().model_dump(mode="json"),
+            ).model_dump(mode="json")
         )
         await websocket.send_json(
             DiagnosticsEvent(
                 type="logs",
                 data=[
-                    log.model_dump() for log in diagnostics_manager.get_logs(limit=20)
+                    log.model_dump(mode="json")
+                    for log in diagnostics_manager.get_logs(limit=20)
                 ],
-            ).model_dump()
+            ).model_dump(mode="json")
         )
         while True:
             event = await queue.get()

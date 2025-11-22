@@ -65,7 +65,7 @@ export class HermesClient {
     config: HermesClientConfig = {},
     deps?: Partial<HermesClientDependencies>
   ) {
-    this.baseUrl = config.baseUrl || 'http://localhost:8081'
+    this.baseUrl = config.baseUrl || 'http://localhost:8080'
     this.apiKey = config.apiKey
     this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
 

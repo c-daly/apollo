@@ -22,7 +22,7 @@ class HermesConfig(BaseModel):
     """Configuration for Hermes language and embedding service."""
 
     host: str = Field(default="localhost", description="Hermes API host")
-    port: int = Field(default=8081, description="Hermes API port")
+    port: int = Field(default=8080, description="Hermes API port")
     timeout: int = Field(default=30, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
         default=None, description="Bearer token for Hermes API access"

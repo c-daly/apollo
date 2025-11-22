@@ -234,7 +234,7 @@ cd webapp
 VITE_HCG_API_URL=http://localhost:8082
 VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
 VITE_SOPHIA_API_URL=http://localhost:8080
-VITE_HERMES_API_URL=http://localhost:8081
+VITE_HERMES_API_URL=http://localhost:8080
 
 # Start development server
 npm run dev
