@@ -423,6 +423,7 @@ Tested and working on:
    - Hermes completion text + token usage + latency are displayed.
 2. Open the web chat panel, send a prompt, and ensure the UI also tags persona context in the system prompt (inspect network request metadata for `persona_entry_ids`).
 3. In both cases, verify `/api/diagnostics/llm` receives telemetry (telemetry tab should show LLM latency/tokens updating) and logs include the `surface` values `apollo-cli.chat` / `apollo-webapp.chat-panel`.
+4. Call `GET /api/persona/entries?limit=5` (or check the Persona Diary tab) and confirm new `observation` entries exist for each chat turn with `metadata.hermes_response_id` populated.
 
 ### Persona Diary
 - Timeline visualization
