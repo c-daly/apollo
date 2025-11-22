@@ -187,11 +187,11 @@ function ChatPanel() {
           }
           if (parsed.type === 'chunk' && parsed.content) {
             assistantBuffer += parsed.content
-            updateAssistantMessage(assistantId, assistantBuffer)
+            updateAssistantMessage(assistantBuffer)
           } else if (parsed.type === 'end') {
             if (parsed.content) {
               assistantBuffer = parsed.content
-              updateAssistantMessage(assistantId, assistantBuffer)
+              updateAssistantMessage(assistantBuffer)
             }
             streamCompleted = true
           } else if (parsed.type === 'error') {
