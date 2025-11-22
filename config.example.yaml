@@ -9,7 +9,7 @@ sophia:
 
 hermes:
   host: localhost
-  port: 8081
+  port: 8080
   timeout: 30
   api_key: ""  # Optional bearer token for Hermes API
   provider: ""  # Optional provider override (e.g., openai, echo)

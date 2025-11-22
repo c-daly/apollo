@@ -179,7 +179,7 @@ cp .env.example .env
 # VITE_HCG_API_URL=http://localhost:8082
 # VITE_HCG_WS_URL=ws://localhost:8765
 # VITE_SOPHIA_API_URL=http://localhost:8080
-# VITE_HERMES_API_URL=http://localhost:8081
+# VITE_HERMES_API_URL=http://localhost:8080
 # VITE_MOCK_DATA_MODE=false
 
 # Start development server
@@ -228,7 +228,7 @@ sophia:
 
 hermes:
   host: localhost
-  port: 8081
+  port: 8080
   timeout: 30
   api_key: ${HERMES_API_KEY}
   provider: openai        # Optional provider override
@@ -285,7 +285,7 @@ VITE_SOPHIA_API_KEY=
 VITE_SOPHIA_TIMEOUT=30000
 
 # Hermes API
-VITE_HERMES_API_URL=http://localhost:8081
+VITE_HERMES_API_URL=http://localhost:8080
 VITE_HERMES_API_KEY=
 VITE_HERMES_TIMEOUT=30000
 VITE_HERMES_LLM_PROVIDER=

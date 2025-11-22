@@ -136,7 +136,7 @@ const sophia = new SophiaClient({
 })
 
 const hermes = new HermesClient({
-  baseUrl: 'http://custom-hermes:8081',
+  baseUrl: 'http://custom-hermes:8080',
   apiKey: 'your-api-key',
   timeout: 60000,
 })
@@ -160,7 +160,7 @@ VITE_SOPHIA_API_KEY=                    # Optional
 VITE_SOPHIA_TIMEOUT=30000               # Optional, in milliseconds
 
 # Hermes API Configuration
-VITE_HERMES_API_URL=http://localhost:8081
+VITE_HERMES_API_URL=http://localhost:8080
 VITE_HERMES_API_KEY=                    # Optional
 VITE_HERMES_TIMEOUT=30000               # Optional, in milliseconds
 VITE_HERMES_LLM_PROVIDER=               # Optional provider override (e.g., openai)
