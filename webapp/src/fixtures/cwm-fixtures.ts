@@ -17,22 +17,24 @@ import type {
   CWMGoalPayload,
   CWMEventPayload,
   JEPAOutput,
-} from './cwm-types';
+} from './cwm-types'
 
 // Base timestamp for deterministic fixture data
-const BASE_TIME = '2024-01-15T10:00:00.000Z';
+const BASE_TIME = '2024-01-15T10:00:00.000Z'
 
 // Helper to create timestamps relative to base time
 const timestamp = (offsetSeconds: number): string => {
-  const date = new Date(BASE_TIME);
-  date.setSeconds(date.getSeconds() + offsetSeconds);
-  return date.toISOString();
-};
+  const date = new Date(BASE_TIME)
+  date.setSeconds(date.getSeconds() + offsetSeconds)
+  return date.toISOString()
+}
 
 /**
  * Simple mock stream for basic testing
  */
-export const mockCWMStream: CWMState<CWMAPayload | CWMGPayload | CWMEPayload>[] = [
+export const mockCWMStream: CWMState<
+  CWMAPayload | CWMGPayload | CWMEPayload
+>[] = [
   {
     state_id: 'state-001',
     model_type: 'cwm-a',
@@ -41,12 +43,10 @@ export const mockCWMStream: CWMState<CWMAPayload | CWMGPayload | CWMEPayload>[] 
     data: {
       entities: [
         { id: 'obj-1', type: 'Cup', properties: { color: 'red' } },
-        { id: 'loc-1', type: 'Table', properties: {} }
+        { id: 'loc-1', type: 'Table', properties: {} },
       ],
-      relations: [
-        { source: 'obj-1', target: 'loc-1', type: 'on' }
-      ]
-    }
+      relations: [{ source: 'obj-1', target: 'loc-1', type: 'on' }],
+    },
   },
   {
     state_id: 'state-002',
@@ -56,8 +56,8 @@ export const mockCWMStream: CWMState<CWMAPayload | CWMGPayload | CWMEPayload>[] 
     data: {
       modality: 'visual',
       raw_data_ref: 'img-buffer-x99',
-      interpretation: 'Red object detected on flat surface'
-    } as CWMGPayload
+      interpretation: 'Red object detected on flat surface',
+    } as CWMGPayload,
   },
   {
     state_id: 'state-003',
@@ -67,10 +67,10 @@ export const mockCWMStream: CWMState<CWMAPayload | CWMGPayload | CWMEPayload>[] 
     data: {
       valence: 0.8,
       arousal: 0.2,
-      reflection: 'The environment feels stable and predictable.'
-    } as CWMEPayload
-  }
-];
+      reflection: 'The environment feels stable and predictable.',
+    } as CWMEPayload,
+  },
+]
 
 /**
  * Sample CWM-A records (Actions) using legacy envelope structure
@@ -150,7 +150,7 @@ const actionRecords: Array<CWMState<CWMActionPayload>> = [
       effects: [],
     },
   },
-];
+]
 
 /**
  * Sample CWM-G records (Goals)
@@ -199,7 +199,7 @@ const goalRecords: Array<CWMState<CWMGoalPayload>> = [
       },
     },
   },
-];
+]
 
 /**
  * Sample CWM-E records (Events)
@@ -266,7 +266,7 @@ const eventRecords: Array<CWMState<CWMEventPayload>> = [
       },
     },
   },
-];
+]
 
 /**
  * Sample JEPA outputs
@@ -315,7 +315,7 @@ const jepaOutputs: JEPAOutput[] = [
       inference_time: 18,
     },
   },
-];
+]
 
 /**
  * Complete CWMState stream fixture
@@ -337,7 +337,7 @@ export const mockCWMStateStream: CWMStateStream = {
     description: 'Sample CWMState stream for development and testing',
     deterministic: true,
   },
-};
+}
 
 /**
  * Additional fixture: Short stream for quick tests
@@ -359,7 +359,7 @@ export const mockCWMStateStreamShort: CWMStateStream = {
     description: 'Short CWMState stream for quick testing',
     deterministic: true,
   },
-};
+}
 
 /**
  * Additional fixture: Failed actions stream
@@ -381,12 +381,12 @@ export const mockCWMStateStreamFailures: CWMStateStream = {
     description: 'CWMState stream with failed actions for error testing',
     deterministic: true,
   },
-};
+}
 
 /**
  * Export individual record collections for granular testing
  */
-export const mockCWMActions = actionRecords;
-export const mockCWMGoals = goalRecords;
-export const mockCWMEvents = eventRecords;
-export const mockJEPAOutputs = jepaOutputs;
+export const mockCWMActions = actionRecords
+export const mockCWMGoals = goalRecords
+export const mockCWMEvents = eventRecords
+export const mockJEPAOutputs = jepaOutputs

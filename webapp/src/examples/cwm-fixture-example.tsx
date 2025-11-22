@@ -267,8 +267,7 @@ export function CWMFixtureExample() {
                         <strong>Action:</strong> {record.data.action_type}
                       </p>
                       <p>
-                        <strong>Description:</strong>{' '}
-                        {record.data.description}
+                        <strong>Description:</strong> {record.data.description}
                       </p>
                       <p>
                         <strong>Status:</strong>{' '}
@@ -288,24 +287,23 @@ export function CWMFixtureExample() {
                     </div>
                   )}
 
-                {record.model_type === 'cwm-g' &&
-                  'priority' in record.data && (
-                    <div>
-                      <p>
-                        <strong>Goal:</strong> {record.data.description}
-                      </p>
-                      <p>
-                        <strong>Priority:</strong> {record.data.priority}
-                      </p>
-                      <p>
-                        <strong>Progress:</strong> {record.data.progress}%
-                      </p>
-                      <p>
-                        <strong>Frames:</strong> {record.data.frames.length}{' '}
-                        frame(s)
-                      </p>
-                    </div>
-                  )}
+                {record.model_type === 'cwm-g' && 'priority' in record.data && (
+                  <div>
+                    <p>
+                      <strong>Goal:</strong> {record.data.description}
+                    </p>
+                    <p>
+                      <strong>Priority:</strong> {record.data.priority}
+                    </p>
+                    <p>
+                      <strong>Progress:</strong> {record.data.progress}%
+                    </p>
+                    <p>
+                      <strong>Frames:</strong> {record.data.frames.length}{' '}
+                      frame(s)
+                    </p>
+                  </div>
+                )}
 
                 {record.model_type === 'cwm-e' &&
                   'event_type' in record.data && (
@@ -314,8 +312,7 @@ export function CWMFixtureExample() {
                         <strong>Event:</strong> {record.data.event_type}
                       </p>
                       <p>
-                        <strong>Description:</strong>{' '}
-                        {record.data.description}
+                        <strong>Description:</strong> {record.data.description}
                       </p>
                       <p>
                         <strong>Severity:</strong>{' '}

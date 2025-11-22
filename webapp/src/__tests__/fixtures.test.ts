@@ -153,7 +153,9 @@ describe('CWM Fixtures', () => {
 
       if (observationFrame) {
         expect(observationFrame.metadata.annotations).toBeDefined()
-        expect(observationFrame.metadata.annotations?.length).toBeGreaterThanOrEqual(0)
+        expect(
+          observationFrame.metadata.annotations?.length
+        ).toBeGreaterThanOrEqual(0)
       }
     })
   })

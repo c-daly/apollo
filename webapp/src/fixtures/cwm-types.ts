@@ -11,28 +11,32 @@
  * Unified envelope format for all CWM records
  */
 export interface CWMState<T> {
-  state_id: string;
-  model_type: 'cwm-a' | 'cwm-g' | 'cwm-e';
-  timestamp: string;
-  status: 'hypothetical' | 'observed' | 'validated' | 'rejected';
-  data: T;
+  state_id: string
+  model_type: 'cwm-a' | 'cwm-g' | 'cwm-e'
+  timestamp: string
+  status: 'hypothetical' | 'observed' | 'validated' | 'rejected'
+  data: T
 }
 
 export interface CWMAPayload {
-  entities: Array<{ id: string; type: string; properties: Record<string, unknown> }>;
-  relations: Array<{ source: string; target: string; type: string }>;
+  entities: Array<{
+    id: string
+    type: string
+    properties: Record<string, unknown>
+  }>
+  relations: Array<{ source: string; target: string; type: string }>
 }
 
 export interface CWMGPayload {
-  modality: 'visual' | 'lidar' | 'text';
-  raw_data_ref: string;
-  interpretation: string;
+  modality: 'visual' | 'lidar' | 'text'
+  raw_data_ref: string
+  interpretation: string
 }
 
 export interface CWMEPayload {
-  valence: number;
-  arousal: number;
-  reflection: string;
+  valence: number
+  arousal: number
+  reflection: string
 }
 
 /**
@@ -168,9 +172,7 @@ export interface CWMStateStream {
   stream_id: string
   start_time: string
   end_time?: string
-  records: Array<
-    CWMState<CWMActionPayload | CWMGoalPayload | CWMEventPayload>
-  >
+  records: Array<CWMState<CWMActionPayload | CWMGoalPayload | CWMEventPayload>>
   jepa_outputs?: JEPAOutput[]
   metadata: {
     total_records: number
