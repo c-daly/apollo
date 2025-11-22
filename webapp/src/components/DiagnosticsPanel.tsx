@@ -237,8 +237,11 @@ function DiagnosticsPanel() {
               {logsLoading && filteredLogs.length === 0 ? (
                 <div className="logs-placeholder">Loading logs...</div>
               ) : filteredLogs.length > 0 ? (
-                filteredLogs.map(log => (
-                  <div key={log.id} className={`log-entry ${log.level}`}>
+                filteredLogs.map((log, index) => (
+                  <div
+                    key={`${log.id}-${log.timestamp}-${index}`}
+                    className={`log-entry ${log.level}`}
+                  >
                     <span className="log-timestamp">
                       {new Date(log.timestamp).toLocaleTimeString()}
                     </span>

@@ -114,9 +114,9 @@ class DiagnosticsManager:
         )
         self._logs.appendleft(entry)
         await self._broadcast(
-            DiagnosticsEvent(
-                type="log", data=entry.model_dump(mode="json")
-            ).model_dump(mode="json")
+            DiagnosticsEvent(type="log", data=entry.model_dump(mode="json")).model_dump(
+                mode="json"
+            )
         )
 
     async def update_telemetry(

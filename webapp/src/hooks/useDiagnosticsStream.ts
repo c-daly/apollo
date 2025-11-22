@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { diagnosticsWebSocket } from '../lib/websocket-client'
 import type { PersonaEntry } from '../types/hcg'
 import type {
@@ -22,6 +22,37 @@ export type DiagnosticsConnectionStatus =
   | 'offline'
   | 'error'
 
+const DISCONNECT_DELAY_MS = 5000
+let subscriberCount = 0
+let disconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearPendingDisconnect(): void {
+  if (disconnectTimer) {
+    clearTimeout(disconnectTimer)
+    disconnectTimer = null
+  }
+}
+
+function startSubscription(): void {
+  subscriberCount += 1
+  clearPendingDisconnect()
+
+  if (subscriberCount === 1) {
+    diagnosticsWebSocket.connect()
+  }
+}
+
+function stopSubscription(): void {
+  subscriberCount = Math.max(0, subscriberCount - 1)
+
+  if (subscriberCount === 0 && !disconnectTimer) {
+    disconnectTimer = setTimeout(() => {
+      diagnosticsWebSocket.disconnect()
+      disconnectTimer = null
+    }, DISCONNECT_DELAY_MS)
+  }
+}
+
 export function useDiagnosticsStream(
   options: DiagnosticsStreamOptions
 ): DiagnosticsConnectionStatus {
@@ -33,40 +64,66 @@ export function useDiagnosticsStream(
     onError,
     onConnectionChange,
   } = options
-  const [status, setStatus] =
-    useState<DiagnosticsConnectionStatus>('connecting')
+  const [status, setStatus] = useState<DiagnosticsConnectionStatus>(() =>
+    diagnosticsWebSocket.isConnected() ? 'online' : 'connecting'
+  )
+  const callbacksRef = useRef({
+    onLog,
+    onTelemetry,
+    onLogBatch,
+    onPersonaEntry,
+    onError,
+    onConnectionChange,
+  })
 
   useEffect(() => {
+    callbacksRef.current = {
+      onLog,
+      onTelemetry,
+      onLogBatch,
+      onPersonaEntry,
+      onError,
+      onConnectionChange,
+    }
+  }, [
+    onLog,
+    onTelemetry,
+    onLogBatch,
+    onPersonaEntry,
+    onError,
+    onConnectionChange,
+  ])
+
+  useEffect(() => {
+    startSubscription()
+
     const unsubscribe = diagnosticsWebSocket.onMessage(
       (event: DiagnosticsEvent) => {
+        const callbacks = callbacksRef.current
         switch (event.type) {
           case 'log':
-            onLog?.({
+            callbacks.onLog?.({
               ...event.data,
               timestamp: event.data.timestamp,
             })
             break
           case 'logs':
-            onLogBatch?.(event.data)
+            callbacks.onLogBatch?.(event.data)
             break
           case 'telemetry':
-            onTelemetry?.(event.data)
+            callbacks.onTelemetry?.(event.data)
             break
           case 'persona_entry':
-            if (onPersonaEntry) {
-              onPersonaEntry(event.data)
-            }
+            callbacks.onPersonaEntry?.(event.data)
             break
           case 'error':
-            if (event.data?.message && onError) {
-              onError(String(event.data.message))
+            if (event.data?.message) {
+              callbacks.onError?.(String(event.data.message))
             }
             break
         }
       }
     )
-
-    diagnosticsWebSocket.connect()
 
     const unsubscribeConnection = diagnosticsWebSocket.onConnectionChange(
       state => {
@@ -79,23 +136,16 @@ export function useDiagnosticsStream(
                 ? 'error'
                 : 'offline'
         setStatus(mapped)
-        onConnectionChange?.(mapped)
+        callbacksRef.current.onConnectionChange?.(mapped)
       }
     )
 
     return () => {
       unsubscribe()
       unsubscribeConnection()
-      diagnosticsWebSocket.disconnect()
+      stopSubscription()
     }
-  }, [
-    onLog,
-    onTelemetry,
-    onLogBatch,
-    onPersonaEntry,
-    onError,
-    onConnectionChange,
-  ])
+  }, [])
 
   return status
 }
