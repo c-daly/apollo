@@ -63,6 +63,28 @@ This will install all JavaScript/TypeScript dependencies defined in `webapp/pack
 
 ## Quick Start
 
+### Running the Full Stack Demo
+
+The `start_demo.sh` script provides a convenient way to start the entire LOGOS stack (Infrastructure, Hermes, Apollo API, and Webapp).
+
+```bash
+# Start all services in the background
+./scripts/start_demo.sh start
+
+# Check the status of all services
+./scripts/start_demo.sh status
+
+# Stop all services
+./scripts/start_demo.sh stop
+```
+
+The script handles:
+- Validating environment variables and dependencies
+- Starting Docker containers (Neo4j, Milvus)
+- Starting Hermes (LLM Gateway)
+- Starting Apollo API and Webapp
+- Managing PID files and preventing duplicate processes
+
 ### Using the CLI
 
 ```bash
