@@ -18,5 +18,9 @@ jobs:
       mypy_targets: 'src'
       pytest_command: 'pytest --cov=apollo --cov-report=xml --cov-report=term'
       coverage_python_version: '3.11'
+      enable_node: true
+      node_version: '18'
+      node_working_directory: 'webapp'
+      node_cache_path: 'webapp/package-lock.json'
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
