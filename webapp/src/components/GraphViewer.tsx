@@ -185,6 +185,14 @@ function GraphViewer() {
 
   useEffect(() => {
     if (!summaryMap) return
+
+    if (usingMockData) {
+      previousSummaryRef.current = new Map()
+      setRecentDeltas([])
+      setHighlightMap({})
+      return
+    }
+
     const previous = previousSummaryRef.current
     if (previous.size === 0) {
       previousSummaryRef.current = new Map(summaryMap)
@@ -205,7 +213,7 @@ function GraphViewer() {
       })
     }
     previousSummaryRef.current = new Map(summaryMap)
-  }, [summaryMap])
+  }, [summaryMap, usingMockData])
 
   useEffect(() => {
     const interval = setInterval(() => {
