@@ -13,7 +13,7 @@ import {
   mockCWMStateService,
   toggleMockMode,
   isMockMode,
-  type CWMEnvelope,
+  type CWMState,
   type CWMActionPayload,
   type CWMGoalPayload,
   type CWMEventPayload,
@@ -21,12 +21,12 @@ import {
 
 export function CWMFixtureExample() {
   const [records, setRecords] = useState<
-    Array<CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>>
+    Array<CWMState<CWMActionPayload | CWMGoalPayload | CWMEventPayload>>
   >([])
   const [isStreaming, setIsStreaming] = useState(false)
   const [mockMode, setMockMode] = useState(isMockMode())
   const [filterType, setFilterType] = useState<
-    'all' | 'CWM-A' | 'CWM-G' | 'CWM-E'
+    'all' | 'cwm-a' | 'cwm-g' | 'cwm-e'
   >('all')
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export function CWMFixtureExample() {
   const filteredRecords =
     filterType === 'all'
       ? records
-      : records.filter(r => r.record_type === filterType)
+      : records.filter(r => r.model_type === filterType)
 
   return (
     <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
@@ -192,14 +192,14 @@ export function CWMFixtureExample() {
             style={{ padding: '5px 10px', fontSize: '16px' }}
           >
             <option value="all">All Records ({records.length})</option>
-            <option value="CWM-A">
-              Actions ({records.filter(r => r.record_type === 'CWM-A').length})
+            <option value="cwm-a">
+              Actions ({records.filter(r => r.model_type === 'cwm-a').length})
             </option>
-            <option value="CWM-G">
-              Goals ({records.filter(r => r.record_type === 'CWM-G').length})
+            <option value="cwm-g">
+              Goals ({records.filter(r => r.model_type === 'cwm-g').length})
             </option>
-            <option value="CWM-E">
-              Events ({records.filter(r => r.record_type === 'CWM-E').length})
+            <option value="cwm-e">
+              Events ({records.filter(r => r.model_type === 'cwm-e').length})
             </option>
           </select>
         </div>
@@ -225,7 +225,7 @@ export function CWMFixtureExample() {
           >
             {filteredRecords.map(record => (
               <div
-                key={record.record_id}
+                key={record.state_id}
                 style={{
                   border: '1px solid #ddd',
                   borderRadius: '5px',
@@ -244,94 +244,94 @@ export function CWMFixtureExample() {
                     <strong
                       style={{
                         color:
-                          record.record_type === 'CWM-A'
+                          record.model_type === 'cwm-a'
                             ? '#007bff'
-                            : record.record_type === 'CWM-G'
+                            : record.model_type === 'cwm-g'
                               ? '#28a745'
                               : '#ffc107',
                       }}
                     >
-                      {record.record_type}
+                      {record.model_type.toUpperCase()}
                     </strong>{' '}
-                    - {record.record_id}
+                    - {record.state_id}
                   </span>
                   <span style={{ color: '#666', fontSize: '12px' }}>
-                    Seq: {record.sequence_number}
+                    Status: {record.status}
                   </span>
                 </div>
 
-                {record.record_type === 'CWM-A' &&
-                  'action_type' in record.payload && (
+                {record.model_type === 'cwm-a' &&
+                  'action_type' in record.data && (
                     <div>
                       <p>
-                        <strong>Action:</strong> {record.payload.action_type}
+                        <strong>Action:</strong> {record.data.action_type}
                       </p>
                       <p>
                         <strong>Description:</strong>{' '}
-                        {record.payload.description}
+                        {record.data.description}
                       </p>
                       <p>
                         <strong>Status:</strong>{' '}
                         <span
                           style={{
                             color:
-                              record.payload.status === 'completed'
+                              record.data.status === 'completed'
                                 ? '#28a745'
-                                : record.payload.status === 'failed'
+                                : record.data.status === 'failed'
                                   ? '#dc3545'
                                   : '#ffc107',
                           }}
                         >
-                          {record.payload.status}
+                          {record.data.status}
                         </span>
                       </p>
                     </div>
                   )}
 
-                {record.record_type === 'CWM-G' &&
-                  'priority' in record.payload && (
+                {record.model_type === 'cwm-g' &&
+                  'priority' in record.data && (
                     <div>
                       <p>
-                        <strong>Goal:</strong> {record.payload.description}
+                        <strong>Goal:</strong> {record.data.description}
                       </p>
                       <p>
-                        <strong>Priority:</strong> {record.payload.priority}
+                        <strong>Priority:</strong> {record.data.priority}
                       </p>
                       <p>
-                        <strong>Progress:</strong> {record.payload.progress}%
+                        <strong>Progress:</strong> {record.data.progress}%
                       </p>
                       <p>
-                        <strong>Frames:</strong> {record.payload.frames.length}{' '}
+                        <strong>Frames:</strong> {record.data.frames.length}{' '}
                         frame(s)
                       </p>
                     </div>
                   )}
 
-                {record.record_type === 'CWM-E' &&
-                  'event_type' in record.payload && (
+                {record.model_type === 'cwm-e' &&
+                  'event_type' in record.data && (
                     <div>
                       <p>
-                        <strong>Event:</strong> {record.payload.event_type}
+                        <strong>Event:</strong> {record.data.event_type}
                       </p>
                       <p>
                         <strong>Description:</strong>{' '}
-                        {record.payload.description}
+                        {record.data.description}
                       </p>
                       <p>
                         <strong>Severity:</strong>{' '}
                         <span
                           style={{
                             color:
-                              record.payload.severity === 'critical'
+                              record.data.severity === 'critical'
                                 ? '#dc3545'
-                                : record.payload.severity === 'error'
+                                : record.data.severity === 'error'
                                   ? '#fd7e14'
-                                  : record.payload.severity === 'warning'
+                                  : record.data.severity === 'warning'
                                     ? '#ffc107'
                                     : '#17a2b8',
                           }}
                         >
-                          {record.payload.severity}
+                          {record.data.severity}
                         </span>
                       </p>
                     </div>

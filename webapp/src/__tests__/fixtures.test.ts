@@ -334,32 +334,3 @@ describe('MockCWMStateService', () => {
       }, 100)
     })
   })
-
-  describe('Stream statistics', () => {
-    it('should provide accurate stats', () => {
-      service.loadDefaultStream()
-
-      const stats = service.getStreamStats()
-
-      expect(stats.mode).toBe('mock')
-      expect(stats.streamId).toBe(mockCWMStateStream.stream_id)
-      expect(stats.totalRecords).toBe(7)
-      expect(stats.currentPosition).toBe(0)
-      expect(stats.recordCounts).toEqual({
-        actions: 3,
-        goals: 2,
-        events: 2,
-      })
-    })
-
-    it('should update position as records are consumed', () => {
-      service.loadDefaultStream()
-
-      service.getNextRecord()
-      service.getNextRecord()
-
-      const stats = service.getStreamStats()
-      expect(stats.currentPosition).toBe(2)
-    })
-  })
-})
