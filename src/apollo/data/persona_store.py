@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
+from types import TracebackType
+from typing import Any, Dict, List, Optional, Type
 
 from neo4j import Driver, GraphDatabase
+from neo4j.graph import Node
 
 from apollo.config.settings import Neo4jConfig
 from apollo.data.models import PersonaEntry
@@ -36,7 +38,12 @@ class PersonaDiaryStore:
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:  # type: ignore[override]
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
         self.close()
 
     def create_entry(self, entry: PersonaEntry) -> PersonaEntry:
@@ -152,21 +159,52 @@ class PersonaDiaryStore:
         """Return the most recent persona entries."""
         return self.list_entries(limit=limit, offset=0)
 
-    def _parse_node(self, node) -> PersonaEntry:
-        """Convert a Neo4j node to a PersonaEntry."""
-        props = dict(node)
+    def _parse_node(self, node: Node) -> PersonaEntry:
+        """Convert a Neo4j node into a PersonaEntry model."""
+        props: Dict[str, Any] = dict(node)
+
+        node_id = props.get("id")
+        if not isinstance(node_id, str):
+            raise ValueError("PersonaEntry node missing string 'id'")
+
+        timestamp_value = props.get("timestamp")
+        if isinstance(timestamp_value, datetime):
+            timestamp = timestamp_value
+        elif isinstance(timestamp_value, str):
+            timestamp = datetime.fromisoformat(timestamp_value)
+        else:
+            raise ValueError("PersonaEntry node missing datetime 'timestamp'")
+
+        entry_type = props.get("entry_type")
+        if not isinstance(entry_type, str):
+            raise ValueError("PersonaEntry node missing string 'entry_type'")
+
+        content = props.get("content")
+        if not isinstance(content, str):
+            raise ValueError("PersonaEntry node missing string 'content'")
+
+        def _string_list(value: Any) -> List[str]:
+            if isinstance(value, list):
+                return [str(item) for item in value]
+            if value is None:
+                return []
+            return [str(value)]
+
+        metadata_value = props.get("metadata")
+        metadata = dict(metadata_value) if isinstance(metadata_value, dict) else {}
+
         return PersonaEntry(
-            id=props.get("id"),
-            timestamp=props.get("timestamp"),
-            entry_type=props.get("entry_type"),
-            content=props.get("content"),
+            id=node_id,
+            timestamp=timestamp,
+            entry_type=entry_type,
+            content=content,
             summary=props.get("summary"),
             sentiment=props.get("sentiment"),
             confidence=props.get("confidence"),
-            related_process_ids=props.get("related_process_ids", []),
-            related_goal_ids=props.get("related_goal_ids", []),
-            emotion_tags=props.get("emotion_tags", []),
-            metadata=props.get("metadata", {}),
+            related_process_ids=_string_list(props.get("related_process_ids")),
+            related_goal_ids=_string_list(props.get("related_goal_ids")),
+            emotion_tags=_string_list(props.get("emotion_tags")),
+            metadata=metadata,
         )
 
     def _ensure_driver(self) -> None:

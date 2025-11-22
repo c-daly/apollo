@@ -352,6 +352,14 @@ ruff check src/apollo/api/
 mypy src/apollo/api/
 ```
 
+## Diagnostics Endpoints
+
+- `GET /api/diagnostics/logs` → Recent log entries stored by the FastAPI server.
+- `GET /api/diagnostics/metrics` → Telemetry snapshot consumed by the Diagnostics panel.
+- `WebSocket /ws/diagnostics` → Live stream for logs + telemetry. Each message has a `type` field (`log`, `logs`, `telemetry`) with structured payloads matching the TypeScript models under `webapp/src/types/diagnostics.ts`.
+
+Use the REST fallback for debugging, and point the webapp at the WebSocket endpoint to see live updates without refreshing.
+
 ## Troubleshooting
 
 ### Neo4j Connection Failed

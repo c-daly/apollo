@@ -64,7 +64,7 @@ config.yaml
 
 ## Diary Command
 
-`apollo-cli diary` targets the persona diary endpoints exposed by `apollo-api`. The CLI routes those requests through `PersonaClient`, which still returns `ServiceResponse` objects and reads credentials/host information from the `persona_api` section of `config.yaml`. Once the persona contract is folded into the shared SDKs we can replace this helper with an auto-generated client, but the rest of the CLI already treats it the same way as Sophia/Hermes responses.
+`apollo-cli diary` targets the persona diary endpoints exposed by `apollo-api`, which now simply proxy to Sophia’s `/persona/entries` service. The CLI routes those requests through `PersonaClient`, returning `ServiceResponse` objects and reading host/API details from the `persona_api` config. Once the persona contract lands in the shared SDKs we can swap this helper for an auto-generated client, but callers already treat it just like Sophia/Hermes responses.
 
 ## Testing and Mocking
 

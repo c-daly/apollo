@@ -166,7 +166,7 @@ The dashboard will be available at `http://localhost:5173`
 **Web Dashboard Features:**
 - **Chat Panel**: Conversational interface for natural language commands
 - **Graph Viewer**: Interactive visualization of HCG (goals, plans, steps)
-- **Diagnostics**: System logs, execution timeline, and telemetry metrics
+- **Diagnostics**: Real-time logs & telemetry streamed from `/ws/diagnostics` with REST fallback (`/api/diagnostics/logs`, `/api/diagnostics/metrics`)
 - **Persona Diary**: Agent's internal reasoning and decision-making trace
 
 **Mock Data Fixtures:**
@@ -206,7 +206,7 @@ hermes:
 
 persona_api:
   host: localhost
-  port: 8082
+  port: 8080
   timeout: 15
   api_key: ${PERSONA_API_KEY}
   
@@ -227,7 +227,7 @@ export SOPHIA_API_KEY=your_sophia_key
 export HERMES_API_KEY=your_hermes_key
 ```
 
-The `persona_api` block configures how the CLI reaches the `apollo-api` FastAPI service for persona diary operations. Leave the defaults if you run `apollo-api` locally on port `8082`; otherwise adjust host/port/API key (if you protect the API) so the `apollo-cli diary` command can submit entries.
+The `persona_api` block configures how the CLI and `apollo-api` proxy reach Sophia's persona diary endpoints. Leave the defaults if Sophia runs locally on port `8080`; otherwise adjust host/port/API key so the `apollo-cli diary` command and the webapp can submit entries.
 
 ### Web Dashboard Configuration
 

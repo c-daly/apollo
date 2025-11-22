@@ -23,11 +23,11 @@ The Persona Diary API provides structured entries that can be surfaced to LLM pr
 │           Apollo API Server                      │
 │           (FastAPI - Port 8082)                  │
 │                                                   │
-│  POST   /api/persona/entries  (create)          │
-│  GET    /api/persona/entries  (list/filter)     │
-│  GET    /api/persona/entries/{id}  (get)        │
+│  POST   /api/persona/entries  (proxy to Sophia)  │
+│  GET    /api/persona/entries  (proxy to Sophia)  │
+│  GET    /api/persona/entries/{id}  (proxy)       │
 │                                                   │
-│  In-Memory Storage: persona_entries[]           │
+│  Storage: Sophia `/persona/entries` → Neo4j (:PersonaEntry) │
 └────────────────────┬────────────────────────────┘
                      │ HTTP GET
                      ▼
@@ -37,6 +37,16 @@ The Persona Diary API provides structured entries that can be surfaced to LLM pr
 │         LLM Prompt Builder                       │
 └─────────────────────────────────────────────────┘
 ```
+
+## Sophia Persona Store
+
+Sophia exposes `/persona/entries` endpoints that persist entries as `(:PersonaEntry)`
+nodes inside its Neo4j knowledge graph. Apollo no longer writes to Neo4j directly—
+the CLI and `apollo-api` simply forward create/list/get calls to Sophia, which
+ensures diary data survives restarts, links to goals/processes, and stays consistent
+with the rest of the cognitive state. Configure `persona_api` in `config.yaml`
+to point at your Sophia deployment (host/port/API key), and Apollo will proxy
+requests through the shared PersonaClient.
 
 ## Data Model
 
