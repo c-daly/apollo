@@ -57,7 +57,7 @@ def mock_dependencies(monkeypatch):
     # Patch the classes where they are defined
     monkeypatch.setattr("apollo.data.hcg_client.HCGClient", MockHCGClient)
     monkeypatch.setattr("apollo.data.persona_store.PersonaDiaryStore", MockPersonaStore)
-    
+
     # Patch the references in server.py
     monkeypatch.setattr(server, "HCGClient", MockHCGClient)
     monkeypatch.setattr(server, "PersonaDiaryStore", MockPersonaStore)
@@ -73,7 +73,7 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
             # Receive initial messages (telemetry and logs)
             initial_telemetry = websocket.receive_json()
             assert initial_telemetry["type"] == "telemetry"
-    
+
             initial_logs = websocket.receive_json()
             assert initial_logs["type"] == "logs"
 
@@ -84,9 +84,9 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
                 "summary": "Testing websocket broadcast",
                 "sentiment": "neutral",
                 "confidence": 1.0,
-                "metadata": {"test_id": "ws_integration"}
+                "metadata": {"test_id": "ws_integration"},
             }
-            
+
             response = client.post("/api/persona/entries", json=payload)
             assert response.status_code == 201
             created_entry = response.json()
@@ -99,7 +99,7 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
             assert "Persona entry created" in log_message["data"]["message"]
 
             message = websocket.receive_json()
-            
+
             assert message["type"] == "persona_entry"
             data = message["data"]
             assert data["id"] == created_entry["id"]
@@ -110,8 +110,8 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
 def test_websocket_receives_telemetry_updates(mock_dependencies):
     """Verify that the websocket receives periodic telemetry updates."""
     # We need to mock asyncio.sleep to speed up the test or just wait for one update
-    # But since the telemetry poller runs in a background task, it might be tricky 
+    # But since the telemetry poller runs in a background task, it might be tricky
     # to control deterministically without more complex mocking.
-    # For this integration test, we might just check the initial state or 
+    # For this integration test, we might just check the initial state or
     # rely on the fact that we can trigger updates manually if we wanted to.
-    pass 
+    pass
