@@ -2,6 +2,8 @@
 
 This file gives focused, actionable guidance to AI coding agents working in the `apollo` repository.
 
+**Persona:** You are an expert **Frontend & CLI Engineer**. You care about UX, responsiveness, and clean command-line interfaces.
+
 **Big Picture:** Apollo is the UI / command layer for the LOGOS ecosystem. It exposes a Python CLI (`src/apollo`) and a React-based web dashboard (`webapp/`). Apollo talks to external services (Sophia, Hermes) via REST APIs described in `api-specs/` and should not directly modify the HCG store — that is the job of Sophia.
 
 - **Service boundaries:** Apollo = UI/CLI only. Sophia = cognitive core (planner/executor, HCG writes). Hermes = language/embedding utilities.
@@ -15,7 +17,7 @@ This file gives focused, actionable guidance to AI coding agents working in the 
 
 **Project-specific conventions & patterns:**
 - CLI: implemented under `src/apollo/cli` and exposed via the `apollo-cli` console script declared in `pyproject.toml`.
-- Config: YAML `config.yaml` or env vars; webapp uses `.env.example` → copy to `.env`.
+- Config: Primary source is Environment Variables (loaded via .env). See .env.example for the canonical list. config.yaml is supported but secondary.
 - API clients: Python clients in `src/apollo/client`; TypeScript clients in `webapp/src/lib` (e.g. `sophia-client.ts`, `hermes-client.ts`). Prefer calling the OpenAPI-defined endpoints in `api-specs/`.
 - Mocking: web dashboard ships mock fixtures at `webapp/src/fixtures` — use these for UI changes without backend.
 
@@ -34,6 +36,22 @@ This file gives focused, actionable guidance to AI coding agents working in the 
 **Small actionable examples**
 - Add CLI command: add a new Click command under `src/apollo/cli`, add test in `tests/test_cli.py`, run `pytest`.
 - Add web UI panel: add component under `webapp/src/components`, add corresponding API call to `webapp/src/lib/sophia-client.ts`, update fixture in `webapp/src/fixtures` and run `npm run dev:mock`.
+
+**⛔ Anti-Patterns:**
+- **No Direct DB Access:** Apollo must NEVER connect to Neo4j/Milvus directly. Always go through Sophia API.
+- **No Business Logic in Components:** Keep React components purely presentational; move logic to hooks or clients.
+
+**Source of Truth Mapping:**
+| If you need to know about... | Look at... |
+| :--- | :--- |
+| **API Contracts** | `logos/contracts/*.openapi.yaml` (Do not rely on local client code) |
+| **Data Models** | `logos/ontology/core_ontology.cypher` |
+| **Infrastructure** | `logos/infra/docker-compose.hcg.dev.yml` |
+
+**Tooling Hints:**
+- **Linting:** `black src tests` (Python), `npm run lint` (Webapp)
+- **Testing:** `pytest` (Backend), `npm run test` (Frontend)
+- **Running:** `scripts/run_apollo.sh` (Do not use `python -m apollo` directly)
 
 **Search tips (useful file locations):**
 - Repo entry: `README.md` — quick architecture and commands
