@@ -148,6 +148,12 @@ function ChatPanel() {
       ).catch(err => {
         console.warn('Failed to emit Hermes telemetry', err)
       })
+      void persistPersonaEntry({
+        userMessage: userMessage.content,
+        assistantMessage: assistantMessage.content,
+        response: response.data,
+        metadata,
+      })
     } catch (error) {
       const fallbackMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -365,4 +371,44 @@ function countBy(
     acc[bucket] = (acc[bucket] ?? 0) + 1
     return acc
   }, {})
+}
+
+function truncateSummary(text: string, maxLength = 160): string {
+  if (text.length <= maxLength) {
+    return text
+  }
+  return `${text.slice(0, maxLength).trim()}…`
+}
+
+async function persistPersonaEntry({
+  userMessage,
+  assistantMessage,
+  response,
+  metadata,
+}: {
+  userMessage: string
+  assistantMessage: string
+  response: LLMResponse
+  metadata: Record<string, unknown>
+}) {
+  try {
+    await hcgClient.createPersonaEntry({
+      entry_type: 'observation',
+      content: assistantMessage,
+      summary: truncateSummary(userMessage),
+      sentiment: undefined,
+      confidence: undefined,
+      related_process_ids: [],
+      related_goal_ids: [],
+      emotion_tags: [],
+      metadata: {
+        ...metadata,
+        hermes_response_id: response.id,
+        hermes_provider: response.provider,
+        hermes_model: response.model,
+      },
+    })
+  } catch (error) {
+    console.warn('Failed to persist persona diary entry', error)
+  }
 }
