@@ -49,7 +49,13 @@ state = response.data  # already serialized via SDK model.to_dict()
 
 ### Persona Diary Helper
 
-Sophia now exposes the canonical `/persona/entries` contract. Apollo keeps the same CLI/web routes, but `PersonaClient` (`src/apollo/client/persona_client.py`) simply proxies requests to Sophia using the `persona_api` config block (host/port/API key). The client still returns `ServiceResponse` objects so callers treat diary operations just like Sophia/Hermes replies, but all persistence and filtering logic lives in Sophia’s service.
+`PersonaClient` (`src/apollo/client/persona_client.py`) targets the persona diary
+endpoints exposed by `apollo-api`. Those routes now persist entries via
+`PersonaDiaryStore` into Neo4j, emit diagnostics events, and serve filtered
+results back to the CLI/webapp. The client continues to return `ServiceResponse`
+objects so consumers handle success/error uniformly with the Sophia/Hermes
+clients, and it reads connection details from the `persona_api` block in
+`config.yaml`.
 
 ## TypeScript (Web) Clients
 
