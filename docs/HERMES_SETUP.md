@@ -15,7 +15,9 @@ behavior locally.
 ## 2. Configure a Provider
 
 Set the provider and credentials before launching Hermes. You can export them in
-your shell or place them in a `.env` file that your process manager loads.
+your shell or place them in a `.env` file that your process manager loads. When
+pointing Hermes at OpenAI, the same `OPENAI_API_KEY` you already have in your
+environment can be forwarded via `HERMES_LLM_API_KEY`.
 
 ```bash
 export HERMES_LLM_PROVIDER=openai           # defaults to echo if omitted
@@ -101,10 +103,14 @@ hermes:
 
 When you send a chat prompt now:
 
-- The browser/CLI calls Hermes `/llm` with your configured provider/model.
-- Apollo persists the response to the persona diary (`POST /api/persona/entries`),
-  so Sophia’s Neo4j store keeps a record of the exchange.
-- Diagnostics telemetry reflects the real `/llm` latency and token usage.
+- The browser streams to Apollo’s `POST /api/chat/stream` endpoint. Apollo then
+  calls Hermes `/llm` with your configured provider/model (OpenAI via
+  `OPENAI_API_KEY`, Azure, etc.) and forwards chunks back to the UI.
+- Apollo persists the response to the persona diary (`POST /api/persona/entries`)
+  on your behalf, so Sophia’s Neo4j store keeps a record of the exchange without
+  requiring the browser to make a second API call.
+- Diagnostics telemetry reflects the real `/llm` latency and token usage because
+  the server records metrics once the streamed response finishes.
 
 To confirm Sophia storage, open the Persona Diary tab or query via:
 

@@ -421,9 +421,9 @@ Tested and working on:
 1. Run `apollo-cli chat "Summarize current plan status"` and confirm:
    - Persona diary context is printed before Hermes responds.
    - Hermes completion text + token usage + latency are displayed.
-2. Open the web chat panel, send a prompt, and ensure the UI also tags persona context in the system prompt (inspect network request metadata for `persona_entry_ids`).
+2. Open the web chat panel, send a prompt, and confirm the browser hits `POST /api/chat/stream`. You should see an SSE response (DevTools → Network → Preview) where `data: {"type":"chunk"}` events arrive incrementally until `{"type":"end"}` fires.
 3. In both cases, verify `/api/diagnostics/llm` receives telemetry (telemetry tab should show LLM latency/tokens updating) and logs include the `surface` values `apollo-cli.chat` / `apollo-webapp.chat-panel`.
-4. Call `GET /api/persona/entries?limit=5` (or check the Persona Diary tab) and confirm new `observation` entries exist for each chat turn with `metadata.hermes_response_id` populated.
+4. Call `GET /api/persona/entries?limit=5` (or check the Persona Diary tab) and confirm new `observation` entries exist for each chat turn with `metadata.hermes_response_id` populated even if you close the chat panel mid-stream (server-side persistence).
 
 ### Persona Diary
 - Timeline visualization

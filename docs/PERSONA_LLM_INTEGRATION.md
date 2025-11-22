@@ -85,7 +85,11 @@ User: {user_message}
 
 ## Chat Panel Metadata & Telemetry
 
-The Apollo web chat now forwards every Hermes `/llm` invocation with a consistent metadata envelope so downstream services (Hermes, diagnostics, persona diary) can reason about the conversation context:
+The Apollo web chat now posts to `POST /api/chat/stream`, which keeps the browser
+almost stateless. The request body contains the trimmed chat history plus the
+metadata envelope below; the API forwards the call to Hermes `/llm`, streams
+chunks back to the UI via Server-Sent Events (SSE), and records telemetry +
+persona entries on the server:
 
 - `surface`: Always `apollo-webapp.chat-panel` for the browser UI.
 - `version`: The `VITE_APP_VERSION` string baked into the build (defaults to `dev`).
@@ -94,13 +98,16 @@ The Apollo web chat now forwards every Hermes `/llm` invocation with a consisten
 - `locale`, `timezone`, `user_agent`: Lightweight client hints for analytics and prompt adaptation.
 - `hermes_provider_hint` / `hermes_model_hint`: Optional overrides derived from the `.env` LLM settings.
 
-Once Hermes responds, the webapp measures round-trip latency, extracts token usage, and attaches persona sentiment (if Hermes populates `raw.persona.sentiment`). That telemetry is POSTed to `POST /api/diagnostics/llm`, allowing the diagnostics panel to display live LLM latency, token counts, and persona sentiment next to the existing API/plan metrics.
-
-Finally, every successful chat turn is persisted to Sophia's persona diary via
-`POST /api/persona/entries`. The entry text equals the Hermes completion, the summary
-mirrors the latest user prompt, and the metadata block records the Hermes response ID,
-provider, and model. This keeps Neo4j/Sophia aligned with what the operator sees in
-the chat timeline.
+Once Hermes responds, the API measures round-trip latency, extracts token usage,
+and attaches persona sentiment (if Hermes populates `raw.persona.sentiment`).
+That telemetry is recorded through `DiagnosticsManager.record_llm_metrics`, so
+the diagnostics panel keeps its LLM cards in sync without an extra browser
+request. Because the server owns the Hermes response object it can also persist
+each turn to Sophia’s persona diary immediately after streaming completes. The
+entry text equals the Hermes completion, the summary mirrors the latest user
+prompt, and the metadata block records the Hermes response ID, provider, and
+model. This keeps Neo4j/Sophia aligned with what the operator sees in the chat
+timeline even if the browser disconnects mid-stream.
 
 ### CLI Chat Command
 
@@ -110,6 +117,6 @@ The new `apollo-cli chat "..."` command uses the same integration stack:
 2. Append a formatted “Persona diary context” block to the Hermes system prompt.
 3. Send metadata such as `persona_entry_ids`, entry-type/sentiment histograms, CLI version, and provider/model hints.
 4. Emit latency + token usage telemetry back to `POST /api/diagnostics/llm` so the dashboard mirrors CLI conversations just like browser chats.
-5. Persist each successful completion to `POST /api/persona/entries`, so Sophia's Neo4j store receives the same record the UI relies on.
+5. Persist each successful completion to `POST /api/persona/entries`, so Sophia's Neo4j store receives the same record the UI relies on. (The CLI still calls the REST endpoint directly; the browser now depends on `/api/chat/stream` to do this automatically.)
 
 Provider/model/temperature/max-token overrides can be supplied via `config.yaml` (under `hermes.*`) or ad-hoc CLI flags. This keeps the CLI, browser, and diagnostics timelines in sync whenever Hermes is consulted.
