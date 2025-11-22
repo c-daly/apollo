@@ -118,14 +118,21 @@ export function useStateHistory(
 /**
  * Hook to fetch complete graph snapshot from HCG
  */
+export interface GraphSnapshotOptions {
+  entityTypes?: string[]
+  limit?: number
+  refetchInterval?: number | false
+}
+
 export function useGraphSnapshot(
-  entityTypes?: string[],
-  limit: number = 200
+  options: GraphSnapshotOptions = {}
 ): UseQueryResult<GraphSnapshot, Error> {
+  const { entityTypes, limit = 200, refetchInterval } = options
   return useQuery({
     queryKey: ['hcg', 'snapshot', entityTypes, limit],
     queryFn: () => hcgClient.getGraphSnapshot(entityTypes, limit),
     staleTime: 5000,
+    refetchInterval,
   })
 }
 

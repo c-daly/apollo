@@ -415,6 +415,13 @@ Tested and working on:
 - Persona sentiment indicators sourced from Hermes responses (with confidence)
 - Manual refresh button still works even if the live stream degrades
 
+### HCG World State (Graph Viewer Tab)
+- Graph view renders the latest `/api/hcg/snapshot` within 2s and auto-refreshes every 5s by default (toggle + interval selector available)
+- Agents/plans tables update alongside the visualization and display status + positions without hitting Neo4j manually
+- Recent changes feed lists entity additions/removals/status or position deltas with timestamps
+- Selecting an agent/goal from the “Focus” dropdown filters the graph to its local neighborhood
+- Errors (API unreachable) produce a warning banner and fall back to demo data instead of crashing
+
 ### Hermes Chat Surfaces
 1. Run `apollo-cli chat "Summarize current plan status"` and confirm:
    - Persona diary context is printed before Hermes responds.
