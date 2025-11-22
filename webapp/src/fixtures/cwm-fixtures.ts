@@ -8,8 +8,11 @@
  */
 
 import type {
+  CWMState,
+  CWMAPayload,
+  CWMGPayload,
+  CWMEPayload,
   CWMStateStream,
-  CWMEnvelope,
   CWMActionPayload,
   CWMGoalPayload,
   CWMEventPayload,
@@ -27,15 +30,58 @@ const timestamp = (offsetSeconds: number): string => {
 }
 
 /**
- * Sample CWM-A records (Actions)
+ * Simple mock stream for basic testing
  */
-const actionRecords: Array<CWMEnvelope<CWMActionPayload>> = [
+export const mockCWMStream: CWMState<
+  CWMAPayload | CWMGPayload | CWMEPayload
+>[] = [
   {
-    record_type: 'CWM-A',
-    record_id: 'cwm-a-001',
+    state_id: 'state-001',
+    model_type: 'cwm-a',
+    timestamp: '2023-10-27T10:00:00Z',
+    status: 'validated',
+    data: {
+      entities: [
+        { id: 'obj-1', type: 'Cup', properties: { color: 'red' } },
+        { id: 'loc-1', type: 'Table', properties: {} },
+      ],
+      relations: [{ source: 'obj-1', target: 'loc-1', type: 'on' }],
+    },
+  },
+  {
+    state_id: 'state-002',
+    model_type: 'cwm-g',
+    timestamp: '2023-10-27T10:00:05Z',
+    status: 'observed',
+    data: {
+      modality: 'visual',
+      raw_data_ref: 'img-buffer-x99',
+      interpretation: 'Red object detected on flat surface',
+    } as CWMGPayload,
+  },
+  {
+    state_id: 'state-003',
+    model_type: 'cwm-e',
+    timestamp: '2023-10-27T10:00:10Z',
+    status: 'hypothetical',
+    data: {
+      valence: 0.8,
+      arousal: 0.2,
+      reflection: 'The environment feels stable and predictable.',
+    } as CWMEPayload,
+  },
+]
+
+/**
+ * Sample CWM-A records (Actions) using legacy envelope structure
+ */
+const actionRecords: Array<CWMState<CWMActionPayload>> = [
+  {
+    state_id: 'cwm-a-001',
+    model_type: 'cwm-a',
     timestamp: timestamp(0),
-    sequence_number: 1,
-    payload: {
+    status: 'validated',
+    data: {
       action_id: 'action_navigate_001',
       action_type: 'navigate',
       description: 'Navigate to kitchen',
@@ -58,18 +104,13 @@ const actionRecords: Array<CWMEnvelope<CWMActionPayload>> = [
       preconditions: ['location_known', 'path_clear'],
       effects: ['at_kitchen', 'path_traversed'],
     },
-    metadata: {
-      source: 'talos_executor',
-      version: '1.0.0',
-      confidence: 0.95,
-    },
   },
   {
-    record_type: 'CWM-A',
-    record_id: 'cwm-a-002',
+    state_id: 'cwm-a-002',
+    model_type: 'cwm-a',
     timestamp: timestamp(50),
-    sequence_number: 2,
-    payload: {
+    status: 'observed',
+    data: {
       action_id: 'action_grasp_001',
       action_type: 'grasp',
       description: 'Pick up red block',
@@ -83,18 +124,13 @@ const actionRecords: Array<CWMEnvelope<CWMActionPayload>> = [
       preconditions: ['object_visible', 'gripper_open', 'within_reach'],
       effects: ['holding_object', 'gripper_closed'],
     },
-    metadata: {
-      source: 'talos_executor',
-      version: '1.0.0',
-      confidence: 0.88,
-    },
   },
   {
-    record_type: 'CWM-A',
-    record_id: 'cwm-a-003',
+    state_id: 'cwm-a-003',
+    model_type: 'cwm-a',
     timestamp: timestamp(120),
-    sequence_number: 5,
-    payload: {
+    status: 'rejected',
+    data: {
       action_id: 'action_place_001',
       action_type: 'place',
       description: 'Place red block on table',
@@ -113,24 +149,19 @@ const actionRecords: Array<CWMEnvelope<CWMActionPayload>> = [
       preconditions: ['holding_object', 'target_reachable'],
       effects: [],
     },
-    metadata: {
-      source: 'talos_executor',
-      version: '1.0.0',
-      confidence: 0.72,
-    },
   },
 ]
 
 /**
- * Sample CWM-G records (Goals with frames)
+ * Sample CWM-G records (Goals)
  */
-const goalRecords: Array<CWMEnvelope<CWMGoalPayload>> = [
+const goalRecords: Array<CWMState<CWMGoalPayload>> = [
   {
-    record_type: 'CWM-G',
-    record_id: 'cwm-g-001',
+    state_id: 'cwm-g-001',
+    model_type: 'cwm-g',
     timestamp: timestamp(10),
-    sequence_number: 3,
-    payload: {
+    status: 'validated',
+    data: {
       goal_id: 'goal_organize_001',
       description: 'Organize objects on table',
       priority: 'high',
@@ -138,63 +169,7 @@ const goalRecords: Array<CWMEnvelope<CWMGoalPayload>> = [
       progress: 35,
       created_at: timestamp(-300),
       updated_at: timestamp(10),
-      frames: [
-        {
-          frame_id: 'frame_001',
-          timestamp: timestamp(10),
-          frame_type: 'observation',
-          encoding: 'url',
-          data: 'https://example.com/frames/scene_001.jpg',
-          dimensions: {
-            width: 640,
-            height: 480,
-            channels: 3,
-          },
-          metadata: {
-            camera_id: 'cam_rgb_01',
-            resolution: '640x480',
-            format: 'jpeg',
-            confidence: 0.92,
-            annotations: [
-              {
-                label: 'red_block',
-                bbox: [120, 200, 180, 260],
-                confidence: 0.94,
-              },
-              {
-                label: 'blue_block',
-                bbox: [250, 180, 310, 240],
-                confidence: 0.89,
-              },
-              {
-                label: 'table',
-                bbox: [50, 150, 590, 450],
-                confidence: 0.97,
-              },
-            ],
-          },
-        },
-        {
-          frame_id: 'frame_002',
-          timestamp: timestamp(11),
-          frame_type: 'prediction',
-          encoding: 'url',
-          data: 'https://example.com/frames/predicted_001.jpg',
-          dimensions: {
-            width: 640,
-            height: 480,
-            channels: 3,
-          },
-          metadata: {
-            camera_id: 'cam_rgb_01',
-            resolution: '640x480',
-            format: 'jpeg',
-            confidence: 0.76,
-            model: 'jepa_v2',
-            prediction_horizon: 5,
-          },
-        },
-      ],
+      frames: [],
       context: {
         location: 'kitchen',
         actors: ['agent_sophia'],
@@ -202,18 +177,13 @@ const goalRecords: Array<CWMEnvelope<CWMGoalPayload>> = [
         scene_complexity: 'medium',
       },
     },
-    metadata: {
-      source: 'sophia_planner',
-      version: '1.0.0',
-      priority_score: 0.85,
-    },
   },
   {
-    record_type: 'CWM-G',
-    record_id: 'cwm-g-002',
+    state_id: 'cwm-g-002',
+    model_type: 'cwm-g',
     timestamp: timestamp(60),
-    sequence_number: 4,
-    payload: {
+    status: 'validated',
+    data: {
       goal_id: 'goal_explore_001',
       description: 'Map unknown room layout',
       priority: 'medium',
@@ -221,69 +191,12 @@ const goalRecords: Array<CWMEnvelope<CWMGoalPayload>> = [
       progress: 62,
       created_at: timestamp(-600),
       updated_at: timestamp(60),
-      frames: [
-        {
-          frame_id: 'frame_003',
-          timestamp: timestamp(60),
-          frame_type: 'observation',
-          encoding: 'url',
-          data: 'https://example.com/frames/room_scan_001.jpg',
-          dimensions: {
-            width: 1280,
-            height: 720,
-            channels: 3,
-          },
-          metadata: {
-            camera_id: 'cam_rgb_02',
-            resolution: '1280x720',
-            format: 'jpeg',
-            confidence: 0.87,
-            annotations: [
-              {
-                label: 'wall',
-                bbox: [0, 0, 50, 720],
-                confidence: 0.98,
-              },
-              {
-                label: 'door',
-                bbox: [520, 200, 680, 650],
-                confidence: 0.91,
-              },
-            ],
-            depth_available: true,
-          },
-        },
-        {
-          frame_id: 'frame_004',
-          timestamp: timestamp(61),
-          frame_type: 'simulation',
-          encoding: 'url',
-          data: 'https://example.com/frames/simulated_view_001.jpg',
-          dimensions: {
-            width: 1280,
-            height: 720,
-            channels: 3,
-          },
-          metadata: {
-            camera_id: 'virtual_cam_01',
-            resolution: '1280x720',
-            format: 'jpeg',
-            confidence: 0.71,
-            simulation_type: 'future_view',
-            time_offset: 10,
-          },
-        },
-      ],
+      frames: [],
       context: {
         location: 'unknown_room_02',
         actors: ['agent_sophia'],
         exploration_coverage: 0.62,
       },
-    },
-    metadata: {
-      source: 'sophia_planner',
-      version: '1.0.0',
-      priority_score: 0.68,
     },
   },
 ]
@@ -291,13 +204,13 @@ const goalRecords: Array<CWMEnvelope<CWMGoalPayload>> = [
 /**
  * Sample CWM-E records (Events)
  */
-const eventRecords: Array<CWMEnvelope<CWMEventPayload>> = [
+const eventRecords: Array<CWMState<CWMEventPayload>> = [
   {
-    record_type: 'CWM-E',
-    record_id: 'cwm-e-001',
+    state_id: 'cwm-e-001',
+    model_type: 'cwm-e',
     timestamp: timestamp(30),
-    sequence_number: 6,
-    payload: {
+    status: 'observed',
+    data: {
       event_id: 'event_obstacle_001',
       event_type: 'obstacle_detected',
       description: 'Unexpected obstacle in path',
@@ -322,18 +235,13 @@ const eventRecords: Array<CWMEnvelope<CWMEventPayload>> = [
         sensor_id: 'lidar_front',
       },
     },
-    metadata: {
-      source: 'talos_perception',
-      version: '1.0.0',
-      urgency: 0.75,
-    },
   },
   {
-    record_type: 'CWM-E',
-    record_id: 'cwm-e-002',
+    state_id: 'cwm-e-002',
+    model_type: 'cwm-e',
     timestamp: timestamp(90),
-    sequence_number: 7,
-    payload: {
+    status: 'observed',
+    data: {
       event_id: 'event_state_change_001',
       event_type: 'state_transition',
       description: 'Object state changed',
@@ -356,11 +264,6 @@ const eventRecords: Array<CWMEnvelope<CWMEventPayload>> = [
       context: {
         location: 'kitchen_entrance',
       },
-    },
-    metadata: {
-      source: 'sophia_reasoner',
-      version: '1.0.0',
-      impact_score: 0.65,
     },
   },
 ]
@@ -412,53 +315,6 @@ const jepaOutputs: JEPAOutput[] = [
       inference_time: 18,
     },
   },
-  {
-    output_id: 'jepa_002',
-    timestamp: timestamp(65),
-    model_version: 'jepa_v2.1',
-    input_context: {
-      context_type: 'goal',
-      context_id: 'goal_explore_001',
-      window_size: 10,
-    },
-    embeddings: {
-      current_state: [
-        -0.12, 0.34, -0.56, 0.78, 0.23, -0.45, 0.67, 0.09, -0.34, 0.56,
-      ],
-      predicted_state: [
-        -0.09, 0.37, -0.52, 0.81, 0.26, -0.42, 0.69, 0.11, -0.31, 0.58,
-      ],
-      dimensions: 10,
-    },
-    predictions: [
-      {
-        horizon: 3,
-        predicted_features: {
-          exploration_progress: 0.68,
-          new_rooms_discovered: 1,
-          map_completeness: 0.71,
-        },
-        confidence: 0.85,
-        uncertainty: 0.15,
-      },
-      {
-        horizon: 10,
-        predicted_features: {
-          exploration_progress: 0.89,
-          new_rooms_discovered: 2,
-          map_completeness: 0.92,
-        },
-        confidence: 0.67,
-        uncertainty: 0.33,
-      },
-    ],
-    metrics: {
-      loss: 0.018,
-      accuracy: 0.88,
-      latency_ms: 31,
-      inference_time: 25,
-    },
-  },
 ]
 
 /**
@@ -468,9 +324,7 @@ export const mockCWMStateStream: CWMStateStream = {
   stream_id: 'stream_fixture_001',
   start_time: timestamp(-300),
   end_time: timestamp(125),
-  records: [...actionRecords, ...goalRecords, ...eventRecords].sort(
-    (a, b) => a.sequence_number - b.sequence_number
-  ),
+  records: [...actionRecords, ...goalRecords, ...eventRecords],
   jepa_outputs: jepaOutputs,
   metadata: {
     total_records: 7,

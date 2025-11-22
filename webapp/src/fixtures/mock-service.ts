@@ -7,7 +7,7 @@
 
 import type {
   CWMStateStream,
-  CWMEnvelope,
+  CWMState,
   CWMActionPayload,
   CWMGoalPayload,
   CWMEventPayload,
@@ -37,7 +37,7 @@ export class MockCWMStateService {
   private streamPosition = 0
   private subscribers: Set<
     (
-      record: CWMEnvelope<
+      record: CWMState<
         CWMActionPayload | CWMGoalPayload | CWMEventPayload
       > | null
     ) => void
@@ -104,7 +104,7 @@ export class MockCWMStateService {
   /**
    * Get next record from stream
    */
-  getNextRecord(): CWMEnvelope<
+  getNextRecord(): CWMState<
     CWMActionPayload | CWMGoalPayload | CWMEventPayload
   > | null {
     if (this.config.mode === 'live' || !this.currentStream) {
@@ -122,13 +122,13 @@ export class MockCWMStateService {
    * Get records by type
    */
   getRecordsByType(
-    recordType: 'CWM-A' | 'CWM-G' | 'CWM-E'
-  ): Array<CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>> {
+    recordType: 'cwm-a' | 'cwm-g' | 'cwm-e'
+  ): Array<CWMState<CWMActionPayload | CWMGoalPayload | CWMEventPayload>> {
     if (this.config.mode === 'live' || !this.currentStream) {
       return []
     }
 
-    return this.currentStream.records.filter(r => r.record_type === recordType)
+    return this.currentStream.records.filter(r => r.model_type === recordType)
   }
 
   /**
@@ -147,7 +147,7 @@ export class MockCWMStateService {
    */
   subscribe(
     callback: (
-      record: CWMEnvelope<
+      record: CWMState<
         CWMActionPayload | CWMGoalPayload | CWMEventPayload
       > | null
     ) => void

@@ -10,17 +10,33 @@
 /**
  * Unified envelope format for all CWM records
  */
-export interface CWMEnvelope<T = unknown> {
-  record_type: 'CWM-A' | 'CWM-G' | 'CWM-E'
-  record_id: string
+export interface CWMState<T> {
+  state_id: string
+  model_type: 'cwm-a' | 'cwm-g' | 'cwm-e'
   timestamp: string
-  sequence_number: number
-  payload: T
-  metadata: {
-    source: string
-    version: string
-    [key: string]: unknown
-  }
+  status: 'hypothetical' | 'observed' | 'validated' | 'rejected'
+  data: T
+}
+
+export interface CWMAPayload {
+  entities: Array<{
+    id: string
+    type: string
+    properties: Record<string, unknown>
+  }>
+  relations: Array<{ source: string; target: string; type: string }>
+}
+
+export interface CWMGPayload {
+  modality: 'visual' | 'lidar' | 'text'
+  raw_data_ref: string
+  interpretation: string
+}
+
+export interface CWMEPayload {
+  valence: number
+  arousal: number
+  reflection: string
 }
 
 /**
@@ -156,9 +172,7 @@ export interface CWMStateStream {
   stream_id: string
   start_time: string
   end_time?: string
-  records: Array<
-    CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>
-  >
+  records: Array<CWMState<CWMActionPayload | CWMGoalPayload | CWMEventPayload>>
   jepa_outputs?: JEPAOutput[]
   metadata: {
     total_records: number

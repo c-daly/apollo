@@ -32,7 +32,7 @@
 
 // Export types
 export type {
-  CWMEnvelope,
+  CWMState,
   CWMActionPayload,
   CWMGoalPayload,
   CWMEventPayload,
