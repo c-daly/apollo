@@ -799,8 +799,11 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
 def main() -> None:
     """Main entry point for apollo-api CLI command."""
     import uvicorn
+    import os
 
-    uvicorn.run(app, host="0.0.0.0", port=8082)
+    port = int(os.getenv("APOLLO_PORT", "8082"))
+    host = os.getenv("APOLLO_HOST", "0.0.0.0")
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":

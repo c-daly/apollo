@@ -5,9 +5,19 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${ROOT_DIR}/../logos/infra/docker-compose.hcg.dev.yml"
 CONFIG_FILE="${ROOT_DIR}/config.yaml"
 
-if [[ ! -f "${CONFIG_FILE}" ]]; then
-  echo "[run_apollo] Missing config.yaml. Copy config.example.yaml and customize it first." >&2
-  exit 1
+# Config file is optional now that we support env vars
+if [[ -f "${CONFIG_FILE}" ]]; then
+  echo "[run_apollo] Using config file: ${CONFIG_FILE}"
+else
+  echo "[run_apollo] No config.yaml found. Using environment variables/defaults."
+fi
+
+# Source .env if present (for standalone usage)
+if [[ -f "${ROOT_DIR}/../.env" ]]; then
+  echo "[run_apollo] Sourcing .env file..."
+  set -a
+  source "${ROOT_DIR}/../.env"
+  set +a
 fi
 
 cleanup() {
@@ -51,7 +61,8 @@ ensure_dependency_container "logos-hcg-milvus" "milvus-standalone"
 echo "[run_apollo] Installing Python deps via Poetry (if needed)..."
 poetry install --sync >/dev/null
 
-echo "[run_apollo] Starting apollo-api (FastAPI) on port 8082..."
+APOLLO_PORT="${APOLLO_PORT:-8082}"
+echo "[run_apollo] Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
 poetry run apollo-api >/tmp/apollo-api.log 2>&1 &
 API_PID=$!
 

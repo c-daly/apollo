@@ -212,11 +212,40 @@ The webapp includes TypeScript API clients that mirror the Python CLI functional
 
 ## Configuration
 
-Apollo supports configuration through YAML files and environment variables.
+Apollo supports configuration through environment variables (recommended) or YAML files.
 
-### Python CLI Configuration
+### Environment Setup (Recommended)
 
-Create a `config.yaml` file or use environment variables:
+1. Copy the example configuration:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` to set your API keys and service URLs:
+   ```bash
+   # Required
+   OPENAI_API_KEY=sk-...
+
+   # Optional (defaults shown)
+   HERMES_HOST=0.0.0.0
+   HERMES_PORT=8080
+   APOLLO_HOST=0.0.0.0
+   APOLLO_PORT=8000
+   NEO4J_URI=bolt://localhost:7687
+   ```
+
+3. Validate your environment:
+   ```bash
+   python3 scripts/check_env.py
+   ```
+
+The `start_demo.sh` script will automatically source this `.env` file and validate the environment before starting services.
+
+### Python CLI Configuration (Legacy)
+
+You can also use a `config.yaml` file, though environment variables are preferred for consistency across the stack.
+
+Create a `config.yaml` file:
 
 ```yaml
 # config.yaml
