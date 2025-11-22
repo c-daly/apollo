@@ -9,8 +9,8 @@ import contextlib
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, AsyncIterator, Callable, Deque, Dict, List, Optional, Union
-from functools import partial
+from typing import Any, AsyncIterator, Deque, Dict, List, Optional, Union
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from apollo.config.settings import ApolloConfig
 from apollo.data.hcg_client import HCGClient
+from apollo.data.persona_store import PersonaDiaryStore
 from apollo.data.models import (
     Entity,
     State,
@@ -28,13 +29,11 @@ from apollo.data.models import (
     GraphSnapshot,
     PersonaEntry,
 )
-from apollo.client.persona_client import PersonaClient
-from apollo.sdk import ServiceResponse
 
 
 # Global HCG client instance
 hcg_client: Optional[HCGClient] = None
-persona_client: Optional[PersonaClient] = None
+persona_store: Optional[PersonaDiaryStore] = None
 
 diagnostics_task: Optional[asyncio.Task] = None
 
@@ -131,31 +130,10 @@ class DiagnosticsManager:
 diagnostics_manager = DiagnosticsManager()
 
 
-def _require_persona_client() -> PersonaClient:
-    if not persona_client:
-        raise HTTPException(
-            status_code=503,
-            detail="Persona API client not configured",
-        )
-    return persona_client
-
-
-async def _call_persona_api(
-    action: str, func: Callable[[], ServiceResponse]
-) -> Any:
-    response = await asyncio.to_thread(func)
-    if response.success:
-        return response.data
-    raise HTTPException(
-        status_code=502,
-        detail=response.error or f"Persona API error while {action}",
-    )
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan context manager."""
-    global hcg_client, diagnostics_task, persona_client
+    global hcg_client, diagnostics_task, persona_store
 
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
@@ -167,16 +145,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await diagnostics_manager.record_log("info", "HCG client connected to Neo4j")
 
         try:
-            persona_repository = PersonaRepository(config.hcg.neo4j)
-            persona_repository.connect()
+            persona_store = PersonaDiaryStore(config.hcg.neo4j)
+            persona_store.connect()
             await diagnostics_manager.record_log(
-                "info", "Persona repository connected to Neo4j"
+                "info", "Persona diary store connected to Neo4j"
             )
         except Exception as exc:  # noqa: BLE001
-            persona_repository = None
+            persona_store = None
             await diagnostics_manager.record_log(
                 "warning",
-                f"Persona repository unavailable, falling back to memory: {exc}",
+                f"Persona diary store unavailable, falling back to memory: {exc}",
             )
 
     async def telemetry_poller() -> None:
@@ -219,17 +197,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # Shutdown: Close HCG client
-    persona_client = PersonaClient(config.persona_api)
-    await diagnostics_manager.record_log("info", "Persona API client configured")
-
-    if hcg_client:
-        hcg_client.close()
-        print("HCG client disconnected")
+    # Shutdown: Close HCG client and persona store
     if diagnostics_task:
         diagnostics_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await diagnostics_task
+    if persona_store:
+        persona_store.close()
+        await diagnostics_manager.record_log("info", "Persona diary store disconnected")
+    if hcg_client:
+        hcg_client.close()
+        print("HCG client disconnected")
 
 
 app = FastAPI(
@@ -456,28 +434,33 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
     This endpoint allows creation of new diary entries capturing the agent's
     internal reasoning, decisions, beliefs, and observations.
     """
-    client = _require_persona_client()
-    response_data = await _call_persona_api(
-        "creating persona entry",
-        partial(
-            client.create_entry,
-            content=request.content,
-            entry_type=request.entry_type,
-            summary=request.summary,
-            sentiment=request.sentiment,
-            confidence=request.confidence,
-            process=request.related_process_ids,
-            goal=request.related_goal_ids,
-            emotion=request.emotion_tags,
-        ),
-    )
-    if not response_data:
-        raise HTTPException(status_code=502, detail="Persona API returned no data")
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
 
-    await diagnostics_manager.record_log(
-        "info", f"Persona entry created ({request.entry_type})"
+    entry = PersonaEntry(
+        id=f"persona_{uuid4().hex}",
+        timestamp=datetime.now(),
+        entry_type=request.entry_type,
+        content=request.content,
+        summary=request.summary,
+        sentiment=request.sentiment,
+        confidence=request.confidence,
+        related_process_ids=request.related_process_ids,
+        related_goal_ids=request.related_goal_ids,
+        emotion_tags=request.emotion_tags,
+        metadata=request.metadata,
     )
-    return PersonaEntry(**response_data)
+
+    try:
+        stored_entry = persona_store.create_entry(entry)
+        await diagnostics_manager.record_log(
+            "info", f"Persona entry created ({request.entry_type})"
+        )
+        return stored_entry
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create persona entry: {exc}"
+        )
 
 
 @app.get("/api/persona/entries", response_model=List[PersonaEntry])
@@ -497,34 +480,41 @@ async def get_persona_entries(
 
     Returns a list of diary entries sorted by timestamp (most recent first).
     """
-    client = _require_persona_client()
-    response_data = await _call_persona_api(
-        "listing persona entries",
-        partial(
-            client.list_entries,
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
+
+    try:
+        return persona_store.list_entries(
             entry_type=entry_type,
             sentiment=sentiment,
             related_process_id=related_process_id,
             related_goal_id=related_goal_id,
             limit=limit,
             offset=offset,
-        ),
-    )
-    entries = response_data or []
-    return [PersonaEntry(**entry) for entry in entries]
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch persona entries: {exc}"
+        )
 
 
 @app.get("/api/persona/entries/{entry_id}", response_model=PersonaEntry)
 async def get_persona_entry(entry_id: str) -> PersonaEntry:
     """Get a specific persona diary entry by ID."""
-    client = _require_persona_client()
-    response_data = await _call_persona_api(
-        "retrieving persona entry",
-        partial(client.get_entry, entry_id=entry_id),
-    )
-    if not response_data:
+    if not persona_store:
+        raise HTTPException(status_code=503, detail="Persona store not available")
+
+    try:
+        entry = persona_store.get_entry(entry_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to fetch persona entry: {exc}"
+        )
+
+    if not entry:
         raise HTTPException(status_code=404, detail="Persona entry not found")
-    return PersonaEntry(**response_data)
+
+    return entry
 
 
 @app.get(

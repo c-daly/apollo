@@ -36,7 +36,7 @@ class PersonaApiConfig(BaseModel):
         default="localhost",
         description="Persona API host (typically the Sophia service host)",
     )
-    port: int = Field(default=8080, description="Persona API port")
+    port: int = Field(default=8082, description="Persona API port")
     timeout: int = Field(default=15, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
         default=None, description="Optional bearer token for persona API access"
