@@ -1,7 +1,8 @@
 """Neo4j client for read-only HCG graph queries."""
 
+import json
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from neo4j import GraphDatabase, Driver
 
@@ -57,6 +58,47 @@ class HCGClient:
         """Context manager exit."""
         self.close()
 
+    def _convert_datetime(self, dt: Any) -> Any:
+        """Convert Neo4j DateTime or string to python datetime."""
+        if dt is None:
+            return None
+        if hasattr(dt, "to_native"):
+            return dt.to_native()
+        if isinstance(dt, str):
+            try:
+                return datetime.fromisoformat(dt)
+            except ValueError:
+                pass
+        return dt
+
+    def _parse_json_field(self, value: Any, default: Any = None) -> Any:
+        """Parse JSON string field if necessary."""
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return default
+        return value if value is not None else default
+
+    def _sanitize_props(self, props: Dict[str, Any]) -> Dict[str, Any]:
+        """Recursively convert Neo4j types to Python native types in a dictionary."""
+        sanitized: Dict[str, Any] = {}
+        for key, value in props.items():
+            if isinstance(value, dict):
+                sanitized[key] = self._sanitize_props(value)
+            elif isinstance(value, list):
+                sanitized[key] = [
+                    (
+                        self._sanitize_props(item)
+                        if isinstance(item, dict)
+                        else self._convert_datetime(item)
+                    )
+                    for item in value
+                ]
+            else:
+                sanitized[key] = self._convert_datetime(value)
+        return sanitized
+
     def _parse_node(self, node: Any) -> Entity:
         """Parse Neo4j node into Entity model.
 
@@ -70,10 +112,10 @@ class HCGClient:
         return Entity(
             id=properties.get("id", str(node.id)),
             type=properties.get("type", "unknown"),
-            properties=properties,
+            properties=self._sanitize_props(properties),
             labels=list(node.labels),
-            created_at=properties.get("created_at"),
-            updated_at=properties.get("updated_at"),
+            created_at=self._convert_datetime(properties.get("created_at")),
+            updated_at=self._convert_datetime(properties.get("updated_at")),
         )
 
     def _parse_relationship(self, rel: Any) -> CausalEdge:
@@ -91,9 +133,10 @@ class HCGClient:
             source_id=str(rel.start_node.id),
             target_id=str(rel.end_node.id),
             edge_type=rel.type,
-            properties=properties,
+            properties=self._sanitize_props(properties),
             weight=properties.get("weight", 1.0),
-            created_at=properties.get("created_at", datetime.now()),
+            created_at=self._convert_datetime(properties.get("created_at"))
+            or datetime.now(),
         )
 
     def get_entities(
@@ -195,9 +238,10 @@ class HCGClient:
                     State(
                         id=props.get("id", str(node.id)),
                         description=props.get("description", ""),
-                        variables=props.get("variables", {}),
-                        timestamp=props.get("timestamp", datetime.now()),
-                        properties=props,
+                        variables=self._parse_json_field(props.get("variables"), {}),
+                        timestamp=self._convert_datetime(props.get("timestamp"))
+                        or datetime.now(),
+                        properties=self._sanitize_props(props),
                     )
                 )
             return states
@@ -247,11 +291,12 @@ class HCGClient:
                         name=props.get("name", ""),
                         description=props.get("description"),
                         status=props.get("status", "pending"),
-                        inputs=props.get("inputs", []),
-                        outputs=props.get("outputs", []),
-                        properties=props,
-                        created_at=props.get("created_at", datetime.now()),
-                        completed_at=props.get("completed_at"),
+                        inputs=self._parse_json_field(props.get("inputs"), []),
+                        outputs=self._parse_json_field(props.get("outputs"), []),
+                        properties=self._sanitize_props(props),
+                        created_at=self._convert_datetime(props.get("created_at"))
+                        or datetime.now(),
+                        completed_at=self._convert_datetime(props.get("completed_at")),
                     )
                 )
             return processes
@@ -310,9 +355,10 @@ class HCGClient:
                         source_id=dict(source).get("id", str(source.id)),
                         target_id=dict(target).get("id", str(target.id)),
                         edge_type=rel.type,
-                        properties=props,
+                        properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
-                        created_at=props.get("created_at", datetime.now()),
+                        created_at=self._convert_datetime(props.get("created_at"))
+                        or datetime.now(),
                     )
                 )
             return edges
@@ -348,16 +394,31 @@ class HCGClient:
             for record in result:
                 node = record["p"]
                 props = dict(node)
+
+                steps_raw = self._parse_json_field(props.get("steps"), [])
+                steps = [
+                    self._sanitize_props(s) if isinstance(s, dict) else s
+                    for s in steps_raw
+                ]
+
+                result_raw = self._parse_json_field(props.get("result"))
+                plan_result = (
+                    self._sanitize_props(result_raw)
+                    if isinstance(result_raw, dict)
+                    else result_raw
+                )
+
                 plans.append(
                     PlanHistory(
                         id=props.get("id", str(node.id)),
                         goal_id=props.get("goal_id", ""),
                         status=props.get("status", "pending"),
-                        steps=props.get("steps", []),
-                        created_at=props.get("created_at", datetime.now()),
-                        started_at=props.get("started_at"),
-                        completed_at=props.get("completed_at"),
-                        result=props.get("result"),
+                        steps=steps,
+                        created_at=self._convert_datetime(props.get("created_at"))
+                        or datetime.now(),
+                        started_at=self._convert_datetime(props.get("started_at")),
+                        completed_at=self._convert_datetime(props.get("completed_at")),
+                        result=plan_result,
                     )
                 )
             return plans
@@ -393,13 +454,29 @@ class HCGClient:
             for record in result:
                 node = record["h"]
                 props = dict(node)
+
+                changes_raw = self._parse_json_field(props.get("changes"), {})
+                changes = (
+                    self._sanitize_props(changes_raw)
+                    if isinstance(changes_raw, dict)
+                    else changes_raw
+                )
+
+                prev_raw = self._parse_json_field(props.get("previous_values"))
+                previous_values = (
+                    self._sanitize_props(prev_raw)
+                    if isinstance(prev_raw, dict)
+                    else prev_raw
+                )
+
                 history.append(
                     StateHistory(
                         id=props.get("id", str(node.id)),
                         state_id=props.get("state_id", ""),
-                        timestamp=props.get("timestamp", datetime.now()),
-                        changes=props.get("changes", {}),
-                        previous_values=props.get("previous_values"),
+                        timestamp=self._convert_datetime(props.get("timestamp"))
+                        or datetime.now(),
+                        changes=changes,
+                        previous_values=previous_values,
                         trigger=props.get("trigger"),
                     )
                 )
@@ -468,9 +545,10 @@ class HCGClient:
                         source_id=dict(source).get("id", str(source.id)),
                         target_id=dict(target).get("id", str(target.id)),
                         edge_type=rel.type,
-                        properties=props,
+                        properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
-                        created_at=props.get("created_at", datetime.now()),
+                        created_at=self._convert_datetime(props.get("created_at"))
+                        or datetime.now(),
                     )
                 )
 

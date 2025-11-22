@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from types import TracebackType
 from typing import Any, Dict, List, Optional, Type
@@ -168,12 +169,21 @@ class PersonaDiaryStore:
             raise ValueError("PersonaEntry node missing string 'id'")
 
         timestamp_value = props.get("timestamp")
+        if timestamp_value is None:
+            raise ValueError(
+                f"PersonaEntry node {node_id} missing 'timestamp' property"
+            )
+
         if isinstance(timestamp_value, datetime):
             timestamp = timestamp_value
+        elif hasattr(timestamp_value, "to_native"):
+            timestamp = timestamp_value.to_native()
         elif isinstance(timestamp_value, str):
             timestamp = datetime.fromisoformat(timestamp_value)
         else:
-            raise ValueError("PersonaEntry node missing datetime 'timestamp'")
+            raise ValueError(
+                f"PersonaEntry node {node_id} has invalid 'timestamp' type: {type(timestamp_value)}"
+            )
 
         entry_type = props.get("entry_type")
         if not isinstance(entry_type, str):
@@ -191,7 +201,14 @@ class PersonaDiaryStore:
             return [str(value)]
 
         metadata_value = props.get("metadata")
-        metadata = dict(metadata_value) if isinstance(metadata_value, dict) else {}
+        metadata: Dict[str, Any] = {}
+        if isinstance(metadata_value, dict):
+            metadata = dict(metadata_value)
+        elif isinstance(metadata_value, str):
+            try:
+                metadata = json.loads(metadata_value)
+            except json.JSONDecodeError:
+                pass
 
         return PersonaEntry(
             id=node_id,
