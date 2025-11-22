@@ -8,11 +8,21 @@ import yaml
 from pydantic import BaseModel, Field
 
 
+def _get_client_host(env_var: str, default: str = "localhost") -> str:
+    """Get a client-reachable host from environment variable.
+    
+    If the variable is set to 0.0.0.0 (bind all interfaces), return localhost
+    instead so clients can connect.
+    """
+    host = os.getenv(env_var, default)
+    return "localhost" if host == "0.0.0.0" else host
+
+
 class SophiaConfig(BaseModel):
     """Configuration for Sophia cognitive core connection."""
 
     host: str = Field(
-        default_factory=lambda: os.getenv("SOPHIA_HOST", "localhost"),
+        default_factory=lambda: _get_client_host("SOPHIA_HOST", "localhost"),
         description="Sophia API host",
     )
     port: int = Field(
@@ -30,7 +40,7 @@ class HermesConfig(BaseModel):
     """Configuration for Hermes language and embedding service."""
 
     host: str = Field(
-        default_factory=lambda: os.getenv("HERMES_HOST", "localhost"),
+        default_factory=lambda: _get_client_host("HERMES_HOST", "localhost"),
         description="Hermes API host",
     )
     port: int = Field(
@@ -69,7 +79,7 @@ class PersonaApiConfig(BaseModel):
     """Configuration for Sophia persona diary API."""
 
     host: str = Field(
-        default_factory=lambda: os.getenv("APOLLO_HOST", "localhost"),
+        default_factory=lambda: _get_client_host("APOLLO_HOST", "localhost"),
         description="Persona API host (typically the Sophia service host)",
     )
     port: int = Field(
