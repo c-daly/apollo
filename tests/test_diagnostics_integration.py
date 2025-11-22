@@ -92,13 +92,21 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
             created_entry = response.json()
             assert created_entry["content"] == "Integration test entry"
 
+            # Helper to receive next non-telemetry message
+            def receive_next_relevant_message():
+                while True:
+                    msg = websocket.receive_json()
+                    if msg["type"] != "telemetry":
+                        return msg
+
             # Wait for the broadcast message
             # The server broadcasts a log message first, then the entry
-            log_message = websocket.receive_json()
+            # We skip telemetry updates that might happen in the background
+            log_message = receive_next_relevant_message()
             assert log_message["type"] == "log"
             assert "Persona entry created" in log_message["data"]["message"]
 
-            message = websocket.receive_json()
+            message = receive_next_relevant_message()
 
             assert message["type"] == "persona_entry"
             data = message["data"]
