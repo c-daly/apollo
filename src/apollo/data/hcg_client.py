@@ -73,8 +73,6 @@ class HCGClient:
 
     def _parse_json_field(self, value: Any, default: Any = None) -> Any:
         """Parse JSON string field if necessary."""
-        if default is None:
-            default = []
         if isinstance(value, str):
             try:
                 return json.loads(value)
