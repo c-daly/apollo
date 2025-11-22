@@ -4,6 +4,69 @@
   height: calc(100vh - 200px);
 }
 
+.diagnostics-status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), transparent);
+  border: 1px solid rgba(100, 108, 255, 0.25);
+  border-radius: 10px;
+}
+
+.stream-pill {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.stream-pill.online {
+  background-color: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+}
+
+.stream-pill.connecting {
+  background-color: rgba(250, 204, 21, 0.15);
+  color: #facc15;
+}
+
+.stream-pill.offline {
+  background-color: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+}
+
+.stream-pill.error {
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.status-meta {
+  display: flex;
+  gap: 1.5rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  flex: 1;
+}
+
+.status-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stream-error-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  color: #fecdd3;
+}
+
 .diagnostics-tabs {
   display: flex;
   gap: 0.5rem;
@@ -61,24 +124,6 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
-}
-
-.stream-status {
-  font-size: 0.75rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.stream-status.online {
-  background-color: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
-}
-
-.stream-status.offline {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: #f87171;
 }
 
 .log-filter {
@@ -395,55 +440,10 @@
   gap: 1.5rem;
 }
 
-.telemetry-card {
-  background-color: #2a2a2a;
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.telemetry-label {
+.telemetry-loading {
+  margin-top: 1rem;
   color: #9ca3af;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
-}
-
-.telemetry-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #f5f5f5;
-  line-height: 1.2;
-}
-
-.telemetry-subtext {
-  display: block;
-  font-size: 0.85rem;
-  color: #cbd5f5;
-  margin-top: 0.25rem;
-}
-
-.telemetry-value.sentiment {
-  text-transform: capitalize;
-}
-
-.telemetry-value.sentiment.positive {
-  color: #4ade80;
-}
-
-.telemetry-value.sentiment.negative {
-  color: #f87171;
-}
-
-.telemetry-value.sentiment.neutral {
-  color: #d1d5db;
-}
-
-.telemetry-value.sentiment.mixed {
-  color: #fbbf24;
+  font-size: 0.9rem;
 }
 
 .metric-card {
@@ -514,5 +514,10 @@
 
   .detail-row {
     color: #333;
+  }
+
+  .diagnostics-status-bar {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.1), #ffffff);
+    border-color: rgba(99, 102, 241, 0.3);
   }
 }
