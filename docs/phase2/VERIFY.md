@@ -436,6 +436,10 @@ Tested and working on:
 - Timestamp and content
 - Entry type legend
 - Statistics display
+- Stream indicator flips between Live / Connecting / Offline / Error based on diagnostics feed
+- Session filter chips appear on entries with `metadata.session_id` and clicking one filters the list
+- Metadata drawer expands to show raw payload (including `hermes_response_id`)
+- New entries arriving via streaming highlight briefly without requiring a manual refresh
 
 ## P2-M4: Persona Diary API & UI (✅ Complete)
 
