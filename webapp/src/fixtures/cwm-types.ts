@@ -169,7 +169,7 @@ export interface CWMStateStream {
   start_time: string
   end_time?: string
   records: Array<
-    CWMEnvelope<CWMActionPayload | CWMGoalPayload | CWMEventPayload>
+    CWMState<CWMActionPayload | CWMGoalPayload | CWMEventPayload>
   >
   jepa_outputs?: JEPAOutput[]
   metadata: {
