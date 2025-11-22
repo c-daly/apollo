@@ -1,10 +1,6 @@
 """Integration tests for diagnostics websocket and persona diary."""
 
-import asyncio
-import json
-from datetime import datetime
-from typing import Any, List, Optional
-from unittest.mock import MagicMock
+from typing import List, Optional
 
 import pytest
 from fastapi.testclient import TestClient
