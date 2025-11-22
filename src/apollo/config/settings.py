@@ -1,5 +1,6 @@
 """Configuration management for Apollo."""
 
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -10,22 +11,36 @@ from pydantic import BaseModel, Field
 class SophiaConfig(BaseModel):
     """Configuration for Sophia cognitive core connection."""
 
-    host: str = Field(default="localhost", description="Sophia API host")
-    port: int = Field(default=8080, description="Sophia API port")
+    host: str = Field(
+        default_factory=lambda: os.getenv("SOPHIA_HOST", "localhost"),
+        description="Sophia API host",
+    )
+    port: int = Field(
+        default_factory=lambda: int(os.getenv("SOPHIA_PORT", "8080")),
+        description="Sophia API port",
+    )
     timeout: int = Field(default=30, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
-        default=None, description="Bearer token for Sophia API access"
+        default_factory=lambda: os.getenv("SOPHIA_API_KEY"),
+        description="Bearer token for Sophia API access",
     )
 
 
 class HermesConfig(BaseModel):
     """Configuration for Hermes language and embedding service."""
 
-    host: str = Field(default="localhost", description="Hermes API host")
-    port: int = Field(default=8080, description="Hermes API port")
+    host: str = Field(
+        default_factory=lambda: os.getenv("HERMES_HOST", "localhost"),
+        description="Hermes API host",
+    )
+    port: int = Field(
+        default_factory=lambda: int(os.getenv("HERMES_PORT", "8080")),
+        description="Hermes API port",
+    )
     timeout: int = Field(default=30, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
-        default=None, description="Bearer token for Hermes API access"
+        default_factory=lambda: os.getenv("HERMES_API_KEY"),
+        description="Bearer token for Hermes API access",
     )
     provider: Optional[str] = Field(
         default=None, description="Preferred Hermes provider override"
@@ -54,29 +69,48 @@ class PersonaApiConfig(BaseModel):
     """Configuration for Sophia persona diary API."""
 
     host: str = Field(
-        default="localhost",
+        default_factory=lambda: os.getenv("APOLLO_HOST", "localhost"),
         description="Persona API host (typically the Sophia service host)",
     )
-    port: int = Field(default=8082, description="Persona API port")
+    port: int = Field(
+        default_factory=lambda: int(os.getenv("APOLLO_PORT", "8082")),
+        description="Persona API port",
+    )
     timeout: int = Field(default=15, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
-        default=None, description="Optional bearer token for persona API access"
+        default_factory=lambda: os.getenv("APOLLO_API_KEY"),
+        description="Optional bearer token for persona API access",
     )
 
 
 class Neo4jConfig(BaseModel):
     """Configuration for Neo4j HCG connection."""
 
-    uri: str = Field(default="bolt://localhost:7687", description="Neo4j Bolt URI")
-    user: str = Field(default="neo4j", description="Neo4j username")
-    password: str = Field(default="password", description="Neo4j password")
+    uri: str = Field(
+        default_factory=lambda: os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        description="Neo4j Bolt URI",
+    )
+    user: str = Field(
+        default_factory=lambda: os.getenv("NEO4J_USER", "neo4j"),
+        description="Neo4j username",
+    )
+    password: str = Field(
+        default_factory=lambda: os.getenv("NEO4J_PASSWORD", "password"),
+        description="Neo4j password",
+    )
 
 
 class MilvusConfig(BaseModel):
     """Configuration for Milvus vector store connection."""
 
-    host: str = Field(default="localhost", description="Milvus host")
-    port: int = Field(default=19530, description="Milvus gRPC port")
+    host: str = Field(
+        default_factory=lambda: os.getenv("MILVUS_HOST", "localhost"),
+        description="Milvus host",
+    )
+    port: int = Field(
+        default_factory=lambda: int(os.getenv("MILVUS_PORT", "19530")),
+        description="Milvus gRPC port",
+    )
 
 
 class HCGConfig(BaseModel):

@@ -8,8 +8,18 @@ HERMES_ROOT="${WORKSPACE_ROOT}/hermes"
 DOCKER_COMPOSE_FILE="${LOGOS_ROOT}/infra/docker-compose.hcg.dev.yml"
 HERMES_PID_FILE="/tmp/hermes.pid"
 
-if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-  echo "[start_demo] OPENAI_API_KEY is not set. Export it before running this script." >&2
+# Source .env if it exists
+if [[ -f "${PROJECT_ROOT}/.env" ]]; then
+  echo "[start_demo] Sourcing .env file..."
+  set -a
+  source "${PROJECT_ROOT}/.env"
+  set +a
+fi
+
+# Validate environment
+echo "[start_demo] Validating environment..."
+if ! python3 "${PROJECT_ROOT}/scripts/check_env.py"; then
+  echo "[start_demo] Environment validation failed. See above for details." >&2
   exit 1
 fi
 
@@ -37,7 +47,7 @@ if [[ ! -f "${HERMES_PID_FILE}" ]]; then
   (
     cd "${HERMES_ROOT}"
     poetry install >/dev/null
-    env OPENAI_API_KEY="${OPENAI_API_KEY}" nohup poetry run hermes >/tmp/hermes.log 2>&1 &
+    nohup poetry run hermes >/tmp/hermes.log 2>&1 &
     echo $! > "${HERMES_PID_FILE}"
   )
 else
