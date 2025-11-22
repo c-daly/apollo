@@ -97,24 +97,23 @@ This document verifies the completion of P2-M2, which implements browser diagnos
 **Location:** `webapp/src/components/PersonaDiary.tsx`
 
 **Features:**
-- Agent internal reasoning trace
-- Three entry types:
-  - 💭 Belief Updates (blue)
-  - ⚡ Decisions (green)
-  - 👁️ Observations (yellow)
-- Timeline visualization with vertical line
-- Real-time updates from state history
-- WebSocket integration for live entries
-- Entry statistics (total count, latest timestamp)
-- Maintains 100 most recent entries
-- Converts Neo4j state history to diary format
-- Entries are backed by Sophia's `/persona/entries` API (proxied through `apollo-api`)
-- Real-time updates still stream via diagnostics logs/telemetry; persona data refreshes through HTTP polling
+- Agent internal reasoning trace rendered directly from `PersonaEntry` nodes
+- Entry types with iconography (💭 belief, ⚡ decisions, 👁️ observations, 🤔 reflections)
+- Timeline visualization keeps the 100 most recent entries in descending order
+- Live updates from diagnostics WebSocket (`persona_entry` event type) — no manual refresh
+- Filters for type/sentiment plus free-text search
+- Metadata badges (confidence, related goals/processes, emotion tags)
 
 **Data Sources:**
-- `useStateHistory()` hook → `/api/hcg/history`
-- WebSocket updates for real-time changes
-- Intelligent type detection based on triggers
+- `GET /api/persona/entries` (Neo4j-backed `PersonaDiaryStore`)
+- Diagnostics WebSocket (`/ws/diagnostics`) streaming newly created entries
+
+**Verification steps:**
+1. Start the stack with `./scripts/run_apollo.sh` (ensures Neo4j + apollo-api + webapp are running).
+2. Create a diary entry via CLI: `poetry run apollo-cli diary "Diagnosed a fault" --type decision --goal goal_pick_and_place`.
+3. Observe the entry appear instantly in the Persona Diary tab (no refresh).
+4. Optional: subscribe to `/ws/diagnostics` (e.g., `wscat -c ws://localhost:8082/ws/diagnostics`) and confirm a `persona_entry` payload was emitted.
+5. Run regression tests: `poetry run pytest tests/test_persona_api.py tests/test_persona_client.py tests/test_config.py::test_persona_api_config_defaults`.
 
 ## Backend API Implementation (✅ Complete)
 
@@ -135,6 +134,9 @@ This document verifies the completion of P2-M2, which implements browser diagnos
 - `GET /api/diagnostics/logs` - Structured, recent log entries for Apollo surfaces
 - `GET /api/diagnostics/metrics` - Aggregated telemetry snapshot (latency/request count/etc.)
 - `WebSocket /ws/diagnostics` - Live log + telemetry streaming for the browser
+- `POST /api/persona/entries` - Persist persona diary entries into Neo4j
+- `GET /api/persona/entries` + `/api/persona/entries/{id}` - Query diary history with filters
+- `Diagnostics event: persona_entry` - Broadcast whenever a new entry is created
 
 **Features:**
 - FastAPI framework for high performance
@@ -144,10 +146,12 @@ This document verifies the completion of P2-M2, which implements browser diagnos
 - Proper error handling with HTTP status codes
 - Query parameters for filtering and pagination
 - Async/await for concurrent requests
+- PersonaDiaryStore manages the Neo4j lifecycle and diagnostics broadcasts
 
 **Configuration:**
 - Uses existing Apollo config (`config.yaml`)
 - Neo4j connection via `HCGClient`
+- Persona diary store configured via `hcg.neo4j`
 - Configurable host/port (default: 0.0.0.0:8082)
 - CLI entry point: `apollo-api`
 
@@ -306,33 +310,27 @@ Tested and working on:
 
 ## Known Limitations
 
-1. **WebSocket Server**: Not yet implemented on backend
-   - Frontend has WebSocket client ready
-   - Currently relies on polling/refresh
-   - Future: Implement WebSocket server for push updates
-
-2. **Authentication**: None implemented yet
+1. **Authentication**: None implemented yet
    - API is open (CORS: allow all)
    - Production: Add authentication layer
 
-3. **Real-time Updates**: Limited to manual refresh
-   - WebSocket infrastructure prepared
-   - Backend needs WebSocket endpoint
+2. **Telemetry persistence**: Metrics are in-memory only
+   - Restarting the API clears the telemetry snapshot
+   - Future: push metrics into a time-series store
 
-4. **Emotion Tags**: Not yet in data model
-   - Frontend can display when available
-   - Requires Sophia integration
+3. **Emotion Tags**: Optional
+   - The UI displays them when present
+   - Upstream services still need to populate the field consistently
 
 ## Future Enhancements
 
-1. Implement WebSocket server for true real-time updates
-2. Add authentication/authorization
-3. Persist telemetry metrics (currently in-memory)
-4. Export timeline as PDF/image
-5. Advanced graph layouts (force-directed, hierarchical)
-6. Search history and saved filters
-7. Collaborative annotations on timeline
-8. Alerting on telemetry thresholds
+1. Add authentication/authorization
+2. Persist telemetry metrics (currently in-memory)
+3. Export timeline as PDF/image
+4. Advanced graph layouts (force-directed, hierarchical)
+5. Search history and saved filters
+6. Collaborative annotations on timeline
+7. Alerting on telemetry thresholds
 
 ## Verification Checklist
 

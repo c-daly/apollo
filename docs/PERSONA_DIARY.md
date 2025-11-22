@@ -22,31 +22,41 @@ The Persona Diary API provides structured entries that can be surfaced to LLM pr
 ┌─────────────────────────────────────────────────┐
 │           Apollo API Server                      │
 │           (FastAPI - Port 8082)                  │
-│                                                   │
-│  POST   /api/persona/entries  (proxy to Sophia)  │
-│  GET    /api/persona/entries  (proxy to Sophia)  │
-│  GET    /api/persona/entries/{id}  (proxy)       │
-│                                                   │
-│  Storage: Sophia `/persona/entries` → Neo4j (:PersonaEntry) │
+│                                                 │
+│  POST   /api/persona/entries  ┐                 │
+│  GET    /api/persona/entries  │  REST           │
+│  GET    /api/persona/entries/{id}               │
+│  WS     /ws/diagnostics  (persona_entry events) │
+│                                                 │
+│  Storage: PersonaDiaryStore → Neo4j (:PersonaEntry) │
 └────────────────────┬────────────────────────────┘
-                     │ HTTP GET
+                     │ Bolt
+                     ▼
+┌─────────────────────────────────────────────────┐
+│              Neo4j (LOGOS HCG)                   │
+│        (:PersonaEntry nodes + relationships)     │
+└────────────────────┬────────────────────────────┘
+                     │
                      ▼
 ┌─────────────────────────────────────────────────┐
 │           Web UI / LLM Integration              │
-│         PersonaDiary Component                   │
-│         LLM Prompt Builder                       │
+│         PersonaDiary Component                  │
+│         LLM Prompt Builder                      │
 └─────────────────────────────────────────────────┘
 ```
 
-## Sophia Persona Store
+## Persona Diary Store
 
-Sophia exposes `/persona/entries` endpoints that persist entries as `(:PersonaEntry)`
-nodes inside its Neo4j knowledge graph. Apollo no longer writes to Neo4j directly—
-the CLI and `apollo-api` simply forward create/list/get calls to Sophia, which
-ensures diary data survives restarts, links to goals/processes, and stays consistent
-with the rest of the cognitive state. Configure `persona_api` in `config.yaml`
-to point at your Sophia deployment (host/port/API key), and Apollo will proxy
-requests through the shared PersonaClient.
+Apollo now persists diary entries through `PersonaDiaryStore`, which writes
+`(:PersonaEntry)` nodes directly into the LOGOS Neo4j instance (the same one
+backing the Hybrid Causal Graph). The FastAPI server keeps a long-lived
+connection to Neo4j, and every POST immediately emits a `persona_entry`
+diagnostics event so the webapp reflects changes without a manual refresh.
+
+Configure Neo4j credentials under the `hcg.neo4j` block in `config.yaml`. When
+you run `scripts/run_apollo.sh` the Neo4j + Milvus dev containers are started
+automatically (if necessary) before the API/webapp boot, so the diary store is
+ready as soon as the UI loads.
 
 ## Data Model
 
@@ -148,25 +158,28 @@ curl http://localhost:8082/api/persona/entries/entry_1_1763665967
 
 ## Web UI Usage
 
-1. **Start Services**
+1. **Start services (Neo4j + API + Web)**
    ```bash
-   # Terminal 1: API server
-   apollo-api
-   
-   # Terminal 2: Web app
-   cd webapp && npm run dev
+   ./scripts/run_apollo.sh
    ```
+   The script installs dependencies via Poetry/npm if needed, ensures the Neo4j/Milvus
+   dev containers are running, then launches `apollo-api` and `npm run dev`.
 
 2. **Access UI**
-   - Navigate to http://localhost:5173
-   - Click "Persona Diary" tab
+   - Navigate to http://localhost:3000 (default Vite port)
+   - Click "Persona Diary"
 
 3. **Features**
    - Search entries by text
-   - Filter by entry type
-   - Filter by sentiment
-   - View entry metadata (confidence, emotions, links)
-   - Refresh to reload from API
+   - Filter by entry type or sentiment
+   - Inspect metadata (confidence, emotions, related goals/processes)
+   - Live updates via diagnostics stream (no manual refresh needed)
+
+4. **Verify streaming**
+   - Create an entry via the CLI (`apollo-cli diary ...`) or the POST request above.
+   - Observe the entry appear instantly in the web UI.
+   - Optional: connect to `/ws/diagnostics` using `wscat` and watch for
+     `{"type":"persona_entry", ...}` events.
 
 ## LLM Integration
 
@@ -201,3 +214,14 @@ def build_llm_prompt(user_message):
     prompt = f"""{context}
 
 User: {user_message}
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| `503 persona store not available` when calling the API | Neo4j container isn’t running or credentials are wrong | Run `./scripts/run_apollo.sh` (it ensures Neo4j is up) or verify `hcg.neo4j` settings in `config.yaml`. |
+| Diary tab never updates after creating entries | Diagnostics WebSocket unreachable | Confirm the browser can reach `/ws/diagnostics` (check console), and verify the FastAPI server logs “Diagnostics websocket connected”. |
+| Tests fail with `ModuleNotFoundError: httpx` | FastAPI test client dependency missing | Install deps via Poetry (`poetry install`) or ensure CI uses Poetry so `httpx` is available. |
+| Need sample data | Use `apollo-cli diary ...` or `scripts/dev/create_persona_samples.py` (if available) to seed entries, or POST directly to `/api/persona/entries`. |
+
+When in doubt, re-run `./scripts/run_apollo.sh` to restart the API/webapp stack with the correct dependencies.

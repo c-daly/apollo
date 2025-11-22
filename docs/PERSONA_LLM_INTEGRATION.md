@@ -8,7 +8,7 @@ The Persona Diary API provides structured entries capturing the agent's internal
 
 ### Get Persona Entries
 ```
-GET /api/persona/entries   (Apollo proxy → Sophia `/persona/entries`)
+GET /api/persona/entries   (Apollo → PersonaDiaryStore → Neo4j)
 ```
 
 **Query Parameters:**
@@ -45,7 +45,7 @@ GET /api/persona/entries   (Apollo proxy → Sophia `/persona/entries`)
 
 ### Example: Adding Context to Chat Prompts
 
-When processing a user query in the chat interface, retrieve recent persona entries to provide context. The example below calls Apollo’s proxy (`http://localhost:8082/api/persona/entries`); behind the scenes, that request is forwarded to Sophia. If you have direct access to Sophia, you can point the request to its `/persona/entries` endpoint instead.
+When processing a user query in the chat interface, retrieve recent persona entries to provide context. The example below calls Apollo’s API (`http://localhost:8082/api/persona/entries`), which serves data directly from the Neo4j-backed `PersonaDiaryStore`. If your deployment exposes the API on another host/port, update the base URL accordingly.
 
 ```python
 import requests
