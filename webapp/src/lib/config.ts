@@ -109,7 +109,9 @@ export function loadConfig(): ApolloConfig {
         temperature: parseOptionalNumber(
           import.meta.env.VITE_HERMES_LLM_TEMPERATURE
         ),
-        maxTokens: parseOptionalNumber(import.meta.env.VITE_HERMES_LLM_MAX_TOKENS),
+        maxTokens: parseOptionalNumber(
+          import.meta.env.VITE_HERMES_LLM_MAX_TOKENS
+        ),
         systemPrompt: import.meta.env.VITE_HERMES_SYSTEM_PROMPT || undefined,
       },
     },

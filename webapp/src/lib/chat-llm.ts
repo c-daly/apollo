@@ -43,7 +43,10 @@ export function buildHermesRequest(
   const request: LLMRequest = {
     prompt: lastUserMessage?.content,
     messages: [
-      { role: 'system', content: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT },
+      {
+        role: 'system',
+        content: options.systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
+      },
       ...historyMessages,
     ],
     metadata: sanitizeMetadata(options.metadata),
