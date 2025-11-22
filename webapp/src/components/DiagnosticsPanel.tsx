@@ -87,7 +87,7 @@ function DiagnosticsPanel() {
     }
   }, [initialTelemetry, pushHistoryPoint])
 
-  const streamStatus = useDiagnosticsStream({
+  const streamHealth = useDiagnosticsStream({
     onLog: entry => {
       setLogs(prev => [entry, ...prev].slice(0, 100))
     },
@@ -161,8 +161,8 @@ function DiagnosticsPanel() {
     refetchProcesses()
   }
 
-  const statusLabel = connectionStatusLabel(streamStatus)
-  const statusClass = connectionStatusClass(streamStatus)
+  const statusLabel = connectionStatusLabel(streamHealth.status)
+  const statusClass = connectionStatusClass(streamHealth.status)
 
   return (
     <div className="diagnostics-panel">
@@ -175,6 +175,17 @@ function DiagnosticsPanel() {
               ? new Date(telemetry.last_update).toLocaleTimeString()
               : '—'}
           </div>
+          <div>
+            WS Heartbeat:{' '}
+            {streamHealth.lastHeartbeat
+              ? new Date(streamHealth.lastHeartbeat).toLocaleTimeString()
+              : '—'}
+          </div>
+          {streamHealth.retryCount > 0 && (
+            <div style={{ color: 'var(--color-warning)' }}>
+              Retries: {streamHealth.retryCount}
+            </div>
+          )}
           <div>
             LLM session:&nbsp;
             {telemetry?.last_llm_session ? telemetry.last_llm_session : '—'}
@@ -408,6 +419,12 @@ function DiagnosticsPanel() {
                 label="Active Plans"
                 value={telemetry ? telemetry.active_plans : '—'}
                 subtext="Processes in execution"
+                tone="default"
+              />
+              <TelemetryCard
+                label="Active Clients"
+                value={telemetry?.active_websockets ?? '—'}
+                subtext="Connected dashboards"
                 tone="default"
               />
               <TelemetryCard
