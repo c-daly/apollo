@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react'
-import { describe, expect, vi, beforeEach, test } from 'vitest'
+import { describe, expect, vi, beforeEach, afterEach, test } from 'vitest'
 
 import type { DiagnosticsEvent } from '../../types/diagnostics'
 import type { PersonaEntry } from '../../types/hcg'
