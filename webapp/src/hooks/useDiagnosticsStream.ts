@@ -13,13 +13,28 @@ interface DiagnosticsStreamOptions {
   onLogBatch?: (entries: DiagnosticLogEntry[]) => void
   onPersonaEntry?: (entry: PersonaEntry) => void
   onError?: (message: string) => void
+  onConnectionChange?: (status: DiagnosticsConnectionStatus) => void
 }
+
+export type DiagnosticsConnectionStatus =
+  | 'connecting'
+  | 'online'
+  | 'offline'
+  | 'error'
 
 export function useDiagnosticsStream(
   options: DiagnosticsStreamOptions
-): boolean {
-  const { onLog, onTelemetry, onLogBatch, onPersonaEntry, onError } = options
-  const [connected, setConnected] = useState(false)
+): DiagnosticsConnectionStatus {
+  const {
+    onLog,
+    onTelemetry,
+    onLogBatch,
+    onPersonaEntry,
+    onError,
+    onConnectionChange,
+  } = options
+  const [status, setStatus] =
+    useState<DiagnosticsConnectionStatus>('connecting')
 
   useEffect(() => {
     const unsubscribe = diagnosticsWebSocket.onMessage(
@@ -52,16 +67,35 @@ export function useDiagnosticsStream(
     )
 
     diagnosticsWebSocket.connect()
-    const statusInterval = setInterval(() => {
-      setConnected(diagnosticsWebSocket.isConnected())
-    }, 1000)
+
+    const unsubscribeConnection = diagnosticsWebSocket.onConnectionChange(
+      state => {
+        const mapped =
+          state === 'connected'
+            ? 'online'
+            : state === 'connecting'
+              ? 'connecting'
+              : state === 'error'
+                ? 'error'
+                : 'offline'
+        setStatus(mapped)
+        onConnectionChange?.(mapped)
+      }
+    )
 
     return () => {
       unsubscribe()
-      clearInterval(statusInterval)
+      unsubscribeConnection()
       diagnosticsWebSocket.disconnect()
     }
-  }, [onLog, onTelemetry, onLogBatch, onPersonaEntry, onError])
+  }, [
+    onLog,
+    onTelemetry,
+    onLogBatch,
+    onPersonaEntry,
+    onError,
+    onConnectionChange,
+  ])
 
-  return connected
+  return status
 }

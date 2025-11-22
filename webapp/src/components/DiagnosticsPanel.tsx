@@ -1,17 +1,30 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePlanHistory, useProcesses } from '../hooks/useHCG'
 import {
   useDiagnosticsLogs,
   useTelemetryMetrics,
 } from '../hooks/useDiagnostics'
-import { useDiagnosticsStream } from '../hooks/useDiagnosticsStream'
+import {
+  useDiagnosticsStream,
+  type DiagnosticsConnectionStatus,
+} from '../hooks/useDiagnosticsStream'
 import type {
   DiagnosticLogEntry,
   TelemetrySnapshot,
 } from '../types/diagnostics'
+import TelemetryCard from './TelemetryCard'
 import './DiagnosticsPanel.css'
 
 type DiagnosticTab = 'logs' | 'timeline' | 'telemetry'
+interface TelemetryHistoryPoint {
+  timestamp: number
+  apiLatency: number
+  requestCount: number
+  successRate: number
+  llmLatency?: number | null
+}
+
+const HISTORY_LIMIT = 60
 
 function DiagnosticsPanel() {
   const [activeTab, setActiveTab] = useState<DiagnosticTab>('logs')
@@ -19,6 +32,9 @@ function DiagnosticsPanel() {
   const [logFilter, setLogFilter] = useState<string>('all')
   const [telemetry, setTelemetry] = useState<TelemetrySnapshot | null>(null)
   const [streamError, setStreamError] = useState<string | null>(null)
+  const [telemetryHistory, setTelemetryHistory] = useState<
+    TelemetryHistoryPoint[]
+  >([])
 
   const {
     data: planHistory,
@@ -42,6 +58,22 @@ function DiagnosticsPanel() {
     refetch: refetchTelemetry,
   } = useTelemetryMetrics()
 
+  const pushHistoryPoint = useCallback((snapshot: TelemetrySnapshot) => {
+    setTelemetryHistory(prev => {
+      const next = [
+        ...prev,
+        {
+          timestamp: new Date(snapshot.last_update).getTime(),
+          apiLatency: snapshot.api_latency_ms,
+          requestCount: snapshot.request_count,
+          successRate: snapshot.success_rate,
+          llmLatency: snapshot.llm_latency_ms ?? null,
+        },
+      ]
+      return next.slice(-HISTORY_LIMIT)
+    })
+  }, [])
+
   useEffect(() => {
     if (initialLogs) {
       setLogs(initialLogs)
@@ -51,10 +83,11 @@ function DiagnosticsPanel() {
   useEffect(() => {
     if (initialTelemetry) {
       setTelemetry(initialTelemetry)
+      pushHistoryPoint(initialTelemetry)
     }
-  }, [initialTelemetry])
+  }, [initialTelemetry, pushHistoryPoint])
 
-  const streamConnected = useDiagnosticsStream({
+  const streamStatus = useDiagnosticsStream({
     onLog: entry => {
       setLogs(prev => [entry, ...prev].slice(0, 100))
     },
@@ -63,6 +96,7 @@ function DiagnosticsPanel() {
     },
     onTelemetry: snapshot => {
       setTelemetry(snapshot)
+      pushHistoryPoint(snapshot)
     },
     onError: message => {
       setStreamError(message)
@@ -91,6 +125,16 @@ function DiagnosticsPanel() {
     [logs, logFilter]
   )
 
+  const telemetryTrends = useMemo(
+    () => ({
+      api: telemetryHistory.map(point => point.apiLatency),
+      llm: telemetryHistory.map(point => point.llmLatency ?? null),
+      requests: telemetryHistory.map(point => point.requestCount),
+      success: telemetryHistory.map(point => point.successRate),
+    }),
+    [telemetryHistory]
+  )
+
   const handleExportLogs = () => {
     const logData = filteredLogs
       .map(
@@ -117,8 +161,36 @@ function DiagnosticsPanel() {
     refetchProcesses()
   }
 
+  const statusLabel = connectionStatusLabel(streamStatus)
+  const statusClass = connectionStatusClass(streamStatus)
+
   return (
     <div className="diagnostics-panel">
+      <div className="diagnostics-status-bar">
+        <div className={`stream-pill ${statusClass}`}>{statusLabel}</div>
+        <div className="status-meta">
+          <div>
+            Last update:{' '}
+            {telemetry
+              ? new Date(telemetry.last_update).toLocaleTimeString()
+              : '—'}
+          </div>
+          <div>
+            LLM session:&nbsp;
+            {telemetry?.last_llm_session ? telemetry.last_llm_session : '—'}
+          </div>
+        </div>
+        <div className="status-actions">
+          <button className="btn-secondary" onClick={handleManualRefresh}>
+            Refresh Snapshot
+          </button>
+        </div>
+      </div>
+      {streamError && (
+        <div className="stream-error-banner">
+          Diagnostics stream degraded: {streamError}
+        </div>
+      )}
       <div className="diagnostics-tabs">
         <button
           className={`diag-tab ${activeTab === 'logs' ? 'active' : ''}`}
@@ -146,11 +218,6 @@ function DiagnosticsPanel() {
             <div className="logs-header">
               <h3>System Logs</h3>
               <div className="logs-controls">
-                <span
-                  className={`stream-status ${streamConnected ? 'online' : 'offline'}`}
-                >
-                  {streamConnected ? 'Live' : 'Offline'}
-                </span>
                 <select
                   className="log-filter"
                   value={logFilter}
@@ -298,88 +365,141 @@ function DiagnosticsPanel() {
 
         {activeTab === 'telemetry' && (
           <div className="telemetry-view">
-            <h3>System Telemetry</h3>
-            <div className="telemetry-update">
-              Last updated:{' '}
-              {telemetry
-                ? new Date(telemetry.last_update).toLocaleTimeString()
-                : telemetryLoading
-                  ? 'Loading...'
-                  : 'No data'}
-            </div>
             <div className="telemetry-grid">
-              <div className="telemetry-card">
-                <span className="telemetry-label">API Latency</span>
-                <span className="telemetry-value">
-                  {telemetry ? `${telemetry.api_latency_ms} ms` : '—'}
-                </span>
-              </div>
-              <div className="telemetry-card">
-                <span className="telemetry-label">Requests</span>
-                <span className="telemetry-value">
-                  {telemetry ? telemetry.request_count : '—'}
-                </span>
-              </div>
-              <div className="telemetry-card">
-                <span className="telemetry-label">Success Rate</span>
-                <span className="telemetry-value">
-                  {telemetry ? `${telemetry.success_rate}%` : '—'}
-                </span>
-              </div>
-              <div className="telemetry-card">
-                <span className="telemetry-label">Active Plans</span>
-                <span className="telemetry-value">
-                  {telemetry ? telemetry.active_plans : '—'}
-                </span>
-              </div>
-              <div className="telemetry-card">
-                <span className="telemetry-label">LLM Latency</span>
-                <span className="telemetry-value">
-                  {telemetry?.llm_latency_ms != null
-                    ? `${telemetry.llm_latency_ms} ms`
-                    : '—'}
-                </span>
-              </div>
-              <div className="telemetry-card">
-                <span className="telemetry-label">LLM Tokens</span>
-                <span className="telemetry-value">
-                  {telemetry?.llm_total_tokens ?? '—'}
-                  {telemetry?.llm_prompt_tokens != null &&
-                    telemetry?.llm_completion_tokens != null && (
-                      <span className="telemetry-subtext">
-                        {telemetry.llm_prompt_tokens} prompt /{' '}
-                        {telemetry.llm_completion_tokens} completion
-                      </span>
-                    )}
-                </span>
-              </div>
-              <div className="telemetry-card">
-                <span className="telemetry-label">Persona Sentiment</span>
-                <span
-                  className={`telemetry-value sentiment ${
-                    telemetry?.persona_sentiment || ''
-                  }`}
-                >
-                  {telemetry?.persona_sentiment
-                    ? `${telemetry.persona_sentiment}${
-                        telemetry.persona_confidence != null
-                          ? ` (${Math.round(telemetry.persona_confidence * 100)}%)`
-                          : ''
-                      }`
-                    : '—'}
-                </span>
-              </div>
+              <TelemetryCard
+                label="API Latency"
+                value={
+                  telemetry ? `${telemetry.api_latency_ms.toFixed(1)} ms` : '—'
+                }
+                subtext="Rolling average"
+                trend={telemetryTrends.api}
+                trendLabel="API latency trend"
+                tone={
+                  telemetry && telemetry.api_latency_ms > 1500
+                    ? 'warning'
+                    : 'default'
+                }
+              />
+              <TelemetryCard
+                label="Request Rate"
+                value={telemetry ? telemetry.request_count : '—'}
+                subtext="Total API requests"
+                trend={telemetryTrends.requests}
+                trendLabel="Request trend"
+              />
+              <TelemetryCard
+                label="Success Rate"
+                value={
+                  telemetry ? `${telemetry.success_rate.toFixed(1)}%` : '—'
+                }
+                subtext="Past minute"
+                trend={telemetryTrends.success}
+                trendLabel="Success rate trend"
+                tone={
+                  telemetry && telemetry.success_rate < 90
+                    ? 'danger'
+                    : 'default'
+                }
+              />
+              <TelemetryCard
+                label="Active Plans"
+                value={telemetry ? telemetry.active_plans : '—'}
+                subtext="Processes in execution"
+                tone="default"
+              />
+              <TelemetryCard
+                label="LLM Latency"
+                value={
+                  telemetry?.llm_latency_ms != null
+                    ? `${telemetry.llm_latency_ms.toFixed(1)} ms`
+                    : '—'
+                }
+                subtext={`Session: ${telemetry?.last_llm_session ?? '—'}`}
+                trend={telemetryTrends.llm}
+                trendLabel="LLM latency trend"
+              />
+              <TelemetryCard
+                label="LLM Tokens"
+                value={telemetry?.llm_total_tokens ?? '—'}
+                subtext={
+                  telemetry?.llm_prompt_tokens != null &&
+                  telemetry?.llm_completion_tokens != null ? (
+                    <>
+                      {telemetry.llm_prompt_tokens} prompt /{' '}
+                      {telemetry.llm_completion_tokens} completion
+                    </>
+                  ) : (
+                    '—'
+                  )
+                }
+              />
+              <TelemetryCard
+                label="Persona Sentiment"
+                value={
+                  telemetry?.persona_sentiment
+                    ? telemetry.persona_sentiment
+                    : '—'
+                }
+                subtext={
+                  telemetry?.persona_confidence != null
+                    ? `${Math.round(telemetry.persona_confidence * 100)}% confidence`
+                    : 'Awaiting signal'
+                }
+                tone={sentimentTone(telemetry?.persona_sentiment)}
+              />
             </div>
-            <div className="telemetry-actions">
-              <button className="btn-secondary" onClick={handleManualRefresh}>
-                Refresh Now
-              </button>
-            </div>
+            {telemetryLoading && (
+              <div className="telemetry-loading">Loading metrics…</div>
+            )}
           </div>
         )}
       </div>
     </div>
   )
+}
+
+function connectionStatusLabel(status: DiagnosticsConnectionStatus): string {
+  switch (status) {
+    case 'online':
+      return 'Live stream'
+    case 'connecting':
+      return 'Connecting…'
+    case 'error':
+      return 'Stream error'
+    default:
+      return 'Offline'
+  }
+}
+
+function connectionStatusClass(status: DiagnosticsConnectionStatus): string {
+  switch (status) {
+    case 'online':
+      return 'online'
+    case 'error':
+      return 'error'
+    case 'connecting':
+      return 'connecting'
+    default:
+      return 'offline'
+  }
+}
+
+function sentimentTone(
+  sentiment?: string | null
+): 'default' | 'success' | 'warning' | 'danger' {
+  if (!sentiment) {
+    return 'default'
+  }
+  switch (sentiment.toLowerCase()) {
+    case 'positive':
+      return 'success'
+    case 'negative':
+      return 'danger'
+    case 'mixed':
+      return 'warning'
+    default:
+      return 'default'
+  }
 }
 
 export default DiagnosticsPanel

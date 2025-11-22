@@ -1,0 +1,87 @@
+.telemetry-card.rich {
+  background: radial-gradient(circle at top, #2f303a, #1c1c22);
+  border: 1px solid rgba(100, 108, 255, 0.15);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35);
+}
+
+.telemetry-card.rich.success {
+  border-color: rgba(74, 222, 128, 0.25);
+}
+
+.telemetry-card.rich.warning {
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.telemetry-card.rich.danger {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.telemetry-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #9ca3af;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.telemetry-card-icon {
+  font-size: 1rem;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.telemetry-card-value {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #f8fafc;
+  line-height: 1.15;
+}
+
+.telemetry-card-subtext {
+  font-size: 0.9rem;
+  color: #cbd5f5;
+}
+
+.telemetry-card-trend {
+  margin-top: 0.5rem;
+}
+
+.telemetry-card.rich .sparkline {
+  width: 100%;
+}
+
+.sparkline.sparkline--empty {
+  width: 100%;
+  height: 36px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.2),
+    rgba(148, 163, 184, 0.2) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+@media (prefers-color-scheme: light) {
+  .telemetry-card.rich {
+    background: radial-gradient(circle at top, #ffffff, #f0f4ff);
+    border-color: rgba(100, 108, 255, 0.25);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  }
+
+  .telemetry-card-value {
+    color: #0f172a;
+  }
+
+  .telemetry-card-subtext {
+    color: #475569;
+  }
+}

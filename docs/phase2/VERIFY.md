@@ -409,13 +409,11 @@ Tested and working on:
 - Execution details
 
 ### Diagnostics Panel - Telemetry Tab
-- Metrics cards layout
-- API latency
-- Request count
-- Success rate
-- Active plans
-- Hermes LLM telemetry (latency + prompt/completion tokens)
-- Persona sentiment indicators sourced from Hermes responses
+- Status pill reflects diagnostics stream health (Live / Connecting / Offline / Error)
+- Metrics cards animate using live data: API latency, request rate, success %, active plans
+- Hermes LLM telemetry (latency + prompt/completion tokens) renders with sparkline trend
+- Persona sentiment indicators sourced from Hermes responses (with confidence)
+- Manual refresh button still works even if the live stream degrades
 
 ### Hermes Chat Surfaces
 1. Run `apollo-cli chat "Summarize current plan status"` and confirm:

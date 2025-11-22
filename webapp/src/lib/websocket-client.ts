@@ -13,6 +13,11 @@ export interface WebSocketClientConfig {
 }
 
 export type MessageHandler<TMessage> = (message: TMessage) => void
+export type ConnectionState =
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'error'
 
 export class HCGWebSocketClient<TMessage = WebSocketMessage> {
   private ws: WebSocket | null = null
@@ -22,6 +27,7 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
   private reconnectAttempts: number = 0
   private reconnectTimeout: number | null = null
   private messageHandlers: Set<MessageHandler<TMessage>> = new Set()
+  private connectionHandlers: Set<(state: ConnectionState) => void> = new Set()
   private connected: boolean = false
 
   constructor(config: WebSocketClientConfig = {}) {
@@ -37,12 +43,14 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
     }
 
     try {
+      this.notifyConnection('connecting')
       this.ws = new WebSocket(this.url)
 
       this.ws.onopen = () => {
         console.log('HCG WebSocket connected')
         this.connected = true
         this.reconnectAttempts = 0
+        this.notifyConnection('connected')
 
         // Send subscribe message
         this.send({ type: 'subscribe' })
@@ -59,16 +67,19 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
 
       this.ws.onerror = error => {
         console.error('HCG WebSocket error:', error)
+        this.notifyConnection('error')
       }
 
       this.ws.onclose = () => {
         console.log('HCG WebSocket disconnected')
         this.connected = false
         this.ws = null
+        this.notifyConnection('disconnected')
         this.scheduleReconnect()
       }
     } catch (error) {
       console.error('Failed to connect to WebSocket:', error)
+      this.notifyConnection('error')
       this.scheduleReconnect()
     }
   }
@@ -86,11 +97,13 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
 
     this.connected = false
     this.reconnectAttempts = 0
+    this.notifyConnection('disconnected')
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnect attempts reached')
+      this.notifyConnection('error')
       return
     }
 
@@ -151,6 +164,25 @@ export class HCGWebSocketClient<TMessage = WebSocketMessage> {
 
   isConnected(): boolean {
     return this.connected
+  }
+
+  onConnectionChange(handler: (state: ConnectionState) => void): () => void {
+    this.connectionHandlers.add(handler)
+    // emit current status immediately
+    handler(this.connected ? 'connected' : 'disconnected')
+    return () => {
+      this.connectionHandlers.delete(handler)
+    }
+  }
+
+  private notifyConnection(state: ConnectionState): void {
+    this.connectionHandlers.forEach(handler => {
+      try {
+        handler(state)
+      } catch (error) {
+        console.error('Error in connection handler:', error)
+      }
+    })
   }
 }
 
