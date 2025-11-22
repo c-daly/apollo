@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { diagnosticsWebSocket } from '../lib/websocket-client'
+import type { PersonaEntry } from '../types/hcg'
 import type {
   DiagnosticLogEntry,
   TelemetrySnapshot,
@@ -10,13 +11,14 @@ interface DiagnosticsStreamOptions {
   onLog?: (entry: DiagnosticLogEntry) => void
   onTelemetry?: (snapshot: TelemetrySnapshot) => void
   onLogBatch?: (entries: DiagnosticLogEntry[]) => void
+  onPersonaEntry?: (entry: PersonaEntry) => void
   onError?: (message: string) => void
 }
 
 export function useDiagnosticsStream(
   options: DiagnosticsStreamOptions
 ): boolean {
-  const { onLog, onTelemetry, onLogBatch, onError } = options
+  const { onLog, onTelemetry, onLogBatch, onPersonaEntry, onError } = options
   const [connected, setConnected] = useState(false)
 
   useEffect(() => {
@@ -34,6 +36,11 @@ export function useDiagnosticsStream(
             break
           case 'telemetry':
             onTelemetry?.(event.data)
+            break
+          case 'persona_entry':
+            if (onPersonaEntry) {
+              onPersonaEntry(event.data)
+            }
             break
           case 'error':
             if (event.data?.message && onError) {
@@ -54,7 +61,7 @@ export function useDiagnosticsStream(
       clearInterval(statusInterval)
       diagnosticsWebSocket.disconnect()
     }
-  }, [onLog, onTelemetry, onLogBatch, onError])
+  }, [onLog, onTelemetry, onLogBatch, onPersonaEntry, onError])
 
   return connected
 }

@@ -2,6 +2,9 @@
 
 from datetime import datetime
 
+from fastapi.testclient import TestClient
+
+from apollo.api import server
 from apollo.data.models import PersonaEntry
 
 
@@ -66,3 +69,49 @@ def test_persona_entry_types():
             content=f"Test {entry_type} entry",
         )
         assert entry.entry_type == entry_type
+
+
+def test_create_persona_entry_streams_to_diagnostics(monkeypatch) -> None:
+    """Persona entries should broadcast over diagnostics stream."""
+
+    class StubPersonaStore:
+        def __init__(self) -> None:
+            self.entries: list[PersonaEntry] = []
+
+        def create_entry(self, entry: PersonaEntry) -> PersonaEntry:
+            self.entries.append(entry)
+            return entry
+
+    broadcasted: list[PersonaEntry] = []
+
+    async def fake_broadcast(entry: PersonaEntry) -> None:
+        broadcasted.append(entry)
+
+    stub_store = StubPersonaStore()
+    monkeypatch.setattr(server, "persona_store", stub_store)
+    monkeypatch.setattr(
+        server.diagnostics_manager,
+        "broadcast_persona_entry",
+        fake_broadcast,
+    )
+
+    client = TestClient(server.app)
+    payload = {
+        "entry_type": "belief",
+        "content": "Streaming entry test",
+        "summary": "stream-summary",
+        "sentiment": "positive",
+        "confidence": 0.9,
+        "related_process_ids": ["proc-1"],
+        "related_goal_ids": ["goal-1"],
+        "emotion_tags": ["curious"],
+        "metadata": {"foo": "bar"},
+    }
+
+    response = client.post("/api/persona/entries", json=payload)
+    assert response.status_code == 201
+    created = response.json()
+    assert created["content"] == "Streaming entry test"
+    assert stub_store.entries  # ensures persistence path ran
+    assert broadcasted, "Persona entry was not broadcast to diagnostics"
+    assert broadcasted[0].content == "Streaming entry test"
