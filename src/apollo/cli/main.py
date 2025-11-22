@@ -587,6 +587,13 @@ def chat(
             latency_ms,
             llm_request.metadata or {},
         )
+        _log_persona_entry(
+            persona_client=persona_client,
+            prompt=prompt,
+            response_text=completion_text,
+            response_data=response.data,
+            metadata=llm_request.metadata or {},
+        )
     else:
         console.print("[red]✗ Hermes request failed[/red]")
         console.print(
@@ -681,6 +688,40 @@ def diary(
         )
 
 
+def _log_persona_entry(
+    *,
+    persona_client: PersonaClient,
+    prompt: str,
+    response_text: str,
+    response_data: Dict[str, Any],
+    metadata: Dict[str, Any],
+) -> None:
+    payload_metadata = _sanitize_metadata(
+        {
+            **metadata,
+            "prompt": prompt,
+            "hermes_response_id": response_data.get("id"),
+            "hermes_provider": response_data.get("provider"),
+            "hermes_model": response_data.get("model"),
+        }
+    )
+    entry_response = persona_client.create_entry(
+        content=response_text or "[Hermes returned an empty message]",
+        entry_type="observation",
+        summary=_truncate_summary(prompt),
+        sentiment=None,
+        confidence=None,
+        process=[],
+        goal=[],
+        emotion=[],
+        metadata=payload_metadata,
+    )
+    if not entry_response.success:
+        console.log(
+            f"[yellow]Warning:[/yellow] Failed to log persona entry: {entry_response.error}"
+        )
+
+
 def _fetch_persona_entries(
     persona_client: PersonaClient, limit: int
 ) -> List[Dict[str, Any]]:
@@ -765,6 +806,13 @@ def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         elif isinstance(value, (str, int, float, bool)):
             sanitized[key] = value
     return sanitized
+
+
+def _truncate_summary(text: str, max_length: int = 160) -> str:
+    text = text.strip()
+    if len(text) <= max_length:
+        return text
+    return f"{text[:max_length].rstrip()}…"
 
 
 def _build_llm_request(

@@ -30,6 +30,7 @@ class PersonaClient:
         process: List[str],
         goal: List[str],
         emotion: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> ServiceResponse:
         """Create a persona diary entry via Sophia."""
         payload: Dict[str, Any] = {
@@ -41,7 +42,7 @@ class PersonaClient:
             "related_process_ids": list(process),
             "related_goal_ids": list(goal),
             "emotion_tags": list(emotion),
-            "metadata": {},
+            "metadata": metadata or {},
         }
         return self._request(
             "POST", self._entries_url, "creating persona entry", json=payload
