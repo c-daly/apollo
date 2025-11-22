@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 def _get_client_host(env_var: str, default: str = "localhost") -> str:
     """Get a client-reachable host from environment variable.
-    
+
     If the variable is set to 0.0.0.0 (bind all interfaces), return localhost
     instead so clients can connect.
     """
