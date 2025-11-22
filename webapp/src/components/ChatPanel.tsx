@@ -73,8 +73,14 @@ function ChatPanel() {
 
     try {
       const startedAt = performance.now()
-      const conversationHistory: ChatHistoryMessage[] = [...messages, userMessage]
-        .filter((msg): msg is Message => msg.role === 'user' || msg.role === 'assistant')
+      const conversationHistory: ChatHistoryMessage[] = [
+        ...messages,
+        userMessage,
+      ]
+        .filter(
+          (msg): msg is Message =>
+            msg.role === 'user' || msg.role === 'assistant'
+        )
         .map(msg => ({
           role: msg.role,
           content: msg.content,
@@ -99,7 +105,9 @@ function ChatPanel() {
 
       const compositeSystemPrompt = [
         systemPrompt ?? DEFAULT_SYSTEM_PROMPT,
-        personaContextBlock ? `Persona diary context:\n${personaContextBlock}` : undefined,
+        personaContextBlock
+          ? `Persona diary context:\n${personaContextBlock}`
+          : undefined,
       ]
         .filter(Boolean)
         .join('\n\n')
@@ -281,14 +289,16 @@ function buildTelemetryPayload({
       ? personaRaw?.persona_sentiment
       : typeof (personaRaw as { persona?: { sentiment?: string } })?.persona
             ?.sentiment === 'string'
-        ? (personaRaw as { persona?: { sentiment?: string } }).persona?.sentiment
+        ? (personaRaw as { persona?: { sentiment?: string } }).persona
+            ?.sentiment
         : undefined
   const personaConfidence =
     typeof personaRaw?.persona_confidence === 'number'
       ? personaRaw?.persona_confidence
       : typeof (personaRaw as { persona?: { confidence?: number } })?.persona
             ?.confidence === 'number'
-        ? (personaRaw as { persona?: { confidence?: number } }).persona?.confidence
+        ? (personaRaw as { persona?: { confidence?: number } }).persona
+            ?.confidence
         : undefined
 
   return {
