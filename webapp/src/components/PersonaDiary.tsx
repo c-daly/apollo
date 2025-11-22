@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { usePersonaEntries } from '../hooks/useHCG'
-import { hcgWebSocket } from '../lib/websocket-client'
-import type { WebSocketMessage, PersonaEntry } from '../types/hcg'
+import { useDiagnosticsStream } from '../hooks/useDiagnosticsStream'
+import type { PersonaEntry } from '../types/hcg'
 import './PersonaDiary.css'
 
 function PersonaDiary() {
@@ -31,46 +31,20 @@ function PersonaDiary() {
     }
   }, [apiEntries])
 
-  // Setup WebSocket for real-time diary updates
-  useEffect(() => {
-    hcgWebSocket.connect()
+  const handlePersonaEntry = useCallback(
+    (entry: PersonaEntry) => {
+      setEntries(prev => {
+        const filtered = prev.filter(existing => existing.id !== entry.id)
+        return [entry, ...filtered].slice(0, 100)
+      })
+      refetch()
+    },
+    [refetch]
+  )
 
-    const unsubscribe = hcgWebSocket.onMessage((message: WebSocketMessage) => {
-      if (message.type === 'update' && message.data) {
-        // Add new diary entry from WebSocket update
-        const data = message.data as Record<string, unknown>
-        if (data.entry_type && data.content) {
-          const newEntry: PersonaEntry = {
-            id: `ws-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            entry_type: data.entry_type as
-              | 'belief'
-              | 'decision'
-              | 'observation'
-              | 'reflection',
-            content: data.content as string,
-            summary: data.summary as string | undefined,
-            sentiment: data.sentiment as
-              | ('positive' | 'negative' | 'neutral' | 'mixed')
-              | undefined,
-            confidence: data.confidence as number | undefined,
-            related_process_ids: (data.related_process_ids as string[]) || [],
-            related_goal_ids: (data.related_goal_ids as string[]) || [],
-            emotion_tags: (data.emotion_tags as string[]) || [],
-            metadata: (data.metadata as Record<string, unknown>) || {},
-          }
-          setEntries(prev => [newEntry, ...prev].slice(0, 100))
-
-          // Refresh from API
-          refetch()
-        }
-      }
-    })
-
-    return () => {
-      unsubscribe()
-    }
-  }, [refetch])
+  useDiagnosticsStream({
+    onPersonaEntry: handlePersonaEntry,
+  })
 
   // Filter entries based on search term
   const filteredEntries = entries.filter(entry => {

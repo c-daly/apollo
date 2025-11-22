@@ -3,6 +3,7 @@
  */
 
 import type { WebSocketMessage } from '../types/hcg'
+import type { DiagnosticsEvent } from '../types/diagnostics'
 import { getHCGConfig } from './config'
 
 export interface WebSocketClientConfig {
@@ -11,16 +12,16 @@ export interface WebSocketClientConfig {
   maxReconnectAttempts?: number
 }
 
-export type MessageHandler = (message: WebSocketMessage) => void
+export type MessageHandler<TMessage> = (message: TMessage) => void
 
-export class HCGWebSocketClient {
+export class HCGWebSocketClient<TMessage = WebSocketMessage> {
   private ws: WebSocket | null = null
   private url: string
   private reconnectInterval: number
   private maxReconnectAttempts: number
   private reconnectAttempts: number = 0
   private reconnectTimeout: number | null = null
-  private messageHandlers: Set<MessageHandler> = new Set()
+  private messageHandlers: Set<MessageHandler<TMessage>> = new Set()
   private connected: boolean = false
 
   constructor(config: WebSocketClientConfig = {}) {
@@ -49,7 +50,7 @@ export class HCGWebSocketClient {
 
       this.ws.onmessage = event => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data)
+          const message = JSON.parse(event.data) as TMessage
           this.notifyHandlers(message)
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
@@ -129,7 +130,7 @@ export class HCGWebSocketClient {
     this.send({ type: 'ping' })
   }
 
-  onMessage(handler: MessageHandler): () => void {
+  onMessage(handler: MessageHandler<TMessage>): () => void {
     this.messageHandlers.add(handler)
 
     // Return unsubscribe function
@@ -138,7 +139,7 @@ export class HCGWebSocketClient {
     }
   }
 
-  private notifyHandlers(message: WebSocketMessage): void {
+  private notifyHandlers(message: TMessage): void {
     this.messageHandlers.forEach(handler => {
       try {
         handler(message)
@@ -154,4 +155,42 @@ export class HCGWebSocketClient {
 }
 
 // Default WebSocket client instance
-export const hcgWebSocket = new HCGWebSocketClient()
+function ensureWsBase(baseUrl: string): string {
+  if (baseUrl.startsWith('ws')) {
+    return baseUrl
+  }
+  if (baseUrl.startsWith('http')) {
+    const scheme = baseUrl.startsWith('https') ? 'wss' : 'ws'
+    const withoutProto = baseUrl.replace(/^https?:\/\//, '')
+    return `${scheme}://${withoutProto}`
+  }
+  return baseUrl
+}
+
+function buildHcgWsUrl(): string {
+  const config = getHCGConfig()
+  const base = config.wsUrl || config.apiUrl || 'http://localhost:8082'
+  const target = ensureWsBase(base).replace(/\/$/, '')
+  if (target.endsWith('/ws/hcg')) {
+    return target
+  }
+  return `${target}/ws/hcg`
+}
+
+function buildDiagnosticsWsUrl(): string {
+  const config = getHCGConfig()
+  const base = config.apiUrl || config.wsUrl || 'http://localhost:8082'
+  const target = ensureWsBase(base).replace(/\/$/, '')
+  if (target.endsWith('/ws/diagnostics')) {
+    return target
+  }
+  return `${target}/ws/diagnostics`
+}
+
+export const hcgWebSocket = new HCGWebSocketClient({
+  url: buildHcgWsUrl(),
+})
+
+export const diagnosticsWebSocket = new HCGWebSocketClient<DiagnosticsEvent>({
+  url: buildDiagnosticsWsUrl(),
+})

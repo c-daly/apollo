@@ -4,12 +4,15 @@ This server provides REST API endpoints to query Neo4j HCG data,
 stream telemetry, and serve real-time diagnostics.
 """
 
-from datetime import datetime
-from typing import AsyncIterator, List, Optional
+import asyncio
+import contextlib
+from collections import deque
 from contextlib import asynccontextmanager
+from datetime import datetime
+from typing import Any, AsyncIterator, Deque, Dict, List, Optional, Union
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -30,15 +33,116 @@ from apollo.data.models import (
 
 # Global HCG client instance
 hcg_client: Optional[HCGClient] = None
-
-# Persona diary persistence layer
 persona_store: Optional[PersonaDiaryStore] = None
+
+diagnostics_task: Optional[asyncio.Task] = None
+
+
+class DiagnosticLogEntry(BaseModel):
+    id: str
+    timestamp: datetime
+    level: str
+    message: str
+
+
+class TelemetrySnapshot(BaseModel):
+    api_latency_ms: float
+    request_count: int
+    success_rate: float
+    active_plans: int
+    last_update: datetime
+
+
+DiagnosticsPayload = Union[Dict[str, Any], List[Dict[str, Any]], None]
+
+
+class DiagnosticsEvent(BaseModel):
+    type: str
+    data: DiagnosticsPayload = None
+
+
+class DiagnosticsManager:
+    """Keeps a rolling buffer of log entries and telemetry snapshots."""
+
+    def __init__(self, max_logs: int = 200):
+        self._logs: Deque[DiagnosticLogEntry] = deque(maxlen=max_logs)
+        self._telemetry = TelemetrySnapshot(
+            api_latency_ms=0.0,
+            request_count=0,
+            success_rate=100.0,
+            active_plans=0,
+            last_update=datetime.utcnow(),
+        )
+        self._subscribers: set[asyncio.Queue] = set()
+
+    def get_logs(self, limit: int = 50) -> List[DiagnosticLogEntry]:
+        return list(self._logs)[:limit]
+
+    def get_telemetry(self) -> TelemetrySnapshot:
+        return self._telemetry
+
+    async def record_log(self, level: str, message: str) -> None:
+        entry = DiagnosticLogEntry(
+            id=f"log-{int(datetime.utcnow().timestamp()*1000)}",
+            timestamp=datetime.utcnow(),
+            level=level,
+            message=message,
+        )
+        self._logs.appendleft(entry)
+        await self._broadcast(
+            DiagnosticsEvent(type="log", data=entry.model_dump()).model_dump()
+        )
+
+    async def update_telemetry(
+        self,
+        *,
+        api_latency_ms: float,
+        request_increment: int,
+        success_rate: float,
+        active_plans: int,
+    ) -> None:
+        self._telemetry = TelemetrySnapshot(
+            api_latency_ms=round(api_latency_ms, 2),
+            request_count=self._telemetry.request_count + request_increment,
+            success_rate=round(success_rate, 2),
+            active_plans=active_plans,
+            last_update=datetime.utcnow(),
+        )
+        await self._broadcast(
+            DiagnosticsEvent(
+                type="telemetry", data=self._telemetry.model_dump()
+            ).model_dump()
+        )
+
+    async def broadcast_persona_entry(self, entry: PersonaEntry) -> None:
+        """Broadcast a newly created persona entry to subscribers."""
+        await self._broadcast(
+            DiagnosticsEvent(
+                type="persona_entry",
+                data=entry.model_dump(),
+            ).model_dump()
+        )
+
+    def register(self) -> asyncio.Queue:
+        queue: asyncio.Queue = asyncio.Queue()
+        self._subscribers.add(queue)
+        return queue
+
+    def unregister(self, queue: asyncio.Queue) -> None:
+        self._subscribers.discard(queue)
+
+    async def _broadcast(self, event: dict) -> None:
+        for queue in list(self._subscribers):
+            await queue.put(event)
+
+
+diagnostics_manager = DiagnosticsManager()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan context manager."""
-    global hcg_client, persona_store
+    global hcg_client, diagnostics_task, persona_store
 
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
@@ -46,21 +150,73 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         hcg_client = HCGClient(config.hcg.neo4j)
         hcg_client.connect()
         print("HCG client connected to Neo4j")
+        diagnostics_manager._logs.clear()
+        await diagnostics_manager.record_log("info", "HCG client connected to Neo4j")
 
-        persona_store = PersonaDiaryStore(config.hcg.neo4j)
-        persona_store.connect()
-        print("Persona diary store connected to Neo4j")
+        try:
+            persona_store = PersonaDiaryStore(config.hcg.neo4j)
+            persona_store.connect()
+            await diagnostics_manager.record_log(
+                "info", "Persona diary store connected to Neo4j"
+            )
+        except Exception as exc:  # noqa: BLE001
+            persona_store = None
+            await diagnostics_manager.record_log(
+                "warning",
+                f"Persona diary store unavailable, falling back to memory: {exc}",
+            )
+
+    async def telemetry_poller() -> None:
+        while True:
+            if not hcg_client:
+                await asyncio.sleep(5)
+                continue
+
+            try:
+                start = datetime.utcnow()
+                health = await asyncio.to_thread(hcg_client.health_check)
+                latency_ms = (datetime.utcnow() - start).total_seconds() * 1000.0
+
+                processes = await asyncio.to_thread(
+                    hcg_client.get_processes, "running", 10, 0
+                )
+                active_plans = sum(1 for p in processes if p.status == "running")
+                success_rate = 100.0 if health else 92.0
+
+                await diagnostics_manager.update_telemetry(
+                    api_latency_ms=latency_ms,
+                    request_increment=1,
+                    success_rate=success_rate,
+                    active_plans=active_plans,
+                )
+
+                await diagnostics_manager.record_log(
+                    "info",
+                    f"HCG health check {'passed' if health else 'degraded'} "
+                    f"({latency_ms:.1f} ms)",
+                )
+            except Exception as exc:  # noqa: BLE001
+                await diagnostics_manager.record_log(
+                    "error", f"Telemetry poll failed: {exc}"
+                )
+
+            await asyncio.sleep(5)
+
+    diagnostics_task = asyncio.create_task(telemetry_poller())
 
     yield
 
-    # Shutdown: Close HCG client
+    # Shutdown: Close HCG client and persona store
+    if diagnostics_task:
+        diagnostics_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await diagnostics_task
+    if persona_store:
+        persona_store.close()
+        await diagnostics_manager.record_log("info", "Persona diary store disconnected")
     if hcg_client:
         hcg_client.close()
         print("HCG client disconnected")
-
-    if persona_store:
-        persona_store.close()
-        print("Persona diary store disconnected")
 
 
 app = FastAPI(
@@ -305,7 +461,12 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
     )
 
     try:
-        return persona_store.create_entry(entry)
+        stored_entry = persona_store.create_entry(entry)
+        await diagnostics_manager.record_log(
+            "info", f"Persona entry created ({request.entry_type})"
+        )
+        await diagnostics_manager.broadcast_persona_entry(stored_entry)
+        return stored_entry
     except Exception as exc:
         raise HTTPException(
             status_code=500, detail=f"Failed to create persona entry: {exc}"
@@ -364,6 +525,54 @@ async def get_persona_entry(entry_id: str) -> PersonaEntry:
         raise HTTPException(status_code=404, detail="Persona entry not found")
 
     return entry
+
+
+@app.get(
+    "/api/diagnostics/logs",
+    response_model=List[DiagnosticLogEntry],
+    name="diagnostics_logs",
+)
+async def get_diagnostic_logs(
+    limit: int = Query(50, ge=1, le=200, description="Maximum number of log entries"),
+) -> List[DiagnosticLogEntry]:
+    """Return recent diagnostic log entries."""
+    return diagnostics_manager.get_logs(limit)
+
+
+@app.get(
+    "/api/diagnostics/metrics",
+    response_model=TelemetrySnapshot,
+    name="diagnostics_metrics",
+)
+async def get_diagnostic_metrics() -> TelemetrySnapshot:
+    """Return latest telemetry metrics snapshot."""
+    return diagnostics_manager.get_telemetry()
+
+
+@app.websocket("/ws/diagnostics")
+async def diagnostics_websocket(websocket: WebSocket) -> None:
+    """Broadcast diagnostic logs + telemetry over WebSocket."""
+    await websocket.accept()
+    queue = diagnostics_manager.register()
+    try:
+        await websocket.send_json(
+            DiagnosticsEvent(
+                type="telemetry", data=diagnostics_manager.get_telemetry().model_dump()
+            ).model_dump()
+        )
+        await websocket.send_json(
+            DiagnosticsEvent(
+                type="logs",
+                data=[
+                    log.model_dump() for log in diagnostics_manager.get_logs(limit=20)
+                ],
+            ).model_dump()
+        )
+        while True:
+            event = await queue.get()
+            await websocket.send_json(event)
+    except WebSocketDisconnect:
+        diagnostics_manager.unregister(queue)
 
 
 def main() -> None:

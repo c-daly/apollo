@@ -17,7 +17,7 @@ persona_api:
   host: localhost
   port: 8082
   timeout: 15
-  api_key: ""  # Optional bearer token if Apollo API is secured
+  api_key: ""  # Optional bearer token for Sophia persona endpoints
 
 hcg:
   neo4j:

@@ -49,7 +49,7 @@ state = response.data  # already serialized via SDK model.to_dict()
 
 ### Persona Diary Helper
 
-Persona diary endpoints live on the `apollo-api` FastAPI service. Until those routes are folded into the shared OpenAPI contracts, the CLI uses `PersonaClient` (`src/apollo/client/persona_client.py`) as a thin HTTP wrapper. It still returns `ServiceResponse` objects so callers handle success/error the same way as Sophia/Hermes, and it reads connection details from the `persona_api` block in `config.yaml`.
+Sophia now exposes the canonical `/persona/entries` contract. Apollo keeps the same CLI/web routes, but `PersonaClient` (`src/apollo/client/persona_client.py`) simply proxies requests to Sophia using the `persona_api` config block (host/port/API key). The client still returns `ServiceResponse` objects so callers treat diary operations just like Sophia/Hermes replies, but all persistence and filtering logic lives in Sophia’s service.
 
 ## TypeScript (Web) Clients
 
@@ -145,7 +145,7 @@ Apollo uses Vite environment variables for configuration. Create a `.env` file i
 ```env
 # HCG API Configuration
 VITE_HCG_API_URL=http://localhost:8082
-VITE_HCG_WS_URL=ws://localhost:8765
+VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
 VITE_HCG_TIMEOUT=30000                  # Optional, in milliseconds
 
 # Sophia API Configuration
@@ -162,6 +162,16 @@ VITE_HERMES_TIMEOUT=30000               # Optional, in milliseconds
 VITE_ENABLE_CHAT=true
 VITE_ENABLE_DIAGNOSTICS=true
 ```
+
+### Diagnostics Client
+
+The diagnostics panel consumes the telemetry/log endpoints exposed by `apollo-api`:
+
+- `GET /api/diagnostics/logs?limit=100` → latest log entries.
+- `GET /api/diagnostics/metrics` → aggregated telemetry snapshot.
+- `WS /ws/diagnostics` → streaming feed for real-time updates.
+
+See `webapp/src/lib/diagnostics-client.ts` and `webapp/src/hooks/useDiagnosticsStream.ts` for example usage.
 
 ### Loading Configuration
 
