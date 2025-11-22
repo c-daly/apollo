@@ -215,12 +215,12 @@ function DiagnosticsPanel() {
       <div className="diagnostics-content">
         {activeTab === 'logs' && (
           <div className="logs-view">
-              <div className="logs-header">
-                <h3>System Logs</h3>
-                <div className="logs-controls">
-                  <select
-                    className="log-filter"
-                    value={logFilter}
+            <div className="logs-header">
+              <h3>System Logs</h3>
+              <div className="logs-controls">
+                <select
+                  className="log-filter"
+                  value={logFilter}
                   onChange={e => setLogFilter(e.target.value)}
                 >
                   <option value="all">All Levels</option>
@@ -396,7 +396,9 @@ function DiagnosticsPanel() {
                 trend={telemetryTrends.success}
                 trendLabel="Success rate trend"
                 tone={
-                  telemetry && telemetry.success_rate < 90 ? 'danger' : 'default'
+                  telemetry && telemetry.success_rate < 90
+                    ? 'danger'
+                    : 'default'
                 }
               />
               <TelemetryCard

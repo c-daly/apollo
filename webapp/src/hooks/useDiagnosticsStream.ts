@@ -68,8 +68,8 @@ export function useDiagnosticsStream(
 
     diagnosticsWebSocket.connect()
 
-    const unsubscribeConnection =
-      diagnosticsWebSocket.onConnectionChange(state => {
+    const unsubscribeConnection = diagnosticsWebSocket.onConnectionChange(
+      state => {
         const mapped =
           state === 'connected'
             ? 'online'
@@ -80,14 +80,22 @@ export function useDiagnosticsStream(
                 : 'offline'
         setStatus(mapped)
         onConnectionChange?.(mapped)
-      })
+      }
+    )
 
     return () => {
       unsubscribe()
       unsubscribeConnection()
       diagnosticsWebSocket.disconnect()
     }
-  }, [onLog, onTelemetry, onLogBatch, onPersonaEntry, onError, onConnectionChange])
+  }, [
+    onLog,
+    onTelemetry,
+    onLogBatch,
+    onPersonaEntry,
+    onError,
+    onConnectionChange,
+  ])
 
   return status
 }
