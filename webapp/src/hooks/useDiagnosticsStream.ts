@@ -85,7 +85,14 @@ export function useDiagnosticsStream(
       onError,
       onConnectionChange,
     }
-  }, [onLog, onTelemetry, onLogBatch, onPersonaEntry, onError, onConnectionChange])
+  }, [
+    onLog,
+    onTelemetry,
+    onLogBatch,
+    onPersonaEntry,
+    onError,
+    onConnectionChange,
+  ])
 
   useEffect(() => {
     startSubscription()

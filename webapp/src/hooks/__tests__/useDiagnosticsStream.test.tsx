@@ -6,7 +6,9 @@ import type { PersonaEntry } from '../../types/hcg'
 import { useDiagnosticsStream } from '../useDiagnosticsStream'
 
 type MessageHandler = (message: DiagnosticsEvent) => void
-type ConnectionHandler = (state: 'connecting' | 'connected' | 'disconnected' | 'error') => void
+type ConnectionHandler = (
+  state: 'connecting' | 'connected' | 'disconnected' | 'error'
+) => void
 
 const wsMocks = vi.hoisted(() => {
   let messageHandler: MessageHandler | null = null
