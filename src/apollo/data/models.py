@@ -148,6 +148,10 @@ class PersonaEntry(BaseModel):
         ...,
         description="Entry type: 'belief', 'decision', 'observation', or 'reflection'",
     )
+    trigger: Optional[str] = Field(
+        None,
+        description="Free-form text describing what caused this entry (e.g., 'error', 'user_request', 'self_model', 'meta')",
+    )
     content: str = Field(..., description="The main content/narrative of the entry")
     summary: Optional[str] = Field(
         None, description="Brief summary for quick reference"

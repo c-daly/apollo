@@ -859,6 +859,7 @@ class CreatePersonaEntryRequest(BaseModel):
     """Request model for creating a persona entry."""
 
     entry_type: str
+    trigger: Optional[str] = None
     content: str
     summary: Optional[str] = None
     sentiment: Optional[str] = None
@@ -879,6 +880,7 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
         id=f"persona_{uuid4().hex}",
         timestamp=datetime.now(),
         entry_type=request.entry_type,
+        trigger=request.trigger,
         content=request.content,
         summary=request.summary,
         sentiment=request.sentiment,

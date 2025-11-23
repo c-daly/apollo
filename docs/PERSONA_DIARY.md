@@ -67,6 +67,7 @@ class PersonaEntry(BaseModel):
     id: str                           # Unique identifier
     timestamp: datetime               # Creation timestamp
     entry_type: str                   # belief, decision, observation, reflection
+    trigger: Optional[str]            # What caused this entry (e.g., 'error', 'user_request', 'self_model', 'meta')
     content: str                      # Main narrative content
     summary: Optional[str]            # Brief summary
     sentiment: Optional[str]          # positive, negative, neutral, mixed
@@ -84,6 +85,23 @@ class PersonaEntry(BaseModel):
 - **observation**: Information gathered from sensors or interactions
 - **reflection**: Analysis of past performance or patterns
 
+### Trigger Field
+
+The optional `trigger` field (free-form text) describes what caused the entry to be created. Common values for reflections include:
+
+- **error** - Plan failure or mistake
+- **user_request** - Explicit user instruction
+- **correction** - User corrected the agent
+- **session_boundary** - Conversation start/end
+- **milestone** - Goal completion or achievement
+- **self_model** - Reflection about agent's own capabilities/limitations
+- **user_model** - Understanding of user preferences/patterns
+- **strategy** - Analysis of approach effectiveness
+- **learning** - Lessons from experience
+- **meta** - Aggregate pattern analysis across multiple entries
+
+For observations, triggers might describe the source (e.g., `chat_turn`, `sensor_reading`, `plan_execution`).
+
 ## CLI Usage
 
 ### Basic Entry
@@ -95,6 +113,7 @@ apollo-cli diary "Completed navigation task successfully"
 ```bash
 apollo-cli diary "Analyzed spatial data and updated world model" \
   --type belief \
+  --trigger "sensor_reading" \
   --summary "Spatial model refinement" \
   --sentiment positive \
   --confidence 0.92 \
@@ -103,11 +122,21 @@ apollo-cli diary "Analyzed spatial data and updated world model" \
   --emotion analytical confident
 ```
 
+### Reflection Entry Example
+```bash
+apollo-cli diary "Made incorrect assumption about user intent, need to ask clarifying questions earlier" \
+  --type reflection \
+  --trigger "error" \
+  --sentiment neutral \
+  --confidence 0.75
+```
+
 ### All CLI Options
 
 | Option | Description | Values |
 |--------|-------------|--------|
 | `--type` | Entry type | belief, decision, observation, reflection |
+| `--trigger` | What caused this entry | Free-form text (e.g., 'error', 'user_request', 'self_model') |
 | `--summary` | Brief summary | Any text |
 | `--sentiment` | Emotional tone | positive, negative, neutral, mixed |
 | `--confidence` | Confidence level | 0.0 to 1.0 |
@@ -124,6 +153,7 @@ curl -X POST http://localhost:8082/api/persona/entries \
   -H "Content-Type: application/json" \
   -d '{
     "entry_type": "decision",
+    "trigger": "plan_execution",
     "content": "Selected path A over B due to shorter estimated time",
     "summary": "Path selection",
     "sentiment": "positive",
@@ -131,6 +161,22 @@ curl -X POST http://localhost:8082/api/persona/entries \
     "related_process_ids": ["proc_plan_123"],
     "related_goal_ids": ["goal_nav_456"],
     "emotion_tags": ["decisive", "focused"]
+  }'
+```
+
+### Create Reflection Entry
+
+```bash
+curl -X POST http://localhost:8082/api/persona/entries \
+  -H "Content-Type: application/json" \
+  -d '{
+    "entry_type": "reflection",
+    "trigger": "error",
+    "content": "Repeatedly failed to validate user input format. Need to add explicit validation step before processing.",
+    "summary": "Input validation lesson",
+    "sentiment": "neutral",
+    "confidence": 0.80,
+    "emotion_tags": ["analytical", "learning"]
   }'
 ```
 
