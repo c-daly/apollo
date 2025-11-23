@@ -533,7 +533,7 @@ class HCGClient:
                 entity_types=entity_types,
                 limit=limit,
             )
-            
+
             entities = []
             node_ids = []
             for record in node_result:
