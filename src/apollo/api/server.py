@@ -299,7 +299,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     async def telemetry_poller() -> None:
         consecutive_failures = 0
-        last_error_logged = None
         
         while True:
             if not hcg_client:
