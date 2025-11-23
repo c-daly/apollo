@@ -42,7 +42,6 @@ class PersonaRepository:
         query = """
         MERGE (entry:PersonaEntry {id: $id})
         SET entry.entry_type = $entry_type,
-            entry.trigger = $trigger,
             entry.content = $content,
             entry.summary = $summary,
             entry.sentiment = $sentiment,
@@ -57,7 +56,6 @@ class PersonaRepository:
         params: Dict[str, Any] = {
             "id": entry.id,
             "entry_type": entry.entry_type,
-            "trigger": entry.trigger,
             "content": entry.content,
             "summary": entry.summary,
             "sentiment": entry.sentiment,
@@ -141,7 +139,6 @@ class PersonaRepository:
             id=props.get("id", ""),
             timestamp=timestamp,
             entry_type=props.get("entry_type", "observation"),
-            trigger=props.get("trigger"),
             content=props.get("content", ""),
             summary=props.get("summary"),
             sentiment=props.get("sentiment"),

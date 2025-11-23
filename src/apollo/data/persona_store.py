@@ -214,7 +214,6 @@ class PersonaDiaryStore:
             id=node_id,
             timestamp=timestamp,
             entry_type=entry_type,
-            trigger=props.get("trigger"),
             content=content,
             summary=props.get("summary"),
             sentiment=props.get("sentiment"),
