@@ -1,6 +1,5 @@
 """Integration tests for diagnostics websocket and persona diary."""
 
-import asyncio
 from typing import List, Optional
 
 import pytest
