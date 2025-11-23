@@ -321,6 +321,10 @@ function DiagnosticsPanel() {
                             {plan.steps.map(
                               (step: Record<string, unknown>, idx: number) => (
                                 <li key={idx}>
+                                  <span className={`step-status ${step.status || 'pending'}`}>
+                                    {(step.status as string) || 'pending'}
+                                  </span>
+                                  {' '}
                                   {(step.description as string) ||
                                     (step.name as string) ||
                                     `Step ${idx + 1}`}
