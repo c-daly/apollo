@@ -87,6 +87,19 @@ class DiagnosticsEvent(BaseModel):
     data: DiagnosticsPayload = None
 
 
+class WebSocketConnection:
+    """Represents a single WebSocket connection with its queue and metadata."""
+
+    def __init__(self, connection_id: str, websocket: WebSocket):
+        self.connection_id = connection_id
+        self.websocket = websocket
+        self.queue: asyncio.Queue = asyncio.Queue(maxsize=100)  # Limit queue size
+        self.connected_at = datetime.utcnow()
+        self.last_heartbeat = datetime.utcnow()
+        self.messages_sent = 0
+        self.messages_dropped = 0
+
+
 class DiagnosticsManager:
     """Keeps a rolling buffer of log entries and telemetry snapshots."""
 
@@ -101,7 +114,8 @@ class DiagnosticsManager:
             active_websockets=0,
             last_broadcast=None,
         )
-        self._subscribers: set[asyncio.Queue] = set()
+        self._connections: Dict[str, WebSocketConnection] = {}
+        self._lock = asyncio.Lock()
 
     def get_logs(self, limit: int = 50) -> List[DiagnosticLogEntry]:
         return list(self._logs)[:limit]
@@ -138,7 +152,7 @@ class DiagnosticsManager:
                 "success_rate": round(success_rate, 2),
                 "active_plans": active_plans,
                 "last_update": datetime.utcnow(),
-                "active_websockets": len(self._subscribers),
+                "active_websockets": len(self._connections),
             }
         )
         await self._broadcast(
@@ -185,26 +199,63 @@ class DiagnosticsManager:
             ).model_dump(mode="json")
         )
 
-    def register(self) -> asyncio.Queue:
-        queue: asyncio.Queue = asyncio.Queue()
-        self._subscribers.add(queue)
-        self._telemetry = self._telemetry.model_copy(
-            update={"active_websockets": len(self._subscribers)}
+    async def broadcast_graph_update(self, update_data: Dict[str, Any]) -> None:
+        """Broadcast HCG graph changes to subscribers."""
+        await self._broadcast(
+            DiagnosticsEvent(
+                type="graph_update",
+                data=update_data,
+            ).model_dump(mode="json")
         )
-        return queue
 
-    def unregister(self, queue: asyncio.Queue) -> None:
-        self._subscribers.discard(queue)
-        self._telemetry = self._telemetry.model_copy(
-            update={"active_websockets": len(self._subscribers)}
-        )
+    async def register(self, websocket: WebSocket) -> WebSocketConnection:
+        """Register a new WebSocket connection."""
+        connection_id = str(uuid4())
+        connection = WebSocketConnection(connection_id, websocket)
+
+        async with self._lock:
+            self._connections[connection_id] = connection
+            self._telemetry = self._telemetry.model_copy(
+                update={"active_websockets": len(self._connections)}
+            )
+
+        # Log after releasing the lock to avoid deadlock
+        await self.record_log("info", f"WebSocket connected: {connection_id}")
+        return connection
+
+    async def unregister(self, connection_id: str) -> None:
+        """Unregister and clean up a WebSocket connection."""
+        async with self._lock:
+            connection = self._connections.pop(connection_id, None)
+            self._telemetry = self._telemetry.model_copy(
+                update={"active_websockets": len(self._connections)}
+            )
+
+        # Log after releasing the lock to avoid deadlock
+        if connection:
+            await self.record_log(
+                "info",
+                f"WebSocket disconnected: {connection_id} "
+                f"(sent: {connection.messages_sent}, dropped: {connection.messages_dropped})",
+            )
 
     async def _broadcast(self, event: dict) -> None:
+        """Broadcast an event to all connected clients with queue management."""
         self._telemetry = self._telemetry.model_copy(
             update={"last_broadcast": datetime.utcnow()}
         )
-        for queue in list(self._subscribers):
-            await queue.put(event)
+
+        async with self._lock:
+            connections = list(self._connections.values())
+
+        for connection in connections:
+            try:
+                # Non-blocking put with immediate failure if queue is full
+                connection.queue.put_nowait(event)
+            except asyncio.QueueFull:
+                # Drop message for slow clients
+                connection.messages_dropped += 1
+                # Note: We don't log here to avoid recursive _broadcast calls
 
 
 diagnostics_manager = DiagnosticsManager()
@@ -792,53 +843,120 @@ async def get_diagnostic_metrics() -> TelemetrySnapshot:
 
 @app.websocket("/ws/diagnostics")
 async def diagnostics_websocket(websocket: WebSocket) -> None:
-    """Broadcast diagnostic logs + telemetry over WebSocket."""
-    await websocket.accept()
-    queue = diagnostics_manager.register()
+    """Enhanced WebSocket endpoint for diagnostic logs, telemetry, and real-time updates.
 
-    async def listener() -> None:
-        try:
-            while True:
-                data = await websocket.receive_text()
-                try:
-                    message = json.loads(data)
-                    if message.get("type") == "ping":
-                        await websocket.send_json(
-                            {
-                                "type": "pong",
-                                "timestamp": datetime.utcnow().isoformat(),
-                            }
-                        )
-                except json.JSONDecodeError:
-                    pass
-        except Exception:
-            pass
-
-    listen_task = asyncio.create_task(listener())
+    Supports:
+    - Real-time log streaming
+    - Telemetry updates
+    - Persona diary entry notifications
+    - HCG graph change notifications
+    - Heartbeat/ping-pong for connection health
+    - Message queuing for slow clients
+    - Robust error handling and cleanup
+    """
+    connection: Optional[WebSocketConnection] = None
 
     try:
-        await websocket.send_json(
-            DiagnosticsEvent(
-                type="telemetry",
-                data=diagnostics_manager.get_telemetry().model_dump(mode="json"),
-            ).model_dump(mode="json")
+        await websocket.accept()
+        connection = await diagnostics_manager.register(websocket)
+
+        async def heartbeat_listener() -> None:
+            """Listen for ping messages from client and respond with pong."""
+            try:
+                while True:
+                    data = await websocket.receive_text()
+                    try:
+                        message = json.loads(data)
+                        if message.get("type") == "ping":
+                            connection.last_heartbeat = datetime.utcnow()
+                            await websocket.send_json(
+                                {
+                                    "type": "pong",
+                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "connection_id": connection.connection_id,
+                                }
+                            )
+                    except json.JSONDecodeError:
+                        await diagnostics_manager.record_log(
+                            "warning",
+                            f"Invalid JSON from client {connection.connection_id}",
+                        )
+            except WebSocketDisconnect:
+                pass
+            except Exception as e:
+                await diagnostics_manager.record_log(
+                    "error",
+                    f"Heartbeat listener error for {connection.connection_id}: {str(e)}",
+                )
+
+        async def message_sender() -> None:
+            """Send queued messages to the client."""
+            try:
+                # Send initial snapshot
+                await websocket.send_json(
+                    DiagnosticsEvent(
+                        type="telemetry",
+                        data=diagnostics_manager.get_telemetry().model_dump(
+                            mode="json"
+                        ),
+                    ).model_dump(mode="json")
+                )
+                connection.messages_sent += 1
+
+                await websocket.send_json(
+                    DiagnosticsEvent(
+                        type="logs",
+                        data=[
+                            log.model_dump(mode="json")
+                            for log in diagnostics_manager.get_logs(limit=20)
+                        ],
+                    ).model_dump(mode="json")
+                )
+                connection.messages_sent += 1
+
+                # Stream queued events
+                while True:
+                    event = await connection.queue.get()
+                    await websocket.send_json(event)
+                    connection.messages_sent += 1
+
+            except WebSocketDisconnect:
+                pass
+            except Exception as e:
+                await diagnostics_manager.record_log(
+                    "error",
+                    f"Message sender error for {connection.connection_id}: {str(e)}",
+                )
+                raise
+
+        # Run both tasks concurrently
+        listener_task = asyncio.create_task(heartbeat_listener())
+        sender_task = asyncio.create_task(message_sender())
+
+        # Wait for either task to complete (indicating disconnection or error)
+        done, pending = await asyncio.wait(
+            [listener_task, sender_task],
+            return_when=asyncio.FIRST_COMPLETED,
         )
-        await websocket.send_json(
-            DiagnosticsEvent(
-                type="logs",
-                data=[
-                    log.model_dump(mode="json")
-                    for log in diagnostics_manager.get_logs(limit=20)
-                ],
-            ).model_dump(mode="json")
-        )
-        while True:
-            event = await queue.get()
-            await websocket.send_json(event)
+
+        # Cancel remaining tasks
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
     except WebSocketDisconnect:
-        diagnostics_manager.unregister(queue)
+        pass
+    except Exception as e:
+        await diagnostics_manager.record_log(
+            "error",
+            f"WebSocket error: {str(e)}",
+        )
     finally:
-        listen_task.cancel()
+        if connection:
+            await diagnostics_manager.unregister(connection.connection_id)
 
 
 def main() -> None:

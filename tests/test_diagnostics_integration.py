@@ -70,7 +70,9 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
     """
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws/diagnostics") as websocket:
-            # Receive initial messages (telemetry and logs)
+            # Receive initial messages (telemetry and logs) with timeout
+            websocket.timeout = 5.0  # 5 second timeout for receives
+
             initial_telemetry = websocket.receive_json()
             assert initial_telemetry["type"] == "telemetry"
 
@@ -93,11 +95,24 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
             assert created_entry["content"] == "Integration test entry"
 
             # Helper to receive next non-telemetry message
-            def receive_next_relevant_message():
-                while True:
+            def receive_next_relevant_message(max_attempts=20):
+                attempts = 0
+                while attempts < max_attempts:
                     msg = websocket.receive_json()
-                    if msg["type"] != "telemetry":
-                        return msg
+                    # Skip telemetry and connection log messages
+                    if msg["type"] == "telemetry":
+                        attempts += 1
+                        continue
+                    if (
+                        msg["type"] == "log"
+                        and "WebSocket connected" in msg["data"]["message"]
+                    ):
+                        attempts += 1
+                        continue
+                    return msg
+                raise TimeoutError(
+                    f"Did not receive relevant message after {max_attempts} attempts"
+                )
 
             # Wait for the broadcast message
             # The server broadcasts a log message first, then the entry
