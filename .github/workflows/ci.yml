@@ -13,10 +13,13 @@ jobs:
   standard:
     uses: c-daly/logos/.github/workflows/reusable-standard-ci.yml@main
     with:
-      python_versions: '["3.9","3.10","3.11"]'
+      python_versions: '["3.11"]'
+      python_package_manager: 'poetry'
+      python_command_prefix: 'poetry run '
+      poetry_install_args: '--with dev'
       python_lint_paths: 'src tests'
       mypy_targets: 'src'
-      pytest_command: 'pytest --cov=apollo --cov-report=xml --cov-report=term'
+      pytest_command: 'pytest tests/ -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
       enable_node: true
       node_version: '18'
