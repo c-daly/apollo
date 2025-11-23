@@ -212,13 +212,13 @@ class DiagnosticsManager:
         """Register a new WebSocket connection."""
         connection_id = str(uuid4())
         connection = WebSocketConnection(connection_id, websocket)
-        
+
         async with self._lock:
             self._connections[connection_id] = connection
             self._telemetry = self._telemetry.model_copy(
                 update={"active_websockets": len(self._connections)}
             )
-        
+
         # Log after releasing the lock to avoid deadlock
         await self.record_log("info", f"WebSocket connected: {connection_id}")
         return connection
@@ -230,7 +230,7 @@ class DiagnosticsManager:
             self._telemetry = self._telemetry.model_copy(
                 update={"active_websockets": len(self._connections)}
             )
-        
+
         # Log after releasing the lock to avoid deadlock
         if connection:
             await self.record_log(
@@ -244,10 +244,10 @@ class DiagnosticsManager:
         self._telemetry = self._telemetry.model_copy(
             update={"last_broadcast": datetime.utcnow()}
         )
-        
+
         async with self._lock:
             connections = list(self._connections.values())
-        
+
         for connection in connections:
             try:
                 # Non-blocking put with immediate failure if queue is full
@@ -844,7 +844,7 @@ async def get_diagnostic_metrics() -> TelemetrySnapshot:
 @app.websocket("/ws/diagnostics")
 async def diagnostics_websocket(websocket: WebSocket) -> None:
     """Enhanced WebSocket endpoint for diagnostic logs, telemetry, and real-time updates.
-    
+
     Supports:
     - Real-time log streaming
     - Telemetry updates
@@ -855,11 +855,11 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
     - Robust error handling and cleanup
     """
     connection: Optional[WebSocketConnection] = None
-    
+
     try:
         await websocket.accept()
         connection = await diagnostics_manager.register(websocket)
-        
+
         async def heartbeat_listener() -> None:
             """Listen for ping messages from client and respond with pong."""
             try:
@@ -896,11 +896,13 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
                 await websocket.send_json(
                     DiagnosticsEvent(
                         type="telemetry",
-                        data=diagnostics_manager.get_telemetry().model_dump(mode="json"),
+                        data=diagnostics_manager.get_telemetry().model_dump(
+                            mode="json"
+                        ),
                     ).model_dump(mode="json")
                 )
                 connection.messages_sent += 1
-                
+
                 await websocket.send_json(
                     DiagnosticsEvent(
                         type="logs",
@@ -911,13 +913,13 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
                     ).model_dump(mode="json")
                 )
                 connection.messages_sent += 1
-                
+
                 # Stream queued events
                 while True:
                     event = await connection.queue.get()
                     await websocket.send_json(event)
                     connection.messages_sent += 1
-                    
+
             except WebSocketDisconnect:
                 pass
             except Exception as e:
@@ -930,13 +932,13 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
         # Run both tasks concurrently
         listener_task = asyncio.create_task(heartbeat_listener())
         sender_task = asyncio.create_task(message_sender())
-        
+
         # Wait for either task to complete (indicating disconnection or error)
         done, pending = await asyncio.wait(
             [listener_task, sender_task],
             return_when=asyncio.FIRST_COMPLETED,
         )
-        
+
         # Cancel remaining tasks
         for task in pending:
             task.cancel()
@@ -944,7 +946,7 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
                 await task
             except asyncio.CancelledError:
                 pass
-                
+
     except WebSocketDisconnect:
         pass
     except Exception as e:
