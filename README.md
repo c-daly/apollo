@@ -218,6 +218,7 @@ The dashboard will be available at `http://localhost:5173`
 - **Graph Viewer**: Interactive visualization of HCG (goals, plans, steps)
 - **Diagnostics**: Real-time logs & telemetry streamed from `/ws/diagnostics` with REST fallback (`/api/diagnostics/logs`, `/api/diagnostics/metrics`, `/api/diagnostics/llm`)
 - **Persona Diary**: Agent's internal reasoning and decision-making trace
+- See [WebSocket Protocol Documentation](docs/WEBSOCKET_PROTOCOL.md) for real-time update details
 
 **Mock Data Fixtures:**
 The webapp includes mock CWMState fixtures for development without backend dependencies:
