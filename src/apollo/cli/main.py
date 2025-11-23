@@ -714,6 +714,7 @@ def _log_persona_entry(
     entry_response = persona_client.create_entry(
         content=response_text or "[Hermes returned an empty message]",
         entry_type="observation",
+        trigger="user_request",
         summary=_truncate_summary(prompt),
         sentiment=None,
         confidence=None,
