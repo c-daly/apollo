@@ -109,6 +109,13 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
                     ):
                         attempts += 1
                         continue
+                    # Skip HCG health check logs from telemetry poller
+                    if (
+                        msg["type"] == "log"
+                        and "HCG health check" in msg["data"]["message"]
+                    ):
+                        attempts += 1
+                        continue
                     return msg
                 raise TimeoutError(
                     f"Did not receive relevant message after {max_attempts} attempts"
