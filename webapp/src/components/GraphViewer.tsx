@@ -160,8 +160,12 @@ function GraphViewer() {
     refetchInterval: autoRefresh ? refreshInterval : false,
   })
 
-  const snapshot: GraphSnapshot | null =
-    apiSnapshot ?? (error ? createMockSnapshot() : null)
+  const snapshot = useMemo(() => {
+    if (apiSnapshot) return apiSnapshot
+    if (error) return createMockSnapshot()
+    return null
+  }, [apiSnapshot, error])
+
   const usingMockData = !apiSnapshot && !!snapshot && !!error
   const summaryMap = useMemo(
     () => (snapshot ? summarizeSnapshot(snapshot) : null),
@@ -692,8 +696,6 @@ function getGraphStyles(): cytoscape.StylesheetJson {
       style: {
         'border-color': '#4ade80',
         'border-width': 4,
-        'shadow-blur': 10,
-        'shadow-color': '#4ade80',
       },
     },
     {
@@ -701,8 +703,6 @@ function getGraphStyles(): cytoscape.StylesheetJson {
       style: {
         'border-color': '#facc15',
         'border-width': 4,
-        'shadow-blur': 10,
-        'shadow-color': '#facc15',
       },
     },
     {
@@ -710,8 +710,6 @@ function getGraphStyles(): cytoscape.StylesheetJson {
       style: {
         'border-color': '#38bdf8',
         'border-width': 4,
-        'shadow-blur': 10,
-        'shadow-color': '#38bdf8',
       },
     },
     {

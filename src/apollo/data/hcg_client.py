@@ -58,18 +58,23 @@ class HCGClient:
         """Context manager exit."""
         self.close()
 
-    def _convert_datetime(self, dt: Any) -> Any:
-        """Convert Neo4j DateTime or string to python datetime."""
-        if dt is None:
+    def _convert_value(self, value: Any) -> Any:
+        """Convert Neo4j types to Python native types."""
+        if value is None:
             return None
-        if hasattr(dt, "to_native"):
-            return dt.to_native()
-        if isinstance(dt, str):
+        if hasattr(value, "to_native"):
+            return value.to_native()
+        if isinstance(value, bytes):
             try:
-                return datetime.fromisoformat(dt)
+                return value.decode("utf-8")
+            except UnicodeDecodeError:
+                return f"<bytes len={len(value)}>"
+        if isinstance(value, str):
+            try:
+                return datetime.fromisoformat(value)
             except ValueError:
                 pass
-        return dt
+        return value
 
     def _parse_json_field(self, value: Any, default: Any = None) -> Any:
         """Parse JSON string field if necessary."""
@@ -91,12 +96,12 @@ class HCGClient:
                     (
                         self._sanitize_props(item)
                         if isinstance(item, dict)
-                        else self._convert_datetime(item)
+                        else self._convert_value(item)
                     )
                     for item in value
                 ]
             else:
-                sanitized[key] = self._convert_datetime(value)
+                sanitized[key] = self._convert_value(value)
         return sanitized
 
     def _parse_node(self, node: Any) -> Entity:
@@ -114,8 +119,8 @@ class HCGClient:
             type=properties.get("type", "unknown"),
             properties=self._sanitize_props(properties),
             labels=list(node.labels),
-            created_at=self._convert_datetime(properties.get("created_at")),
-            updated_at=self._convert_datetime(properties.get("updated_at")),
+            created_at=self._convert_value(properties.get("created_at")),
+            updated_at=self._convert_value(properties.get("updated_at")),
         )
 
     def _parse_relationship(self, rel: Any) -> CausalEdge:
@@ -135,7 +140,7 @@ class HCGClient:
             edge_type=rel.type,
             properties=self._sanitize_props(properties),
             weight=properties.get("weight", 1.0),
-            created_at=self._convert_datetime(properties.get("created_at"))
+            created_at=self._convert_value(properties.get("created_at"))
             or datetime.now(),
         )
 
@@ -239,7 +244,7 @@ class HCGClient:
                         id=props.get("id", str(node.id)),
                         description=props.get("description", ""),
                         variables=self._parse_json_field(props.get("variables"), {}),
-                        timestamp=self._convert_datetime(props.get("timestamp"))
+                        timestamp=self._convert_value(props.get("timestamp"))
                         or datetime.now(),
                         properties=self._sanitize_props(props),
                     )
@@ -294,9 +299,9 @@ class HCGClient:
                         inputs=self._parse_json_field(props.get("inputs"), []),
                         outputs=self._parse_json_field(props.get("outputs"), []),
                         properties=self._sanitize_props(props),
-                        created_at=self._convert_datetime(props.get("created_at"))
+                        created_at=self._convert_value(props.get("created_at"))
                         or datetime.now(),
-                        completed_at=self._convert_datetime(props.get("completed_at")),
+                        completed_at=self._convert_value(props.get("completed_at")),
                     )
                 )
             return processes
@@ -357,7 +362,7 @@ class HCGClient:
                         edge_type=rel.type,
                         properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
-                        created_at=self._convert_datetime(props.get("created_at"))
+                        created_at=self._convert_value(props.get("created_at"))
                         or datetime.now(),
                     )
                 )
@@ -414,10 +419,10 @@ class HCGClient:
                         goal_id=props.get("goal_id", ""),
                         status=props.get("status", "pending"),
                         steps=steps,
-                        created_at=self._convert_datetime(props.get("created_at"))
+                        created_at=self._convert_value(props.get("created_at"))
                         or datetime.now(),
-                        started_at=self._convert_datetime(props.get("started_at")),
-                        completed_at=self._convert_datetime(props.get("completed_at")),
+                        started_at=self._convert_value(props.get("started_at")),
+                        completed_at=self._convert_value(props.get("completed_at")),
                         result=plan_result,
                     )
                 )
@@ -473,7 +478,7 @@ class HCGClient:
                     StateHistory(
                         id=props.get("id", str(node.id)),
                         state_id=props.get("state_id", ""),
-                        timestamp=self._convert_datetime(props.get("timestamp"))
+                        timestamp=self._convert_value(props.get("timestamp"))
                         or datetime.now(),
                         changes=changes,
                         previous_values=previous_values,
@@ -504,13 +509,13 @@ class HCGClient:
             node_query = """
             MATCH (n)
             WHERE n.type IN $entity_types
-            RETURN n
+            RETURN n, id(n) as internal_id
             LIMIT $limit
             """
         else:
             node_query = """
             MATCH (n)
-            RETURN n
+            RETURN n, id(n) as internal_id
             LIMIT $limit
             """
 
@@ -528,8 +533,12 @@ class HCGClient:
                 entity_types=entity_types,
                 limit=limit,
             )
-            entities = [self._parse_node(record["n"]) for record in node_result]
-            node_ids = [int(e.id) if e.id.isdigit() else -1 for e in entities]
+            
+            entities = []
+            node_ids = []
+            for record in node_result:
+                entities.append(self._parse_node(record["n"]))
+                node_ids.append(record["internal_id"])
 
             # Get edges
             edge_result = session.run(edge_query, node_ids=node_ids)
@@ -547,7 +556,7 @@ class HCGClient:
                         edge_type=rel.type,
                         properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
-                        created_at=self._convert_datetime(props.get("created_at"))
+                        created_at=self._convert_value(props.get("created_at"))
                         or datetime.now(),
                     )
                 )
