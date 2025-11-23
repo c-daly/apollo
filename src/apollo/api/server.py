@@ -337,7 +337,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                         f"HCG connection recovered after {consecutive_failures} failures"
                     )
                     consecutive_failures = 0
-                    last_error_logged = None
                     
             except Exception as exc:  # noqa: BLE001
                 consecutive_failures += 1
@@ -350,7 +349,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                         "error", 
                         f"Telemetry poll failed ({consecutive_failures} consecutive): {error_msg}"
                     )
-                    last_error_logged = error_msg
 
             await asyncio.sleep(5)
 
