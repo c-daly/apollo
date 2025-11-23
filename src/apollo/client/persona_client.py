@@ -24,7 +24,6 @@ class PersonaClient:
         self,
         content: str,
         entry_type: str,
-        trigger: Optional[str],
         summary: Optional[str],
         sentiment: Optional[str],
         confidence: Optional[float],
@@ -36,7 +35,6 @@ class PersonaClient:
         """Create a persona diary entry via Sophia."""
         payload: Dict[str, Any] = {
             "entry_type": entry_type,
-            "trigger": trigger,
             "content": content,
             "summary": summary,
             "sentiment": sentiment,

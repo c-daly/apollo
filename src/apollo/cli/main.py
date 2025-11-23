@@ -608,10 +608,6 @@ def chat(
     default="observation",
     help="Entry type: belief, decision, observation, reflection",
 )
-@click.option(
-    "--trigger",
-    help="What caused this entry (e.g., 'error', 'user_request', 'self_model')",
-)
 @click.option("--summary", help="Brief summary of the entry")
 @click.option(
     "--sentiment",
@@ -626,7 +622,6 @@ def diary(
     ctx: click.Context,
     content: Optional[str],
     entry_type: str,
-    trigger: Optional[str],
     summary: Optional[str],
     sentiment: Optional[str],
     confidence: Optional[float],
@@ -639,7 +634,6 @@ def diary(
     Args:
         content: The main content of the diary entry
         entry_type: Type of entry (belief, decision, observation, reflection)
-        trigger: What caused this entry
         summary: Brief summary for quick reference
         sentiment: Sentiment of the entry
         confidence: Confidence level for beliefs/decisions
@@ -654,7 +648,6 @@ def diary(
         )
         console.print("\n[dim]Options:[/dim]")
         console.print("  --type [belief|decision|observation|reflection]")
-        console.print("  --trigger '<what caused this entry>'")
         console.print("  --summary '<brief summary>'")
         console.print("  --sentiment [positive|negative|neutral|mixed]")
         console.print("  --confidence <0.0-1.0>")
@@ -672,7 +665,6 @@ def diary(
     response = persona_client.create_entry(
         content=content,
         entry_type=entry_type,
-        trigger=trigger,
         summary=summary,
         sentiment=sentiment,
         confidence=confidence,
@@ -714,7 +706,6 @@ def _log_persona_entry(
     entry_response = persona_client.create_entry(
         content=response_text or "[Hermes returned an empty message]",
         entry_type="observation",
-        trigger="user_request",
         summary=_truncate_summary(prompt),
         sentiment=None,
         confidence=None,
