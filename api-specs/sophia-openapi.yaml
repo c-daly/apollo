@@ -27,6 +27,8 @@ tags:
     description: Plan execution
   - name: Simulation
     description: Plan simulation and validation
+  - name: Ingestion
+    description: LLM proposal ingestion from Hermes
 
 paths:
   /health:
@@ -238,6 +240,48 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommandResponse'
+
+  /ingest/hermes_proposal:
+    post:
+      summary: Ingest LLM proposal from Hermes
+      description: |
+        Accepts structured LLM proposals from Hermes including plans, imagined states,
+        diagnostics, and tool calls. Persists to Neo4j with full provenance metadata
+        and applies SHACL validation. Authentication disabled for local development.
+      operationId: ingestHermesProposal
+      tags:
+        - Ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HermesProposalRequest'
+      responses:
+        '201':
+          description: Proposal successfully ingested
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HermesProposalResponse'
+        '422':
+          description: Validation failed (SHACL or schema)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: HCG client not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
 components:
   schemas:
@@ -563,4 +607,122 @@ components:
         data:
           type: object
           description: Response data
+          additionalProperties: true
+
+    HermesProposalRequest:
+      type: object
+      required:
+        - proposal_id
+        - llm_provider
+        - model
+        - generated_at
+        - confidence
+      properties:
+        proposal_id:
+          type: string
+          description: Unique identifier for this proposal
+          example: "hermes_20251123_abc123"
+        source_service:
+          type: string
+          description: Source service (typically 'hermes')
+          default: hermes
+        llm_provider:
+          type: string
+          description: LLM provider name
+          example: openai
+          enum: [openai, anthropic, azure, google, local]
+        model:
+          type: string
+          description: Model identifier
+          example: gpt-4
+        generated_at:
+          type: string
+          format: date-time
+          description: ISO timestamp when proposal was generated
+          example: "2025-11-23T12:00:00Z"
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score for this proposal
+          example: 0.85
+        raw_text:
+          type: string
+          description: Raw LLM response text
+        plan_steps:
+          type: array
+          description: Structured plan steps from the LLM
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+              target:
+                type: string
+              parameters:
+                type: object
+                additionalProperties: true
+            additionalProperties: true
+        imagined_states:
+          type: array
+          description: Imagined future states from the LLM
+          items:
+            type: object
+            properties:
+              state_id:
+                type: string
+              entities:
+                type: object
+                additionalProperties: true
+            additionalProperties: true
+        diagnostics:
+          type: object
+          description: Diagnostic information from the LLM
+          additionalProperties: true
+        tool_calls:
+          type: array
+          description: Tool calls requested by the LLM
+          items:
+            type: object
+            properties:
+              tool:
+                type: string
+              parameters:
+                type: object
+                additionalProperties: true
+            additionalProperties: true
+        metadata:
+          type: object
+          description: Additional metadata for provenance tracking
+          additionalProperties: true
+
+    HermesProposalResponse:
+      type: object
+      required:
+        - proposal_id
+        - stored_node_ids
+        - status
+        - created_at
+      properties:
+        proposal_id:
+          type: string
+          description: The ingested proposal identifier
+        stored_node_ids:
+          type: array
+          description: Node IDs created in Neo4j for this proposal
+          items:
+            type: string
+        status:
+          type: string
+          description: Ingestion status
+          example: accepted
+          enum: [accepted, rejected, partial]
+        created_at:
+          type: string
+          format: date-time
+          description: ISO timestamp of ingestion
+        validation_results:
+          type: object
+          description: SHACL validation results if applicable
           additionalProperties: true
