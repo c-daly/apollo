@@ -299,7 +299,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     async def telemetry_poller() -> None:
         consecutive_failures = 0
-        
+
         while True:
             if not hcg_client:
                 await asyncio.sleep(5)
@@ -328,25 +328,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     f"HCG health check {'passed' if health else 'degraded'} "
                     f"({latency_ms:.1f} ms)",
                 )
-                
+
                 # Reset failure counter on success
                 if consecutive_failures > 0:
                     await diagnostics_manager.record_log(
-                        "info", 
-                        f"HCG connection recovered after {consecutive_failures} failures"
+                        "info",
+                        f"HCG connection recovered after {consecutive_failures} failures",
                     )
                     consecutive_failures = 0
-                    
+
             except Exception as exc:  # noqa: BLE001
                 consecutive_failures += 1
                 error_msg = str(exc)
-                
+
                 # Only log errors periodically to avoid spam
                 # Log first error, then every 12th failure (once per minute at 5s intervals)
                 if consecutive_failures == 1 or consecutive_failures % 12 == 0:
                     await diagnostics_manager.record_log(
-                        "error", 
-                        f"Telemetry poll failed ({consecutive_failures} consecutive): {error_msg}"
+                        "error",
+                        f"Telemetry poll failed ({consecutive_failures} consecutive): {error_msg}",
                     )
 
             await asyncio.sleep(5)
