@@ -702,6 +702,7 @@ async def _persist_persona_entry_from_chat(
         id=f"persona_{uuid4().hex}",
         timestamp=datetime.now(),
         entry_type="observation",
+        trigger=None,
         content=content,
         summary=_truncate_summary(summary),
         sentiment=None,

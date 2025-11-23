@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from neo4j import GraphDatabase, Driver
 
@@ -54,7 +54,7 @@ class PersonaRepository:
             entry.created_at = datetime($timestamp)
         RETURN entry
         """
-        params = {
+        params: Dict[str, Any] = {
             "id": entry.id,
             "entry_type": entry.entry_type,
             "trigger": entry.trigger,
@@ -102,7 +102,7 @@ class PersonaRepository:
         SKIP $offset
         LIMIT $limit
         """
-        params = {
+        params: Dict[str, Any] = {
             "entry_type": entry_type,
             "sentiment": sentiment,
             "related_process_id": related_process_id,
@@ -131,7 +131,7 @@ class PersonaRepository:
     def _to_model(self, node: Any) -> PersonaEntry:
         props = dict(node)
         timestamp = props.get("created_at") or props.get("timestamp")
-        if hasattr(timestamp, "to_native"):
+        if timestamp is not None and hasattr(timestamp, "to_native"):
             timestamp = timestamp.to_native()
         elif isinstance(timestamp, str):
             timestamp = datetime.fromisoformat(timestamp)
