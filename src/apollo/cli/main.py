@@ -608,7 +608,10 @@ def chat(
     default="observation",
     help="Entry type: belief, decision, observation, reflection",
 )
-@click.option("--trigger", help="What caused this entry (e.g., 'error', 'user_request', 'self_model')")
+@click.option(
+    "--trigger",
+    help="What caused this entry (e.g., 'error', 'user_request', 'self_model')",
+)
 @click.option("--summary", help="Brief summary of the entry")
 @click.option(
     "--sentiment",
