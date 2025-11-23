@@ -80,7 +80,7 @@ class PersonaDiaryStore:
                 related_process_ids=entry.related_process_ids,
                 related_goal_ids=entry.related_goal_ids,
                 emotion_tags=entry.emotion_tags,
-                metadata=entry.metadata,
+                metadata=json.dumps(entry.metadata) if entry.metadata else "{}",
             ).single()
 
         if not record:
