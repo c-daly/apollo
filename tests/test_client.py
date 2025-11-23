@@ -105,7 +105,7 @@ def test_hermes_client_llm_generate_failure() -> None:
     from apollo.sdk import HermesSDK
 
     config = HermesConfig()
-    
+
     # Mock the SDK to force a failure
     mock_sdk = MagicMock(spec=HermesSDK)
     mock_sdk.default = MagicMock()
