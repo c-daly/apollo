@@ -112,10 +112,18 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Build webapp
         run: npm run build
+
+      - name: Start preview server
+        run: npm run preview -- --host --port 4173 &
+        env:
+          CI: true
+
+      - name: Wait for server
+        run: npx wait-on http://localhost:4173 -t 30000
 
       - name: Run Playwright tests
         run: npm run test:e2e
