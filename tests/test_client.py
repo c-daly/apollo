@@ -1,6 +1,6 @@
 """Tests for Sophia and Hermes clients."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock
 
 from apollo.client.sophia_client import SophiaClient, SophiaResponse
 from apollo.client.hermes_client import HermesClient, HermesResponse
@@ -103,7 +103,6 @@ def test_sophia_client_execute_step() -> None:
 
 def test_hermes_client_llm_generate_failure() -> None:
     """Hermes LL.M call should fail gracefully when the service is unavailable."""
-    from unittest.mock import MagicMock
     from apollo.sdk import HermesSDK
 
     config = HermesConfig()
@@ -126,4 +125,3 @@ def test_hermes_client_llm_generate_failure() -> None:
     assert isinstance(response, HermesResponse)
     assert response.success is False
     assert response.error is not None
-
