@@ -290,7 +290,7 @@ describe('MockCWMStateService', () => {
       await promise
     })
 
-    it('should allow unsubscribe', () => {
+    it('should allow unsubscribe', async () => {
       const callback = vi.fn()
       const unsubscribe = service.subscribe(callback)
 
@@ -298,21 +298,19 @@ describe('MockCWMStateService', () => {
       service.startStream()
 
       // Give it time to potentially call
-      setTimeout(() => {
-        expect(callback).not.toHaveBeenCalled()
-      }, 200)
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      expect(callback).not.toHaveBeenCalled()
     })
 
-    it('should not stream in live mode', () => {
+    it('should not stream in live mode', async () => {
       service.setMode('live')
 
       const callback = vi.fn()
       service.subscribe(callback)
       service.startStream()
 
-      setTimeout(() => {
-        expect(callback).toHaveBeenCalledWith(null)
-      }, 100)
+      await new Promise((resolve) => setTimeout(resolve, 100))
+      expect(callback).not.toHaveBeenCalled()
     })
   })
 
