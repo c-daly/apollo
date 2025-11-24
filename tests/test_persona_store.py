@@ -57,6 +57,8 @@ def mock_neo4j_node():
         "metadata": '{"source": "test", "version": "1.0"}',
     }
     node.__iter__ = lambda self: iter(node_data.items())
+    node.keys = lambda: node_data.keys()
+    node.__getitem__ = lambda self, key: node_data[key]
     node.get = lambda key, default=None: node_data.get(key, default)
     return node
 
@@ -143,7 +145,9 @@ class TestPersonaDiaryStoreCreateEntry:
         mock_result = Mock()
         mock_result.single.return_value = {"entry": mock_neo4j_node}
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -176,7 +180,9 @@ class TestPersonaDiaryStoreCreateEntry:
         mock_result = Mock()
         mock_result.single.return_value = {"entry": mock_neo4j_node}
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -195,7 +201,9 @@ class TestPersonaDiaryStoreCreateEntry:
         mock_result = Mock()
         mock_result.single.return_value = None  # No record returned
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -217,7 +225,9 @@ class TestPersonaDiaryStoreListEntries:
         mock_session = MagicMock()
         mock_result = [{"entry": mock_neo4j_node}]
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -244,7 +254,9 @@ class TestPersonaDiaryStoreListEntries:
         mock_session = MagicMock()
         mock_result = [{"entry": mock_neo4j_node}]
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -264,7 +276,9 @@ class TestPersonaDiaryStoreListEntries:
         mock_session = MagicMock()
         mock_result = [{"entry": mock_neo4j_node}]
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -284,7 +298,9 @@ class TestPersonaDiaryStoreListEntries:
         mock_session = MagicMock()
         mock_result = [{"entry": mock_neo4j_node}]
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -305,7 +321,9 @@ class TestPersonaDiaryStoreListEntries:
         mock_session = MagicMock()
         mock_result = [{"entry": mock_neo4j_node}]
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -331,7 +349,9 @@ class TestPersonaDiaryStoreGetEntry:
         mock_result = Mock()
         mock_result.single.return_value = {"entry": mock_neo4j_node}
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -353,7 +373,9 @@ class TestPersonaDiaryStoreGetEntry:
         mock_result = Mock()
         mock_result.single.return_value = None
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -376,7 +398,9 @@ class TestPersonaDiaryStoreHelpers:
         test_timestamp = datetime(2024, 1, 15, 12, 0, 0)
         mock_result.single.return_value = {"ts": test_timestamp}
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -394,7 +418,9 @@ class TestPersonaDiaryStoreHelpers:
         mock_result = Mock()
         mock_result.single.return_value = None
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -411,7 +437,9 @@ class TestPersonaDiaryStoreHelpers:
         mock_session = MagicMock()
         mock_result = [{"entry": mock_neo4j_node}]
         mock_session.run.return_value = mock_result
-        mock_driver.session.return_value.__enter__.return_value = mock_session
+        mock_driver.session.return_value = MagicMock(
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
+        )
         mock_graph_db.driver.return_value = mock_driver
 
         store = PersonaDiaryStore(neo4j_config)
@@ -454,6 +482,8 @@ class TestPersonaDiaryStoreParseNode:
             "content": "Test",
         }
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
@@ -466,6 +496,8 @@ class TestPersonaDiaryStoreParseNode:
         node = Mock(spec=Node)
         node_data = {"id": "entry-123", "entry_type": "thought", "content": "Test"}
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
@@ -478,6 +510,9 @@ class TestPersonaDiaryStoreParseNode:
         node = Mock(spec=Node)
         node_data = {"id": "entry-123", "timestamp": datetime.now(), "content": "Test"}
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
+        node.get = lambda key, default=None: node_data.get(key, default)
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
@@ -494,6 +529,8 @@ class TestPersonaDiaryStoreParseNode:
             "entry_type": "thought",
         }
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
@@ -511,6 +548,8 @@ class TestPersonaDiaryStoreParseNode:
             "content": "Test",
         }
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
@@ -530,6 +569,8 @@ class TestPersonaDiaryStoreParseNode:
             "metadata": {"key": "value"},
         }
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
@@ -547,6 +588,8 @@ class TestPersonaDiaryStoreParseNode:
             "content": "Test",
         }
         node.__iter__ = lambda self: iter(node_data.items())
+        node.keys = lambda: node_data.keys()
+        node.__getitem__ = lambda self, key: node_data[key]
         node.get = lambda key, default=None: node_data.get(key, default)
 
         store = PersonaDiaryStore(neo4j_config)
