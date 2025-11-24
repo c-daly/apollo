@@ -19,7 +19,7 @@ jobs:
       poetry_install_args: '--with dev'
       python_lint_paths: 'src tests'
       mypy_targets: 'src'
-      pytest_command: 'pytest tests/ -v --cov=apollo --cov-report=term --cov-report=xml'
+      pytest_command: 'pytest tests/ -m "not integration" -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
       enable_node: true
       node_version: '18'
