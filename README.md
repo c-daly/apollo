@@ -374,22 +374,100 @@ Apollo uses two dependency management systems:
 
 ### Running Tests
 
+Apollo has comprehensive test coverage with both unit and integration tests.
+
+#### Backend Tests (Python)
+
 ```bash
-# Python CLI tests
-pytest
+# Run all unit tests (excludes integration tests requiring real services)
+pytest tests/ -m "not integration"
 
-# Run M4 E2E test (verifies goal creation flow)
-./PHASE1_VERIFY/scripts/m4_test.py
+# Run specific test file
+pytest tests/test_backend_api.py -v
 
-# Web dashboard tests (when implemented)
+# Run with coverage report
+pytest tests/ -m "not integration" --cov=apollo --cov-report=term --cov-report=html
+
+# View coverage report in browser
+open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+```
+
+**Test Categories:**
+- **Backend API Tests** (`test_backend_api.py`): HCG endpoints, Persona diary, Media upload proxy, Chat streaming
+- **WebSocket Tests** (`test_websocket.py`): Connection lifecycle, broadcast, client messaging, error handling
+- **CLI SDK Tests** (`test_cli_sdk.py`): Verifies CLI uses SDK clients, error handling, config loading
+- **Client Tests** (`test_client.py`, `test_hermes_client.py`, `test_persona_client.py`): SDK client functionality
+- **Configuration Tests** (`test_config.py`): Config loading, defaults, validation
+
+#### Integration Tests (Python)
+
+Integration tests require real service dependencies (Sophia, Hermes, Neo4j) to be running.
+
+```bash
+# Run only integration tests
+pytest tests/test_apollo_integration.py -m integration -v
+
+# Run all tests including integration tests
+pytest tests/
+```
+
+**Integration Test Workflows:**
+- Apollo→Sophia health check chain
+- HCG entity/snapshot retrieval from Neo4j
+- Media upload→Sophia→Neo4j linkage
+- Persona diary create→retrieve workflow
+- GraphViewer data endpoint chains
+- Full end-to-end workflows
+
+**Service Requirements:**
+- Sophia running on configured host/port
+- Neo4j database accessible
+- Required environment variables:
+  - `SOPHIA_API_TOKEN` (for media upload tests)
+  - `HERMES_API_KEY` (for chat/LLM tests)
+
+#### Frontend Tests (TypeScript)
+
+```bash
 cd webapp
+
+# Run all frontend tests
+npm test -- --run
+
+# Run tests in watch mode
 npm test
 
-# Web dashboard tests with UI
+# Run tests with UI
 npm run test:ui
 
-# Generate test coverage
+# Generate coverage report
 npm run coverage
+```
+
+**Frontend Test Categories:**
+- **Component Tests**: MediaUploadPanel, Chat, GraphViewer, DiagnosticsPanel
+- **Client Tests**: Sophia client, Hermes client configuration
+- **Hook Tests**: useDiagnosticsStream WebSocket hook
+- **Fixture Tests**: Mock CWM data structures
+
+#### Test Coverage
+
+Current test coverage (backend):
+- **Overall**: 56% statement coverage
+- **API Server**: 77% (main endpoints well-tested)
+- **WebSocket Server**: 75% (connection/broadcast tested)
+- **Config**: 93%
+- **Data Models**: 100%
+- **SDK**: 82%
+
+Frontend: 88 tests passing covering all major components.
+
+#### Running M4 E2E Test
+
+```bash
+# Run Phase 1 verification test
+./PHASE1_VERIFY/scripts/m4_test.py
 ```
 
 See [E2E Test Documentation](tests/e2e/README.md) for detailed information on end-to-end testing.
