@@ -9,7 +9,7 @@ This document captures the CI footprint across the LOGOS repos as of 2025-11-21 
 | Repo | Key workflows | Lint/Format | Type check | Unit tests | Service / integration | E2E / system | Coverage | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | logos | `test`, `m1–m4`, `phase2-otel`, `phase2-perception`, `validate-artifacts` | ✅ Ruff | ⚠️ mypy dependency installed but not executed | ✅ Pytest matrix (3.10–3.12) | ✅ Multiple docker-compose gates (M1–M4, OTel, perception) | ✅ Prototype E2E script (optional) | ⚠️ Uploads XML artifact only | Type-checking missing; coverage only exported as artifact except perception tokened uploads. |
-| apollo | `ci`, `phase2-apollo-web`, `e2e` | ✅ Ruff/Black + npm lint | ✅ mypy + TS type-check | ✅ Pytest across 3.9–3.11 & Vitest | ✅ CLI E2E harness via docker-compose (separate workflow) | ✅ Same harness (opt-out via `skip_e2e`) | ✅ Codecov for Python (no JS coverage) | Web workflow decoupled from base CI; E2E job can be skipped and lacks evidence artifacts. |
+| apollo | `ci`, `e2e` | ✅ Ruff/Black + npm lint | ✅ mypy + TS type-check (strict) | ✅ Pytest across 3.9–3.11 & Vitest | ✅ CLI E2E harness via docker-compose (separate workflow) | ✅ Python E2E + Playwright browser tests | ✅ Codecov for Python & JS with flags | All tests required; E2E captures artifacts (logs/screenshots); JS coverage enabled with thresholds. |
 | sophia | `ci` | ✅ Black/Ruff | ❌ | ✅ Pytest (unit-only) | ❌ | ❌ | ✅ Codecov (py3.12 only) | Integration suites are manual/local; no shared SDK verification yet. |
 | hermes | `ci`, `phase2-hermes-service` | ✅ Ruff/Black | ✅ mypy | ✅ Pytest via Poetry | ⚠️ Milvus/Neo4j integration job only on push or labeled PRs | ❌ | ✅ Codecov w/ flags | Duplicate workflows diverge; integration tests are optional on PRs. |
 | talos | `ci` | ✅ Ruff/Black | ✅ mypy | ✅ Pytest (3.11–3.12) | ❌ | ❌ | ✅ Codecov (py3.12) | CI triggers watch `main` only; no hardware/simulator smoke tests. |
@@ -26,10 +26,9 @@ Legend: ✅ = covered, ⚠️ = partially covered or manual, ❌ = missing.
 - **Gaps:** enforce mypy, standardize coverage uploads, reduce reliance on optional cron-based gates.
 
 ### apollo (this repo)
-- `ci.yml`: Python matrix (3.9–3.11) running Ruff, Black, mypy, pytest + Codecov.
-- `phase2-apollo-web.yml`: Node 18 job for lint/type/test/build when `webapp/**` changes; no coverage/reporting artifact beyond build.
-- `e2e.yml`: docker-compose harness that brings up Sophia/Talos shim; can be skipped via workflow dispatch input.
-- **Gaps:** base CI has no awareness of the web workflow; E2E run produces no artifacts (logs/screenshots) and is easy to skip, so regressions may slip.
+- `ci.yml`: Uses reusable standard CI workflow with Python matrix (3.9–3.11) running Ruff, Black, mypy, pytest. Separate jobs for Python coverage (with `python` flag), JavaScript coverage (with `javascript` flag), and Playwright E2E tests. All uploads use Codecov with appropriate flags.
+- `e2e.yml`: docker-compose harness that brings up Sophia/Talos services; runs Python E2E tests. Captures artifacts on all runs: test logs, screenshots, and docker-compose logs. Tests are required (no skip option).
+- **Enhancements (Phase 2):** E2E tests now mandatory with artifact capture; Playwright added for browser testing; JavaScript coverage with 60% thresholds; TypeScript strict mode enforced; coverage reporting standardized with flags.
 
 ### sophia
 - `ci.yml`: Poetry-based setup, Ruff/Black lint, pytest excluding integration marks, Codecov upload on Python 3.12 only.

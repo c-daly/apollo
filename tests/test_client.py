@@ -1,5 +1,7 @@
 """Tests for Sophia and Hermes clients."""
 
+from unittest.mock import Mock, patch
+
 from apollo.client.sophia_client import SophiaClient, SophiaResponse
 from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.config.settings import HermesConfig, SophiaConfig
@@ -102,7 +104,14 @@ def test_sophia_client_execute_step() -> None:
 def test_hermes_client_llm_generate_failure() -> None:
     """Hermes LL.M call should fail gracefully when the service is unavailable."""
     config = HermesConfig()
-    client = HermesClient(config)
+    
+    # Mock the SDK to simulate service unavailability
+    mock_sdk = Mock()
+    mock_sdk.base_url = f"http://{config.host}:{config.port}"
+    mock_sdk.timeout = config.timeout
+    mock_sdk.default.llm_generate.side_effect = Exception("Connection refused")
+    
+    client = HermesClient(config, sdk=mock_sdk)
 
     request = LLMRequest(
         messages=[LLMMessage(role="user", content="Hello Hermes")],
@@ -113,3 +122,4 @@ def test_hermes_client_llm_generate_failure() -> None:
     assert isinstance(response, HermesResponse)
     assert response.success is False
     assert response.error is not None
+

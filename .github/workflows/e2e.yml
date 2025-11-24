@@ -6,15 +6,6 @@ on:
   pull_request:
     branches: [ main, develop ]
   workflow_dispatch:
-    inputs:
-      skip_e2e:
-        description: 'Skip E2E tests'
-        required: false
-        default: 'false'
-        type: choice
-        options:
-          - 'true'
-          - 'false'
 
 permissions:
   contents: read
@@ -22,8 +13,6 @@ permissions:
 jobs:
   e2e-test:
     runs-on: ubuntu-latest
-    # Allow skipping via workflow dispatch
-    if: ${{ github.event.inputs.skip_e2e != 'true' }}
     
     steps:
     - uses: actions/checkout@v4
@@ -48,12 +37,49 @@ jobs:
         cd tests/e2e
         python test_e2e_flow.py
       timeout-minutes: 10
+      continue-on-error: true
+      id: e2e_tests
+    
+    - name: Capture E2E artifacts
+      if: always()
+      run: |
+        # Create artifacts directory
+        mkdir -p e2e-artifacts/logs
+        mkdir -p e2e-artifacts/screenshots
+        
+        # Copy any test logs
+        if [ -d "tests/e2e/logs" ]; then
+          cp -r tests/e2e/logs/* e2e-artifacts/logs/ || true
+        fi
+        
+        # Copy any screenshots
+        if [ -d "tests/e2e/screenshots" ]; then
+          cp -r tests/e2e/screenshots/* e2e-artifacts/screenshots/ || true
+        fi
+        
+        # Capture docker compose logs
+        cd tests/e2e
+        docker compose -f docker-compose.e2e.yml logs > ../../e2e-artifacts/logs/docker-compose.log 2>&1 || true
+    
+    - name: Upload E2E artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-artifacts-${{ github.run_number }}
+        path: e2e-artifacts/
+        retention-days: 7
     
     - name: Show service logs on failure
       if: failure()
       run: |
         cd tests/e2e
         docker compose -f docker-compose.e2e.yml logs
+    
+    - name: Check E2E test result
+      if: steps.e2e_tests.outcome == 'failure'
+      run: |
+        echo "E2E tests failed"
+        exit 1
     
     - name: Cleanup
       if: always()

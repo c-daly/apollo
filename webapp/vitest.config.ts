@@ -19,8 +19,14 @@ export default defineConfig({
     setupFiles: [],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'dist/', '**/*.config.{js,ts}', '**/types.ts'],
+      reporter: ['text', 'json', 'html', 'lcov', 'cobertura'],
+      exclude: ['node_modules/', 'dist/', '**/*.config.{js,ts}', '**/types.ts', 'e2e/**'],
+      thresholds: {
+        lines: 60,
+        functions: 60,
+        branches: 60,
+        statements: 60,
+      },
     },
   },
 })
