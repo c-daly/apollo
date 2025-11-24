@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Set
 
 import websockets
-from websockets.asyncio.server import ServerConnection
+from websockets.legacy.server import WebSocketServerProtocol as ServerConnection
 
 from apollo.config.settings import Neo4jConfig
 from apollo.data.hcg_client import HCGClient

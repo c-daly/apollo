@@ -103,14 +103,18 @@ def test_sophia_client_execute_step() -> None:
 
 def test_hermes_client_llm_generate_failure() -> None:
     """Hermes LL.M call should fail gracefully when the service is unavailable."""
+    from unittest.mock import MagicMock
+    from apollo.sdk import HermesSDK
+
     config = HermesConfig()
-    
-    # Mock the SDK to simulate service unavailability
-    mock_sdk = Mock()
-    mock_sdk.base_url = f"http://{config.host}:{config.port}"
-    mock_sdk.timeout = config.timeout
+
+    # Mock the SDK to force a failure
+    mock_sdk = MagicMock(spec=HermesSDK)
+    mock_sdk.default = MagicMock()
     mock_sdk.default.llm_generate.side_effect = Exception("Connection refused")
-    
+    mock_sdk.base_url = "http://mock-host"
+    mock_sdk.timeout = 30
+
     client = HermesClient(config, sdk=mock_sdk)
 
     request = LLMRequest(
