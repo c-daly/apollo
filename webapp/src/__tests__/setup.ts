@@ -22,7 +22,7 @@ export const resetFetchMock = () => {
 }
 
 // Helper to mock successful fetch response
-export const mockFetchSuccess = (data: any, status = 200) => {
+export const mockFetchSuccess = (data: unknown, status = 200) => {
   vi.mocked(fetch).mockResolvedValueOnce({
     ok: status >= 200 && status < 300,
     status,
@@ -59,7 +59,8 @@ class MockWebSocket {
   }
 
   send(_data: string) {
-    // Mock send
+    // Mock send - intentionally empty for tests
+    void _data
   }
 
   close() {
@@ -68,4 +69,4 @@ class MockWebSocket {
   }
 }
 
-globalThis.WebSocket = MockWebSocket as any
+globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket
