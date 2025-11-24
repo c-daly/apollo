@@ -7,10 +7,12 @@ stream telemetry, and serve real-time diagnostics.
 import asyncio
 import contextlib
 import json
+import os
 from collections import deque
 from contextlib import asynccontextmanager
 from datetime import datetime
 import time
+import httpx
 from typing import (
     Any,
     AsyncGenerator,
@@ -23,7 +25,16 @@ from typing import (
 )
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Query,
+    WebSocket,
+    WebSocketDisconnect,
+    UploadFile,
+    File,
+    Form,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -1087,3 +1098,199 @@ async def get_persona_entry(entry_id: str) -> PersonaEntry:
         raise HTTPException(status_code=404, detail="Persona entry not found")
 
     return entry
+
+
+# ---------------------------------------------------------------------
+# Media Upload Proxy Endpoints
+# ---------------------------------------------------------------------
+
+
+@app.post("/api/media/upload")
+async def upload_media(
+    file: UploadFile = File(...),
+    media_type: str = Form(...),
+    question: Optional[str] = Form(None),
+) -> dict:
+    """Proxy media upload to Sophia /ingest/media endpoint.
+
+    Args:
+        file: Media file to upload (image/video/audio)
+        media_type: Type of media (IMAGE, VIDEO, AUDIO)
+        question: Optional question context for the media
+
+    Returns:
+        Media ingestion response from Sophia with sample_id and metadata
+    """
+    config = ApolloConfig.load()
+    sophia_url = f"http://{config.sophia.host}:{config.sophia.port}"
+    sophia_token = config.sophia.api_key or os.getenv("SOPHIA_API_TOKEN")
+
+    if not sophia_token:
+        raise HTTPException(
+            status_code=503,
+            detail="Sophia API token not configured. Set SOPHIA_API_KEY in config or SOPHIA_API_TOKEN env var.",
+        )
+
+    try:
+        # Read file content
+        file_content = await file.read()
+        await file.seek(0)  # Reset file pointer
+
+        # Prepare multipart form data
+        files = {"file": (file.filename, file_content, file.content_type)}
+        data = {"media_type": media_type}
+        if question:
+            data["question"] = question
+
+        # Proxy request to Sophia
+        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
+            response = await client.post(
+                f"{sophia_url}/ingest/media",
+                files=files,
+                data=data,
+                headers={"Authorization": f"Bearer {sophia_token}"},
+            )
+            response.raise_for_status()
+
+            await diagnostics_manager.record_log(
+                "info",
+                f"Media uploaded to Sophia: {file.filename} ({media_type})",
+            )
+
+            return response.json()  # type: ignore[no-any-return]
+
+    except httpx.HTTPStatusError as exc:
+        await diagnostics_manager.record_log(
+            "error",
+            f"Media upload failed: HTTP {exc.response.status_code} - {exc.response.text}",
+        )
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"Sophia upload failed: {exc.response.text}",
+        ) from exc
+    except httpx.RequestError as exc:
+        await diagnostics_manager.record_log(
+            "error",
+            f"Media upload connection error: {str(exc)}",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail=f"Cannot connect to Sophia service: {str(exc)}",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        await diagnostics_manager.record_log(
+            "error",
+            f"Media upload failed: {str(exc)}",
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Media upload failed: {str(exc)}",
+        ) from exc
+
+
+@app.get("/api/media/samples")
+async def list_media_samples(
+    media_type: Optional[str] = Query(None, description="Filter by media type"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of samples"),
+    offset: int = Query(0, ge=0, description="Number of samples to skip"),
+) -> dict:
+    """Proxy request to Sophia GET /media/samples endpoint.
+
+    Args:
+        media_type: Optional filter by media type (IMAGE, VIDEO, AUDIO)
+        limit: Maximum number of samples to return
+        offset: Number of samples to skip for pagination
+
+    Returns:
+        List of media samples with metadata
+    """
+    config = ApolloConfig.load()
+    sophia_url = f"http://{config.sophia.host}:{config.sophia.port}"
+    sophia_token = config.sophia.api_key or os.getenv("SOPHIA_API_TOKEN")
+
+    if not sophia_token:
+        raise HTTPException(
+            status_code=503,
+            detail="Sophia API token not configured. Set SOPHIA_API_KEY in config or SOPHIA_API_TOKEN env var.",
+        )
+
+    try:
+        params: Dict[str, Any] = {"limit": limit, "offset": offset}
+        if media_type:
+            params["media_type"] = media_type
+
+        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
+            response = await client.get(
+                f"{sophia_url}/media/samples",
+                params=params,
+                headers={"Authorization": f"Bearer {sophia_token}"},
+            )
+            response.raise_for_status()
+            return response.json()  # type: ignore[no-any-return]
+
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"Sophia request failed: {exc.response.text}",
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Cannot connect to Sophia service: {str(exc)}",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch media samples: {str(exc)}",
+        ) from exc
+
+
+@app.get("/api/media/samples/{sample_id}")
+async def get_media_sample(sample_id: str) -> dict:
+    """Proxy request to Sophia GET /media/samples/{sample_id} endpoint.
+
+    Args:
+        sample_id: Media sample ID to retrieve
+
+    Returns:
+        Media sample details with metadata
+    """
+    config = ApolloConfig.load()
+    sophia_url = f"http://{config.sophia.host}:{config.sophia.port}"
+    sophia_token = config.sophia.api_key or os.getenv("SOPHIA_API_TOKEN")
+
+    if not sophia_token:
+        raise HTTPException(
+            status_code=503,
+            detail="Sophia API token not configured. Set SOPHIA_API_KEY in config or SOPHIA_API_TOKEN env var.",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
+            response = await client.get(
+                f"{sophia_url}/media/samples/{sample_id}",
+                headers={"Authorization": f"Bearer {sophia_token}"},
+            )
+            response.raise_for_status()
+            return response.json()  # type: ignore[no-any-return]
+
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Media sample not found: {sample_id}",
+            ) from exc
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=f"Sophia request failed: {exc.response.text}",
+        ) from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Cannot connect to Sophia service: {str(exc)}",
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch media sample: {str(exc)}",
+        ) from exc
