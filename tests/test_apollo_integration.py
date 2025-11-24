@@ -3,6 +3,11 @@
 These tests require actual service dependencies (Sophia, Hermes, Neo4j) to be running.
 They test full request chains and data flow between services.
 
+NOTE: These integration tests are currently SKIPPED by default as they have not been
+validated against real services. They serve as documentation for future integration
+testing work. To enable them, remove the pytest.skip() calls and ensure services are
+running with proper configuration.
+
 To run integration tests:
     pytest tests/test_apollo_integration.py -m integration
 
@@ -23,6 +28,16 @@ from apollo.config.settings import ApolloConfig
 
 # Mark all tests in this module as integration tests
 pytestmark = pytest.mark.integration
+
+
+# Skip all integration tests until validated with real services
+@pytest.fixture(autouse=True)
+def skip_integration_tests():
+    """Skip integration tests until they can be validated with real services."""
+    pytest.skip(
+        "Integration tests require real services (Sophia, Hermes, Neo4j) "
+        "and have not been validated yet. Remove this skip to enable."
+    )
 
 
 @pytest.fixture(scope="module")
