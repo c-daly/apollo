@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { getHCGConfig } from '../lib/config'
 import './MediaLibraryPanel.css'
 
@@ -40,7 +40,7 @@ function MediaLibraryPanel() {
   const apolloApiBase =
     getHCGConfig().apiUrl?.replace(/\/$/, '') || 'http://localhost:8082'
 
-  const fetchSamples = async () => {
+  const fetchSamples = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -67,11 +67,11 @@ function MediaLibraryPanel() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [apolloApiBase, filter])
 
   useEffect(() => {
     fetchSamples()
-  }, [filter])
+  }, [fetchSamples])
 
   const handleSampleClick = (sample: MediaSample) => {
     setSelectedSample(sample)
