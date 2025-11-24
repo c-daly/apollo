@@ -68,3 +68,6 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --cov=apollo --cov-report=term-missing"
+markers = [
+    "integration: marks tests as integration tests requiring real services (deselect with '-m \"not integration\"')",
+]
