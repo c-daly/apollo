@@ -17,6 +17,7 @@ neo4j = "^5.0.0"
 websockets = "^12.0"
 fastapi = "^0.104.0"
 uvicorn = {extras = ["standard"], version = "^0.24.0"}
+python-multipart = "^0.0.6"
 httpx = ">=0.27.0,<0.28.0"
 logos-sophia-sdk = {git = "https://github.com/c-daly/logos.git", rev = "9549b089203ed1d8bb6560ab56ba02e7dbbefb61", subdirectory = "sdk/python/sophia"}
 logos-hermes-sdk = {git = "https://github.com/c-daly/logos.git", rev = "9549b089203ed1d8bb6560ab56ba02e7dbbefb61", subdirectory = "sdk/python/hermes"}
