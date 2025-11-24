@@ -1,6 +1,5 @@
 """Tests for WebSocket streaming functionality."""
 
-import asyncio
 import json
 from datetime import datetime
 from unittest.mock import AsyncMock, Mock, patch
@@ -154,7 +153,9 @@ class TestHCGWebSocketServer:
         mock_websocket = AsyncMock()
 
         with patch("apollo.data.websocket_server.HCGClient") as mock_hcg:
-            mock_hcg.return_value.__enter__.side_effect = Exception("Neo4j connection failed")
+            mock_hcg.return_value.__enter__.side_effect = Exception(
+                "Neo4j connection failed"
+            )
 
             await server.send_snapshot(mock_websocket)
 
@@ -304,22 +305,22 @@ class TestHCGWebSocketServer:
         mock_websocket = AsyncMock()
         # Simulate connection closed during iteration
         messages = [json.dumps({"type": "ping"})]
-        
+
         # Create a proper async iterator that raises ConnectionClosed
         class ClosingIterator:
             def __init__(self, messages):
                 self.messages = iter(messages)
                 self.first = True
-                
+
             def __aiter__(self):
                 return self
-                
+
             async def __anext__(self):
                 if self.first:
                     self.first = False
                     return next(self.messages)
                 raise websockets.exceptions.ConnectionClosed(None, None)
-        
+
         mock_websocket.__aiter__ = lambda self: ClosingIterator(messages)
 
         with patch("apollo.data.websocket_server.HCGClient") as mock_hcg:

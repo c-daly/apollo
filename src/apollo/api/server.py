@@ -1120,14 +1120,14 @@ async def upload_media(
 
     Returns:
         Media ingestion response from Sophia with sample_id and metadata
-    
+
     Raises:
         HTTPException: 413 if file exceeds 100 MB limit
         HTTPException: 503 if Sophia service unavailable
     """
     # Server-side size validation - enforce 100 MB limit
     MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
-    
+
     config = ApolloConfig.load()
     sophia_url = f"http://{config.sophia.host}:{config.sophia.port}"
     sophia_token = config.sophia.api_key or os.getenv("SOPHIA_API_TOKEN")
@@ -1143,7 +1143,7 @@ async def upload_media(
         file.file.seek(0, 2)  # Seek to end
         file_size = file.file.tell()
         file.file.seek(0)  # Reset to beginning
-        
+
         if file_size > MAX_FILE_SIZE:
             await diagnostics_manager.record_log(
                 "warning",

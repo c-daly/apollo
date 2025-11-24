@@ -25,6 +25,7 @@ logos-hermes-sdk = {git = "https://github.com/c-daly/logos.git", rev = "9549b089
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
 pytest-cov = "^4.0.0"
+pytest-asyncio = "^0.21.0"
 black = "^23.0.0"
 ruff = "^0.1.0"
 mypy = "^1.0.0"

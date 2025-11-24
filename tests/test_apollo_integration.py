@@ -15,7 +15,6 @@ from datetime import datetime
 from io import BytesIO
 
 import pytest
-import httpx
 from fastapi.testclient import TestClient
 
 from apollo.api.server import app
@@ -30,11 +29,11 @@ pytestmark = pytest.mark.integration
 def integration_config():
     """Load config for integration tests - requires real services."""
     config = ApolloConfig.load()
-    
+
     # Verify required services are configured
     if not config.sophia.host or not config.hermes.host:
         pytest.skip("Integration tests require Sophia and Hermes configuration")
-    
+
     return config
 
 
@@ -51,22 +50,26 @@ class TestApolloSophiaIntegration:
     def test_health_check_chain(self, integration_client):
         """Test health check propagates to Sophia."""
         response = integration_client.get("/api/health")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] in ["ok", "degraded"]
         # Should include Sophia health status
-        assert "dependencies" in data or "services" in data or "sophia" in str(data).lower()
+        assert (
+            "dependencies" in data
+            or "services" in data
+            or "sophia" in str(data).lower()
+        )
 
     def test_get_hcg_entities_from_neo4j(self, integration_client):
         """Test fetching HCG entities from Neo4j via Sophia."""
         response = integration_client.get("/api/hcg/entities?limit=10")
-        
+
         # Should succeed even if empty
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
-        
+
         # If entities exist, verify structure
         if len(data) > 0:
             entity = data[0]
@@ -76,7 +79,7 @@ class TestApolloSophiaIntegration:
     def test_get_hcg_snapshot_integration(self, integration_client):
         """Test full HCG graph snapshot retrieval."""
         response = integration_client.get("/api/hcg/snapshot?limit=50")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "entities" in data
@@ -91,7 +94,7 @@ class TestApolloHermesIntegration:
 
     @pytest.mark.skipif(
         not os.getenv("HERMES_API_KEY"),
-        reason="Requires HERMES_API_KEY environment variable"
+        reason="Requires HERMES_API_KEY environment variable",
     )
     def test_chat_stream_to_hermes(self, integration_client):
         """Test chat streaming endpoint calls Hermes for LLM generation."""
@@ -102,11 +105,11 @@ class TestApolloHermesIntegration:
                 "conversation_id": "integration-test-001",
             },
         )
-        
+
         # Chat endpoint may return different status codes depending on implementation
         # (200 for SSE, 400 for missing fields, etc.)
         assert response.status_code in [200, 400, 422, 501]
-        
+
         # If implemented, should receive some response
         if response.status_code == 200:
             assert response.content  # Should have content
@@ -117,26 +120,26 @@ class TestMediaUploadIntegration:
 
     @pytest.mark.skipif(
         not os.getenv("SOPHIA_API_TOKEN"),
-        reason="Requires SOPHIA_API_TOKEN environment variable"
+        reason="Requires SOPHIA_API_TOKEN environment variable",
     )
     def test_media_upload_to_sophia_ingestion(self, integration_client):
         """Test media upload proxies to Sophia and creates Neo4j nodes."""
         # Create a small test image (1x1 pixel PNG)
         test_image = BytesIO(
-            b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01'
-            b'\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\x00\x01'
-            b'\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+            b"\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\x00\x01"
+            b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
         )
-        
+
         response = integration_client.post(
             "/api/media/upload",
             files={"file": ("test_integration.png", test_image, "image/png")},
             data={"media_type": "IMAGE"},
         )
-        
+
         # Should successfully upload or return 503 if Sophia unavailable
         assert response.status_code in [200, 503]
-        
+
         if response.status_code == 200:
             data = response.json()
             # Sophia should return sample_id and Neo4j node info
@@ -146,15 +149,15 @@ class TestMediaUploadIntegration:
 
     @pytest.mark.skipif(
         not os.getenv("SOPHIA_API_TOKEN"),
-        reason="Requires SOPHIA_API_TOKEN environment variable"
+        reason="Requires SOPHIA_API_TOKEN environment variable",
     )
     def test_list_media_samples_from_sophia(self, integration_client):
         """Test listing media samples from Sophia."""
         response = integration_client.get("/api/media/samples?limit=10")
-        
+
         # Should succeed or return 503 if Sophia unavailable
         assert response.status_code in [200, 503]
-        
+
         if response.status_code == 200:
             data = response.json()
             # Response should be list or dict with samples
@@ -172,32 +175,37 @@ class TestPersonaDiaryIntegration:
             json={
                 "entry_type": "thought",
                 "content": "Integration test entry at " + datetime.now().isoformat(),
-                "metadata": {"test": "integration", "timestamp": datetime.now().isoformat()},
+                "metadata": {
+                    "test": "integration",
+                    "timestamp": datetime.now().isoformat(),
+                },
             },
         )
-        
+
         assert create_response.status_code == 200
         created_entry = create_response.json()
         assert "id" in created_entry
         entry_id = created_entry["id"]
-        
+
         # Retrieve the entry by ID
         get_response = integration_client.get(f"/api/persona/entries/{entry_id}")
         assert get_response.status_code == 200
         retrieved_entry = get_response.json()
-        
+
         assert retrieved_entry["id"] == entry_id
         assert retrieved_entry["entry_type"] == "thought"
         assert "Integration test entry" in retrieved_entry["content"]
 
     def test_list_persona_entries_with_filter(self, integration_client):
         """Test listing persona entries with type filter."""
-        response = integration_client.get("/api/persona/entries?entry_type=thought&limit=10")
-        
+        response = integration_client.get(
+            "/api/persona/entries?entry_type=thought&limit=10"
+        )
+
         assert response.status_code == 200
         entries = response.json()
         assert isinstance(entries, list)
-        
+
         # If entries exist, verify they're all thoughts
         for entry in entries:
             assert entry["entry_type"] == "thought"
@@ -211,11 +219,11 @@ class TestGraphViewerIntegration:
         # GraphViewer fetches entities
         entities_response = integration_client.get("/api/hcg/entities")
         assert entities_response.status_code == 200
-        
+
         # GraphViewer fetches edges
         edges_response = integration_client.get("/api/hcg/edges")
         assert edges_response.status_code == 200
-        
+
         # GraphViewer can fetch full snapshot
         snapshot_response = integration_client.get("/api/hcg/snapshot")
         assert snapshot_response.status_code == 200
@@ -229,14 +237,14 @@ class TestGraphViewerIntegration:
         list_response = integration_client.get("/api/hcg/entities?limit=1")
         assert list_response.status_code == 200
         entities = list_response.json()
-        
+
         if len(entities) > 0:
             entity_id = entities[0]["id"]
-            
+
             # Fetch detail for that entity
             detail_response = integration_client.get(f"/api/hcg/entities/{entity_id}")
             assert detail_response.status_code in [200, 404]
-            
+
             if detail_response.status_code == 200:
                 entity = detail_response.json()
                 assert entity["id"] == entity_id
@@ -255,10 +263,10 @@ class TestChatPanelIntegration:
                 "conversation_id": "test-chat-integration",
             },
         )
-        
+
         # Endpoint should exist and return some response
         assert response.status_code in [200, 400, 422, 501]
-        
+
         # If streaming is implemented, response should have content
         if response.status_code == 200:
             assert len(response.content) > 0
@@ -271,7 +279,7 @@ class TestDiagnosticsPanelIntegration:
         """Test that creating persona entry broadcasts to diagnostics WebSocket."""
         # This test verifies the integration exists but doesn't test actual WebSocket
         # (WebSocket testing requires websocket client, done in unit tests)
-        
+
         # Create a persona entry
         response = integration_client.post(
             "/api/persona/entries",
@@ -281,7 +289,7 @@ class TestDiagnosticsPanelIntegration:
                 "metadata": {},
             },
         )
-        
+
         assert response.status_code == 200
         # In the real implementation, this should trigger a WebSocket broadcast
         # Unit tests verify the broadcast mechanism
@@ -292,28 +300,30 @@ class TestEndToEndWorkflow:
 
     @pytest.mark.skipif(
         not all([os.getenv("SOPHIA_API_TOKEN"), os.getenv("HERMES_API_KEY")]),
-        reason="Requires both SOPHIA_API_TOKEN and HERMES_API_KEY"
+        reason="Requires both SOPHIA_API_TOKEN and HERMES_API_KEY",
     )
     def test_media_upload_hcg_link_workflow(self, integration_client):
         """Test: Upload media → Sophia ingests → Neo4j node created → visible in HCG."""
         # Step 1: Upload media
-        test_image = BytesIO(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01')
-        
+        test_image = BytesIO(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01")
+
         upload_response = integration_client.post(
             "/api/media/upload",
             files={"file": ("workflow_test.png", test_image, "image/png")},
             data={"media_type": "IMAGE", "question": "Integration test media"},
         )
-        
+
         if upload_response.status_code != 200:
             pytest.skip("Media upload failed, Sophia may be unavailable")
-        
+
         upload_data = upload_response.json()
         neo4j_node_id = upload_data.get("neo4j_node_id")
-        
+
         # Step 2: Verify HCG contains the media node
         if neo4j_node_id:
-            entity_response = integration_client.get(f"/api/hcg/entities/{neo4j_node_id}")
+            entity_response = integration_client.get(
+                f"/api/hcg/entities/{neo4j_node_id}"
+            )
             # Node should exist in Neo4j (may take a moment to appear)
             assert entity_response.status_code in [200, 404]
 
@@ -329,15 +339,17 @@ class TestEndToEndWorkflow:
                 "metadata": {"workflow_test": True},
             },
         )
-        
+
         assert create_response.status_code == 200
         created_id = create_response.json()["id"]
-        
+
         # Step 2: Query entries
-        list_response = integration_client.get("/api/persona/entries?entry_type=reflection&limit=50")
+        list_response = integration_client.get(
+            "/api/persona/entries?entry_type=reflection&limit=50"
+        )
         assert list_response.status_code == 200
         entries = list_response.json()
-        
+
         # Step 3: Verify our entry appears
         found = False
         for entry in entries:
@@ -345,5 +357,5 @@ class TestEndToEndWorkflow:
                 found = True
                 assert entry["content"] == unique_content
                 break
-        
+
         assert found, "Created entry should appear in query results"

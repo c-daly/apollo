@@ -67,7 +67,7 @@ class TestPersonaDiaryStoreLifecycle:
     def test_initialization(self, neo4j_config):
         """Test store initializes with config."""
         store = PersonaDiaryStore(neo4j_config)
-        
+
         assert store.config == neo4j_config
         assert store._driver is None
 
@@ -76,10 +76,10 @@ class TestPersonaDiaryStoreLifecycle:
         """Test connect establishes Neo4j driver."""
         mock_driver = Mock()
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         mock_graph_db.driver.assert_called_once_with(
             neo4j_config.uri,
             auth=(neo4j_config.user, neo4j_config.password),
@@ -91,11 +91,11 @@ class TestPersonaDiaryStoreLifecycle:
         """Test connect doesn't reconnect if already connected."""
         mock_driver = Mock()
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
         store.connect()  # Second call
-        
+
         # Should only call driver() once
         mock_graph_db.driver.assert_called_once()
 
@@ -104,16 +104,16 @@ class TestPersonaDiaryStoreLifecycle:
         store = PersonaDiaryStore(neo4j_config)
         mock_driver = Mock()
         store._driver = mock_driver
-        
+
         store.close()
-        
+
         mock_driver.close.assert_called_once()
         assert store._driver is None
 
     def test_close_when_not_connected(self, neo4j_config):
         """Test close does nothing when not connected."""
         store = PersonaDiaryStore(neo4j_config)
-        
+
         # Should not raise exception
         store.close()
         assert store._driver is None
@@ -123,10 +123,10 @@ class TestPersonaDiaryStoreLifecycle:
         """Test context manager connects and closes."""
         mock_driver = Mock()
         mock_graph_db.driver.return_value = mock_driver
-        
+
         with PersonaDiaryStore(neo4j_config) as store:
             assert store._driver == mock_driver
-        
+
         mock_driver.close.assert_called_once()
 
 
@@ -134,7 +134,9 @@ class TestPersonaDiaryStoreCreateEntry:
     """Test creating persona entries."""
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_create_entry_success(self, mock_graph_db, neo4j_config, sample_entry, mock_neo4j_node):
+    def test_create_entry_success(
+        self, mock_graph_db, neo4j_config, sample_entry, mock_neo4j_node
+    ):
         """Test creating a new persona entry."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -143,29 +145,31 @@ class TestPersonaDiaryStoreCreateEntry:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         result = store.create_entry(sample_entry)
-        
+
         # Verify query was executed
         mock_session.run.assert_called_once()
         call_args = mock_session.run.call_args
         assert "CREATE (entry:PersonaEntry" in call_args[0][0]
-        
+
         # Verify parameters
         params = call_args[1]
         assert params["id"] == sample_entry.id
         assert params["entry_type"] == sample_entry.entry_type
         assert params["content"] == sample_entry.content
-        
+
         # Verify result
         assert result.id == "entry-123"
         assert result.entry_type == "thought"
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_create_entry_auto_connects(self, mock_graph_db, neo4j_config, sample_entry, mock_neo4j_node):
+    def test_create_entry_auto_connects(
+        self, mock_graph_db, neo4j_config, sample_entry, mock_neo4j_node
+    ):
         """Test create_entry auto-connects if not connected."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -174,12 +178,12 @@ class TestPersonaDiaryStoreCreateEntry:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         # Don't call connect()
-        
+
         store.create_entry(sample_entry)
-        
+
         # Should have auto-connected
         assert store._driver is not None
 
@@ -193,10 +197,10 @@ class TestPersonaDiaryStoreCreateEntry:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         with pytest.raises(RuntimeError, match="Failed to persist persona entry"):
             store.create_entry(sample_entry)
 
@@ -205,7 +209,9 @@ class TestPersonaDiaryStoreListEntries:
     """Test listing and filtering persona entries."""
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_list_entries_no_filters(self, mock_graph_db, neo4j_config, mock_neo4j_node):
+    def test_list_entries_no_filters(
+        self, mock_graph_db, neo4j_config, mock_neo4j_node
+    ):
         """Test listing all entries without filters."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -213,15 +219,15 @@ class TestPersonaDiaryStoreListEntries:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         results = store.list_entries()
-        
+
         assert len(results) == 1
         assert results[0].id == "entry-123"
-        
+
         # Verify query parameters
         call_args = mock_session.run.call_args
         assert call_args[1]["entry_type"] is None
@@ -230,7 +236,9 @@ class TestPersonaDiaryStoreListEntries:
         assert call_args[1]["offset"] == 0
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_list_entries_with_type_filter(self, mock_graph_db, neo4j_config, mock_neo4j_node):
+    def test_list_entries_with_type_filter(
+        self, mock_graph_db, neo4j_config, mock_neo4j_node
+    ):
         """Test listing entries filtered by type."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -238,17 +246,19 @@ class TestPersonaDiaryStoreListEntries:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
-        results = store.list_entries(entry_type="thought")
-        
+
+        _results = store.list_entries(entry_type="thought")
+
         call_args = mock_session.run.call_args
         assert call_args[1]["entry_type"] == "thought"
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_list_entries_with_sentiment_filter(self, mock_graph_db, neo4j_config, mock_neo4j_node):
+    def test_list_entries_with_sentiment_filter(
+        self, mock_graph_db, neo4j_config, mock_neo4j_node
+    ):
         """Test listing entries filtered by sentiment."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -256,17 +266,19 @@ class TestPersonaDiaryStoreListEntries:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
-        results = store.list_entries(sentiment="positive")
-        
+
+        _results = store.list_entries(sentiment="positive")
+
         call_args = mock_session.run.call_args
         assert call_args[1]["sentiment"] == "positive"
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_list_entries_with_pagination(self, mock_graph_db, neo4j_config, mock_neo4j_node):
+    def test_list_entries_with_pagination(
+        self, mock_graph_db, neo4j_config, mock_neo4j_node
+    ):
         """Test listing entries with pagination."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -274,18 +286,20 @@ class TestPersonaDiaryStoreListEntries:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
-        results = store.list_entries(limit=10, offset=5)
-        
+
+        _results = store.list_entries(limit=10, offset=5)
+
         call_args = mock_session.run.call_args
         assert call_args[1]["limit"] == 10
         assert call_args[1]["offset"] == 5
 
     @patch("apollo.data.persona_store.GraphDatabase")
-    def test_list_entries_with_related_ids(self, mock_graph_db, neo4j_config, mock_neo4j_node):
+    def test_list_entries_with_related_ids(
+        self, mock_graph_db, neo4j_config, mock_neo4j_node
+    ):
         """Test listing entries filtered by related process/goal IDs."""
         mock_driver = Mock()
         mock_session = MagicMock()
@@ -293,15 +307,14 @@ class TestPersonaDiaryStoreListEntries:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
-        results = store.list_entries(
-            related_process_id="proc-1",
-            related_goal_id="goal-1"
+
+        _results = store.list_entries(
+            related_process_id="proc-1", related_goal_id="goal-1"
         )
-        
+
         call_args = mock_session.run.call_args
         assert call_args[1]["related_process_id"] == "proc-1"
         assert call_args[1]["related_goal_id"] == "goal-1"
@@ -320,15 +333,15 @@ class TestPersonaDiaryStoreGetEntry:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         result = store.get_entry("entry-123")
-        
+
         assert result is not None
         assert result.id == "entry-123"
-        
+
         call_args = mock_session.run.call_args
         assert call_args[1]["entry_id"] == "entry-123"
 
@@ -342,12 +355,12 @@ class TestPersonaDiaryStoreGetEntry:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         result = store.get_entry("nonexistent")
-        
+
         assert result is None
 
 
@@ -365,12 +378,12 @@ class TestPersonaDiaryStoreHelpers:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         result = store.latest_entry_timestamp()
-        
+
         assert result == test_timestamp
 
     @patch("apollo.data.persona_store.GraphDatabase")
@@ -383,12 +396,12 @@ class TestPersonaDiaryStoreHelpers:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         result = store.latest_entry_timestamp()
-        
+
         assert result is None
 
     @patch("apollo.data.persona_store.GraphDatabase")
@@ -400,12 +413,12 @@ class TestPersonaDiaryStoreHelpers:
         mock_session.run.return_value = mock_result
         mock_driver.session.return_value.__enter__.return_value = mock_session
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         results = store.recent_entries(limit=3)
-        
+
         assert len(results) == 1
         call_args = mock_session.run.call_args
         assert call_args[1]["limit"] == 3
@@ -418,9 +431,9 @@ class TestPersonaDiaryStoreParseNode:
     def test_parse_node_valid(self, neo4j_config, mock_neo4j_node):
         """Test parsing a valid Neo4j node."""
         store = PersonaDiaryStore(neo4j_config)
-        
+
         result = store._parse_node(mock_neo4j_node)
-        
+
         assert result.id == "entry-123"
         assert result.entry_type == "thought"
         assert result.content == "This is a test thought"
@@ -435,12 +448,16 @@ class TestPersonaDiaryStoreParseNode:
     def test_parse_node_missing_id(self, neo4j_config):
         """Test parsing node without ID raises error."""
         node = Mock(spec=Node)
-        node_data = {"timestamp": datetime.now(), "entry_type": "thought", "content": "Test"}
+        node_data = {
+            "timestamp": datetime.now(),
+            "entry_type": "thought",
+            "content": "Test",
+        }
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
-        
+
         with pytest.raises(ValueError, match="missing string 'id'"):
             store._parse_node(node)
 
@@ -450,9 +467,9 @@ class TestPersonaDiaryStoreParseNode:
         node_data = {"id": "entry-123", "entry_type": "thought", "content": "Test"}
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
-        
+
         with pytest.raises(ValueError, match="missing 'timestamp'"):
             store._parse_node(node)
 
@@ -462,21 +479,25 @@ class TestPersonaDiaryStoreParseNode:
         node_data = {"id": "entry-123", "timestamp": datetime.now(), "content": "Test"}
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
-        
+
         with pytest.raises(ValueError, match="missing string 'entry_type'"):
             store._parse_node(node)
 
     def test_parse_node_missing_content(self, neo4j_config):
         """Test parsing node without content raises error."""
         node = Mock(spec=Node)
-        node_data = {"id": "entry-123", "timestamp": datetime.now(), "entry_type": "thought"}
+        node_data = {
+            "id": "entry-123",
+            "timestamp": datetime.now(),
+            "entry_type": "thought",
+        }
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
-        
+
         with pytest.raises(ValueError, match="missing string 'content'"):
             store._parse_node(node)
 
@@ -491,10 +512,10 @@ class TestPersonaDiaryStoreParseNode:
         }
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
         result = store._parse_node(node)
-        
+
         assert isinstance(result.timestamp, datetime)
         assert result.timestamp.year == 2024
 
@@ -510,10 +531,10 @@ class TestPersonaDiaryStoreParseNode:
         }
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
         result = store._parse_node(node)
-        
+
         assert result.metadata == {"key": "value"}
 
     def test_parse_node_empty_lists(self, neo4j_config):
@@ -527,10 +548,10 @@ class TestPersonaDiaryStoreParseNode:
         }
         node.__iter__ = lambda self: iter(node_data.items())
         node.get = lambda key, default=None: node_data.get(key, default)
-        
+
         store = PersonaDiaryStore(neo4j_config)
         result = store._parse_node(node)
-        
+
         assert result.related_process_ids == []
         assert result.related_goal_ids == []
         assert result.emotion_tags == []
