@@ -1120,7 +1120,14 @@ async def upload_media(
 
     Returns:
         Media ingestion response from Sophia with sample_id and metadata
+    
+    Raises:
+        HTTPException: 413 if file exceeds 100 MB limit
+        HTTPException: 503 if Sophia service unavailable
     """
+    # Server-side size validation - enforce 100 MB limit
+    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
+    
     config = ApolloConfig.load()
     sophia_url = f"http://{config.sophia.host}:{config.sophia.port}"
     sophia_token = config.sophia.api_key or os.getenv("SOPHIA_API_TOKEN")
@@ -1132,17 +1139,29 @@ async def upload_media(
         )
 
     try:
-        # Read file content
-        file_content = await file.read()
-        await file.seek(0)  # Reset file pointer
+        # Validate file size without loading entire file into memory
+        file.file.seek(0, 2)  # Seek to end
+        file_size = file.file.tell()
+        file.file.seek(0)  # Reset to beginning
+        
+        if file_size > MAX_FILE_SIZE:
+            await diagnostics_manager.record_log(
+                "warning",
+                f"Media upload rejected: {file.filename} exceeds 100 MB limit ({file_size / (1024 * 1024):.2f} MB)",
+            )
+            raise HTTPException(
+                status_code=413,
+                detail=f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds 100 MB limit",
+            )
 
-        # Prepare multipart form data
-        files = {"file": (file.filename, file_content, file.content_type)}
+        # Stream file to Sophia without loading into memory
+        # Use file-like object directly for streaming upload
+        files = {"file": (file.filename, file.file, file.content_type)}
         data = {"media_type": media_type}
         if question:
             data["question"] = question
 
-        # Proxy request to Sophia
+        # Proxy request to Sophia with streaming
         async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
             response = await client.post(
                 f"{sophia_url}/ingest/media",
@@ -1154,7 +1173,7 @@ async def upload_media(
 
             await diagnostics_manager.record_log(
                 "info",
-                f"Media uploaded to Sophia: {file.filename} ({media_type})",
+                f"Media uploaded to Sophia: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
             )
 
             return response.json()  # type: ignore[no-any-return]
