@@ -82,15 +82,18 @@ class TestCLIUsesSDKClients:
         mock_persona_client,
     ):
         """Test CLI initialization creates SDK client instances."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ) as sophia_constructor, patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ) as hermes_constructor, patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
-        ) as persona_constructor:
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch(
+                "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
+            ) as sophia_constructor,
+            patch(
+                "apollo.cli.main.HermesClient", return_value=mock_hermes_client
+            ) as hermes_constructor,
+            patch(
+                "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+            ) as persona_constructor,
+        ):
             _result = cli_runner.invoke(cli, ["status"])
 
             # Verify SDK clients were instantiated
@@ -107,14 +110,11 @@ class TestCLIUsesSDKClients:
         mock_persona_client,
     ):
         """Test 'status' command uses SophiaClient, not direct requests."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["status"])
 
@@ -133,14 +133,11 @@ class TestCLIUsesSDKClients:
         mock_persona_client,
     ):
         """Test 'state' command uses SophiaClient.get_state()."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["state"])
 
@@ -156,19 +153,14 @@ class TestCLIUsesSDKClients:
         mock_persona_client,
     ):
         """Test CLI does not make direct requests.get/post calls."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
-        ), patch(
-            "requests.get"
-        ) as mock_get, patch(
-            "requests.post"
-        ) as mock_post:
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
+            patch("requests.get") as mock_get,
+            patch("requests.post") as mock_post,
+        ):
             # Run a command that interacts with Sophia
             result = cli_runner.invoke(cli, ["status"])
 
@@ -189,12 +181,11 @@ class TestCLIErrorHandling:
         failing_client.base_url = "http://localhost:8000"
         failing_client.health_check = Mock(return_value=False)
 
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch("apollo.cli.main.SophiaClient", return_value=failing_client), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=failing_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["status"])
 
@@ -213,12 +204,11 @@ class TestCLIErrorHandling:
             )
         )
 
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch("apollo.cli.main.SophiaClient", return_value=failing_client), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=failing_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["state"])
 
@@ -238,12 +228,11 @@ class TestCLIConfigLoading:
         self, cli_runner, mock_sophia_client, mock_hermes_client, mock_persona_client
     ):
         """Test CLI loads default config when no file specified."""
-        with patch("apollo.cli.main.ApolloConfig.load") as mock_load, patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load") as mock_load,
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             mock_load.return_value = Mock(
                 sophia=Mock(host="localhost", port=8000, timeout=30.0),
@@ -279,12 +268,11 @@ persona_api:
 """
         )
 
-        with patch("apollo.cli.main.ApolloConfig.load") as mock_load, patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load") as mock_load,
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             mock_load.return_value = Mock(
                 sophia=Mock(host="custom-host", port=9000, timeout=30.0),
@@ -312,14 +300,11 @@ class TestCLIOutputFormatting:
         mock_persona_client,
     ):
         """Test status command displays well-formatted output."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["status"])
 
@@ -340,14 +325,11 @@ class TestCLIOutputFormatting:
         mock_persona_client,
     ):
         """Test state command displays data in YAML format."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["state"])
 
@@ -376,14 +358,11 @@ class TestCLIClientIntegration:
             captured_context.update(ctx.obj)
             return ctx
 
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ), patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             result = cli_runner.invoke(cli, ["status"], obj={}, standalone_mode=False)
 
@@ -401,14 +380,13 @@ class TestCLIClientIntegration:
         mock_persona_client,
     ):
         """Test multiple CLI invocations each get their own client instances."""
-        with patch(
-            "apollo.cli.main.ApolloConfig.load", return_value=mock_config
-        ), patch(
-            "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
-        ) as sophia_constructor, patch(
-            "apollo.cli.main.HermesClient", return_value=mock_hermes_client
-        ), patch(
-            "apollo.cli.main.PersonaClient", return_value=mock_persona_client
+        with (
+            patch("apollo.cli.main.ApolloConfig.load", return_value=mock_config),
+            patch(
+                "apollo.cli.main.SophiaClient", return_value=mock_sophia_client
+            ) as sophia_constructor,
+            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
+            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
         ):
             # First invocation
             result1 = cli_runner.invoke(cli, ["status"])

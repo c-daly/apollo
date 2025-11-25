@@ -6,7 +6,17 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
 
 export default [
-  { ignores: ['dist', 'node_modules', 'vendor'] },
+  { ignores: ['dist', 'node_modules', 'vendor', 'coverage'] },
+  {
+    files: ['**/*.config.{ts,js}', 'vite.config.ts', 'vitest.config.ts', 'playwright.config.ts'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: {
+        ...globals.node,
+      },
+      parser: tsparser,
+    },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
