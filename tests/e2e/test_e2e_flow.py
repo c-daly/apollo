@@ -38,7 +38,26 @@ SOPHIA_BASE_URL = f"http://{SOPHIA_HOST}:{SOPHIA_PORT}"
 
 # Paths
 E2E_DIR = Path(__file__).parent
-COMPOSE_FILE = E2E_DIR / "docker-compose.e2e.yml"
+BASE_COMPOSE_FILE = E2E_DIR / "docker-compose.test.yml"
+OVERLAY_COMPOSE_FILE = E2E_DIR / "docker-compose.test.apollo.yml"
+COMPOSE_ENV_FILE = E2E_DIR / ".env.test"
+
+
+def compose_args(*extra: str) -> list[str]:
+    """Build docker compose CLI arguments for the shared + overlay stack."""
+
+    args: list[str] = [
+        "docker",
+        "compose",
+        "--env-file",
+        str(COMPOSE_ENV_FILE),
+        "-f",
+        str(BASE_COMPOSE_FILE),
+        "-f",
+        str(OVERLAY_COMPOSE_FILE),
+    ]
+    args.extend(extra)
+    return args
 
 
 class E2ETestRunner:
@@ -72,7 +91,7 @@ class E2ETestRunner:
         try:
             # Start services
             subprocess.run(
-                ["docker", "compose", "-f", str(COMPOSE_FILE), "up", "-d"],
+                compose_args("up", "-d"),
                 check=True,
                 capture_output=True,
                 text=True,
@@ -565,7 +584,7 @@ class E2ETestRunner:
         # Stop docker-compose services
         try:
             subprocess.run(
-                ["docker", "compose", "-f", str(COMPOSE_FILE), "down", "-v"],
+                compose_args("down", "-v"),
                 check=True,
                 capture_output=True,
                 text=True,

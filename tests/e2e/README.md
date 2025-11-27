@@ -28,10 +28,27 @@ The E2E test validates the complete system integration:
 
 ### Test Scripts
 
-- `docker-compose.e2e.yml`: Service orchestration
+- `docker-compose.test.yml`: Generated shared infrastructure stack (Neo4j, Milvus)
+- `docker-compose.test.apollo.yml`: Apollo-specific overlay (Sophia mock)
 - `seed_data.py`: Populates initial test data
 - `test_e2e_flow.py`: Main E2E test runner
 - `mocks/sophia/`: Mock Sophia service implementation
+- `.env.test`: Connection settings consumed by docker compose
+- `STACK_VERSION`: Hash of the template inputs (detects drift)
+
+### Updating the stack definition
+
+The base compose/env artifacts are generated from the LOGOS repository:
+
+```bash
+cd ../logos
+poetry run python infra/scripts/render_test_stacks.py --repo apollo
+cp infra/test_stack/out/apollo/docker-compose.test.yml ../apollo/tests/e2e/
+cp infra/test_stack/out/apollo/.env.test ../apollo/tests/e2e/
+cp infra/test_stack/out/apollo/STACK_VERSION ../apollo/tests/e2e/
+```
+
+Do not hand-edit `docker-compose.test.yml`; make changes inside the LOGOS template and regenerate instead. Apollo-specific services (the Sophia mock) live in `docker-compose.test.apollo.yml` and can be modified locally.
 
 ## Running the Tests
 
@@ -59,10 +76,11 @@ If you want to manually interact with the test environment:
 ```bash
 # Start services
 cd tests/e2e
-docker compose -f docker-compose.e2e.yml up -d
+APOLLO_COMPOSE="docker compose --env-file .env.test -f docker-compose.test.yml -f docker-compose.test.apollo.yml"
+$APOLLO_COMPOSE up -d
 
 # Wait for services to be healthy (check logs)
-docker compose -f docker-compose.e2e.yml logs -f
+$APOLLO_COMPOSE logs -f
 
 # Seed data
 export NEO4J_URI=bolt://localhost:7687
@@ -82,7 +100,7 @@ apollo-cli plans --recent 5
 # Run queries: MATCH (n) RETURN n
 
 # Clean up
-docker compose -f docker-compose.e2e.yml down -v
+$APOLLO_COMPOSE down -v
 ```
 
 ## Test Coverage
@@ -173,11 +191,13 @@ e2e-test:
 
 ## Troubleshooting
 
+> Tip: set `APOLLO_COMPOSE="docker compose --env-file tests/e2e/.env.test -f tests/e2e/docker-compose.test.yml -f tests/e2e/docker-compose.test.apollo.yml"` from the repository root so the commands below stay concise.
+
 ### Services not starting
 
 ```bash
 # Check service logs
-docker compose -f tests/e2e/docker-compose.e2e.yml logs
+$APOLLO_COMPOSE logs
 
 # Verify Docker is running
 docker ps
@@ -187,7 +207,7 @@ docker ps
 
 ```bash
 # Wait for Neo4j to be ready (can take 20-30 seconds)
-docker compose -f tests/e2e/docker-compose.e2e.yml logs neo4j
+$APOLLO_COMPOSE logs neo4j
 
 # Test connection manually
 cypher-shell -a bolt://localhost:7687 -u neo4j -p testpassword
@@ -198,16 +218,16 @@ cypher-shell -a bolt://localhost:7687 -u neo4j -p testpassword
 If ports 7474, 7687, or 8080 are already in use:
 
 ```bash
-# Stop conflicting services or modify ports in docker-compose.e2e.yml
-docker compose -f tests/e2e/docker-compose.e2e.yml down
-# Edit docker-compose.e2e.yml to use different ports
+# Stop conflicting services or modify ports in the compose files
+$APOLLO_COMPOSE down
+# Edit docker-compose.test(.apollo).yml to use different ports
 ```
 
 ### Clean slate
 
 ```bash
 # Complete cleanup including volumes
-docker compose -f tests/e2e/docker-compose.e2e.yml down -v
+$APOLLO_COMPOSE down -v
 docker system prune -f
 ```
 
