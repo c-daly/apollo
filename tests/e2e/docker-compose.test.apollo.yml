@@ -2,7 +2,7 @@ version: '3.9'
 services:
   sophia-mock:
     build:
-      context: tests/e2e/mocks/sophia
+      context: ./mocks/sophia
       dockerfile: Dockerfile
     container_name: apollo-test-sophia
     ports:
