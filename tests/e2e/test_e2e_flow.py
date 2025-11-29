@@ -29,18 +29,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Test configuration
-NEO4J_URI = "bolt://localhost:7687"
+NEO4J_URI = "bolt://localhost:27687"
 NEO4J_USER = "neo4j"
 NEO4J_PASSWORD = "neo4jtest"
 SOPHIA_HOST = "localhost"
-SOPHIA_PORT = 8080
+SOPHIA_PORT = 28080
 SOPHIA_BASE_URL = f"http://{SOPHIA_HOST}:{SOPHIA_PORT}"
 
 # Paths
 E2E_DIR = Path(__file__).parent
-BASE_COMPOSE_FILE = E2E_DIR / "docker-compose.test.yml"
+BASE_COMPOSE_FILE = E2E_DIR / "stack" / "apollo" / "docker-compose.test.yml"
 OVERLAY_COMPOSE_FILE = E2E_DIR / "docker-compose.test.apollo.yml"
-COMPOSE_ENV_FILE = E2E_DIR / ".env.test"
+COMPOSE_ENV_FILE = E2E_DIR / "stack" / "apollo" / ".env.test"
 
 
 def compose_args(*extra: str) -> list[str]:

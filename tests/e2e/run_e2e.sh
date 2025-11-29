@@ -4,9 +4,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.test.yml"
+BASE_COMPOSE_FILE="${SCRIPT_DIR}/stack/apollo/docker-compose.test.yml"
 OVERLAY_COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.test.apollo.yml"
-COMPOSE_ENV_FILE="${SCRIPT_DIR}/.env.test"
+COMPOSE_ENV_FILE="${SCRIPT_DIR}/stack/apollo/.env.test"
 
 compose() {
     docker compose \
@@ -60,7 +60,7 @@ function start_services() {
     
     # Check Sophia
     echo -n "Sophia: "
-    if curl -s -f http://localhost:8080/health > /dev/null 2>&1; then
+    if curl -s -f http://localhost:28080/health > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Ready${NC}"
     else
         echo -e "${RED}✗ Not ready${NC}"
@@ -79,7 +79,7 @@ function show_logs() {
 
 function seed_data() {
     echo -e "${BLUE}Seeding test data...${NC}"
-    export NEO4J_URI=bolt://localhost:7687
+    export NEO4J_URI=bolt://localhost:27687
     export NEO4J_USER=neo4j
     export NEO4J_PASSWORD=neo4jtest
     python "${SCRIPT_DIR}/seed_data.py"
@@ -92,15 +92,15 @@ function check_status() {
     echo ""
     echo -e "${BLUE}Health Checks:${NC}"
     
-    echo -n "Neo4j (bolt://localhost:7687): "
+    echo -n "Neo4j (bolt://localhost:27687): "
     if compose exec -T neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"
     fi
     
-    echo -n "Sophia (http://localhost:8080): "
-    if curl -s -f http://localhost:8080/health > /dev/null 2>&1; then
+    echo -n "Sophia (http://localhost:28080): "
+    if curl -s -f http://localhost:28080/health > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"

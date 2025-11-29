@@ -64,7 +64,7 @@ jobs:
         
         # Capture docker compose logs
         cd tests/e2e
-        COMPOSE_CMD="docker compose --env-file .env.test -f docker-compose.test.yml -f docker-compose.test.apollo.yml"
+        COMPOSE_CMD="docker compose --env-file stack/apollo/.env.test -f stack/apollo/docker-compose.test.yml -f docker-compose.test.apollo.yml"
         $COMPOSE_CMD logs > ../../e2e-artifacts/logs/docker-compose.log 2>&1 || true
     
     - name: Upload E2E artifacts
@@ -79,7 +79,7 @@ jobs:
       if: failure()
       run: |
         cd tests/e2e
-        COMPOSE_CMD="docker compose --env-file .env.test -f docker-compose.test.yml -f docker-compose.test.apollo.yml"
+        COMPOSE_CMD="docker compose --env-file stack/apollo/.env.test -f stack/apollo/docker-compose.test.yml -f docker-compose.test.apollo.yml"
         $COMPOSE_CMD logs
     
     - name: Check E2E test result
@@ -92,5 +92,5 @@ jobs:
       if: always()
       run: |
         cd tests/e2e
-        COMPOSE_CMD="docker compose --env-file .env.test -f docker-compose.test.yml -f docker-compose.test.apollo.yml"
+        COMPOSE_CMD="docker compose --env-file stack/apollo/.env.test -f stack/apollo/docker-compose.test.yml -f docker-compose.test.apollo.yml"
         $COMPOSE_CMD down -v || true

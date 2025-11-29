@@ -23,18 +23,19 @@ The E2E test validates the complete system integration:
 
 ### Docker Services
 
-- **Neo4j**: Graph database for HCG (port 7474/7687)
-- **Sophia Mock**: Flask service simulating Sophia cognitive core with Talos shim (port 8080)
+- **Neo4j**: Graph database for HCG (ports 27474/27687 - Apollo-specific)
+- **Sophia Mock**: Flask service simulating Sophia cognitive core with Talos shim (port 28080 - Apollo-specific)
+- **Milvus**: Vector database (ports 29530/29091 - Apollo-specific)
 
 ### Test Scripts
 
-- `docker-compose.test.yml`: Generated shared infrastructure stack (Neo4j, Milvus)
+- `stack/apollo/docker-compose.test.yml`: Generated shared infrastructure stack (Neo4j, Milvus)
 - `docker-compose.test.apollo.yml`: Apollo-specific overlay (Sophia mock)
 - `seed_data.py`: Populates initial test data
 - `test_e2e_flow.py`: Main E2E test runner
 - `mocks/sophia/`: Mock Sophia service implementation
-- `.env.test`: Connection settings consumed by docker compose
-- `STACK_VERSION`: Hash of the template inputs (detects drift)
+- `stack/apollo/.env.test`: Connection settings consumed by docker compose
+- `stack/apollo/STACK_VERSION`: Hash of the template inputs (detects drift)
 
 ### Updating the stack definition
 
@@ -42,13 +43,13 @@ The base compose/env artifacts are generated from the LOGOS repository:
 
 ```bash
 cd ../logos
-poetry run python infra/scripts/render_test_stacks.py --repo apollo
-cp infra/test_stack/out/apollo/docker-compose.test.yml ../apollo/tests/e2e/
-cp infra/test_stack/out/apollo/.env.test ../apollo/tests/e2e/
-cp infra/test_stack/out/apollo/STACK_VERSION ../apollo/tests/e2e/
+poetry run render-test-stacks --repo apollo
+cp tests/e2e/stack/apollo/docker-compose.test.yml ../apollo/tests/e2e/stack/apollo/
+cp tests/e2e/stack/apollo/.env.test ../apollo/tests/e2e/stack/apollo/
+cp tests/e2e/stack/apollo/STACK_VERSION ../apollo/tests/e2e/stack/apollo/
 ```
 
-Do not hand-edit `docker-compose.test.yml`; make changes inside the LOGOS template and regenerate instead. Apollo-specific services (the Sophia mock) live in `docker-compose.test.apollo.yml` and can be modified locally.
+Do not hand-edit `stack/apollo/docker-compose.test.yml`; make changes inside the LOGOS template and regenerate instead. Apollo-specific services (the Sophia mock) live in `docker-compose.test.apollo.yml` and can be modified locally.
 
 ## Running the Tests
 
@@ -76,14 +77,14 @@ If you want to manually interact with the test environment:
 ```bash
 # Start services
 cd tests/e2e
-APOLLO_COMPOSE="docker compose --env-file .env.test -f docker-compose.test.yml -f docker-compose.test.apollo.yml"
+APOLLO_COMPOSE="docker compose --env-file stack/apollo/.env.test -f stack/apollo/docker-compose.test.yml -f docker-compose.test.apollo.yml"
 $APOLLO_COMPOSE up -d
 
 # Wait for services to be healthy (check logs)
 $APOLLO_COMPOSE logs -f
 
 # Seed data
-export NEO4J_URI=bolt://localhost:7687
+export NEO4J_URI=bolt://localhost:27687
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=neo4jtest
 python seed_data.py
@@ -95,7 +96,7 @@ apollo-cli state
 apollo-cli plans --recent 5
 
 # Access Neo4j browser
-# Open http://localhost:7474 in browser
+# Open http://localhost:27474 in browser
 # Login: neo4j / neo4jtest
 # Run queries: MATCH (n) RETURN n
 
@@ -191,7 +192,7 @@ e2e-test:
 
 ## Troubleshooting
 
-> Tip: set `APOLLO_COMPOSE="docker compose --env-file tests/e2e/.env.test -f tests/e2e/docker-compose.test.yml -f tests/e2e/docker-compose.test.apollo.yml"` from the repository root so the commands below stay concise.
+> Tip: set `APOLLO_COMPOSE="docker compose --env-file tests/e2e/stack/apollo/.env.test -f tests/e2e/stack/apollo/docker-compose.test.yml -f tests/e2e/docker-compose.test.apollo.yml"` from the repository root so the commands below stay concise.
 
 ### Services not starting
 
@@ -210,12 +211,12 @@ docker ps
 $APOLLO_COMPOSE logs neo4j
 
 # Test connection manually
-cypher-shell -a bolt://localhost:7687 -u neo4j -p neo4jtest
+cypher-shell -a bolt://localhost:27687 -u neo4j -p neo4jtest
 ```
 
 ### Port conflicts
 
-If ports 7474, 7687, or 8080 are already in use:
+If ports 27474, 27687, 28080, or 29530 are already in use:
 
 ```bash
 # Stop conflicting services or modify ports in the compose files

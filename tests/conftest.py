@@ -5,6 +5,14 @@ from typing import Generator
 from unittest.mock import AsyncMock, Mock, patch
 from fastapi.testclient import TestClient
 
+# Import shared test utilities from logos_test_utils
+from logos_test_utils.fixtures import (
+    stack_env,
+    neo4j_config,
+    neo4j_driver,
+    load_cypher,
+)
+
 from apollo.api.server import app
 from apollo.data.hcg_client import HCGClient
 from apollo.data.persona_store import PersonaDiaryStore

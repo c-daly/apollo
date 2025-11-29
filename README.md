@@ -472,6 +472,32 @@ Frontend: 88 tests passing covering all major components.
 
 See [E2E Test Documentation](tests/e2e/README.md) for detailed information on end-to-end testing.
 
+#### Test Infrastructure
+
+Apollo uses standardized test stacks generated from the shared LOGOS template to avoid port conflicts with other services.
+
+**Port Assignments (Apollo-specific):**
+- Neo4j HTTP: `27474`
+- Neo4j Bolt: `27687`
+- Milvus gRPC: `29530`
+- Milvus Metrics: `29091`
+- Sophia Mock: `28080`
+- Credentials: `neo4j/neo4jtest`
+
+**Regenerating Test Stack:**
+```bash
+cd ../logos
+poetry run render-test-stacks --repo apollo
+# Copy generated files from logos/tests/e2e/stack/apollo/ to apollo/tests/e2e/stack/apollo/
+```
+
+**Test Stack Location:** `tests/e2e/stack/apollo/`
+- `docker-compose.test.yml` - Generated infrastructure (Neo4j, Milvus)
+- `.env.test` - Connection settings
+- `STACK_VERSION` - Template version hash
+
+Apollo-specific services (like the Sophia mock) are defined in `tests/e2e/docker-compose.test.apollo.yml` and can be edited locally.
+
 ### Code Quality
 
 #### Python (CLI)
