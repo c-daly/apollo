@@ -4,12 +4,12 @@ WORKDIR /app/apollo
 
 # Copy source code and configuration
 COPY src ./src
-COPY pyproject.toml poetry.lock ./
+COPY pyproject.toml poetry.lock README.md ./
 COPY config.example.yaml ./config.yaml
 
-# Install Apollo's specific dependencies (SDKs, etc.)
+# Install Apollo's specific dependencies (SDKs, etc.) and Apollo itself
 # logos utilities are already available from foundry base
-RUN poetry install --only main --no-root --no-interaction --no-ansi
+RUN poetry install --only main --no-interaction --no-ansi
 
 # Expose port
 EXPOSE 8003
