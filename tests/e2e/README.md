@@ -85,7 +85,7 @@ $APOLLO_COMPOSE logs -f
 # Seed data
 export NEO4J_URI=bolt://localhost:7687
 export NEO4J_USER=neo4j
-export NEO4J_PASSWORD=testpassword
+export NEO4J_PASSWORD=neo4jtest
 python seed_data.py
 
 # Use Apollo CLI
@@ -96,7 +96,7 @@ apollo-cli plans --recent 5
 
 # Access Neo4j browser
 # Open http://localhost:7474 in browser
-# Login: neo4j / testpassword
+# Login: neo4j / neo4jtest
 # Run queries: MATCH (n) RETURN n
 
 # Clean up
@@ -210,7 +210,7 @@ docker ps
 $APOLLO_COMPOSE logs neo4j
 
 # Test connection manually
-cypher-shell -a bolt://localhost:7687 -u neo4j -p testpassword
+cypher-shell -a bolt://localhost:7687 -u neo4j -p neo4jtest
 ```
 
 ### Port conflicts

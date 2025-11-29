@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # Neo4j configuration
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "testpassword")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jtest")
 
 
 def wait_for_neo4j(max_retries=30, delay=2):

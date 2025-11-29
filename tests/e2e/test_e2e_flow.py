@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Test configuration
 NEO4J_URI = "bolt://localhost:7687"
 NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "testpassword"
+NEO4J_PASSWORD = "neo4jtest"
 SOPHIA_HOST = "localhost"
 SOPHIA_PORT = 8080
 SOPHIA_BASE_URL = f"http://{SOPHIA_HOST}:{SOPHIA_PORT}"

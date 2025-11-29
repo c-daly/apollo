@@ -105,7 +105,7 @@ class Neo4jConfig(BaseModel):
         description="Neo4j username",
     )
     password: str = Field(
-        default_factory=lambda: os.getenv("NEO4J_PASSWORD", "password"),
+        default_factory=lambda: os.getenv("NEO4J_PASSWORD", "neo4jtest"),
         description="Neo4j password",
     )
 
@@ -137,6 +137,16 @@ class ApolloConfig(BaseModel):
     hermes: HermesConfig = Field(default_factory=HermesConfig)
     hcg: HCGConfig = Field(default_factory=HCGConfig)
     persona_api: PersonaApiConfig = Field(default_factory=PersonaApiConfig)
+
+    def apply_env_overrides(self) -> None:
+        """Let environment variables override config-file values."""
+        if self.hcg and self.hcg.neo4j:
+            if env_uri := os.getenv("NEO4J_URI"):
+                self.hcg.neo4j.uri = env_uri
+            if env_user := os.getenv("NEO4J_USER"):
+                self.hcg.neo4j.user = env_user
+            if env_password := os.getenv("NEO4J_PASSWORD"):
+                self.hcg.neo4j.password = env_password
 
     @classmethod
     def from_yaml(cls, path: Path) -> "ApolloConfig":
@@ -171,8 +181,12 @@ class ApolloConfig(BaseModel):
         Returns:
             ApolloConfig instance
         """
+        config: ApolloConfig
+
         if config_path and config_path.exists():
-            return cls.from_yaml(config_path)
+            config = cls.from_yaml(config_path)
+            config.apply_env_overrides()
+            return config
 
         # Try default locations
         default_paths = [
@@ -183,7 +197,11 @@ class ApolloConfig(BaseModel):
 
         for path in default_paths:
             if path.exists():
-                return cls.from_yaml(path)
+                config = cls.from_yaml(path)
+                config.apply_env_overrides()
+                return config
 
         # Return default config if no file found
-        return cls()
+        config = cls()
+        config.apply_env_overrides()
+        return config

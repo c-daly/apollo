@@ -37,7 +37,7 @@ Or use environment variables:
 ```bash
 export NEO4J_URI=bolt://localhost:7687
 export NEO4J_USER=neo4j
-export NEO4J_PASSWORD=password
+export NEO4J_PASSWORD=neo4jtest
 ```
 
 ## Running the Server

@@ -52,7 +52,7 @@ function start_services() {
     
     # Check Neo4j
     echo -n "Neo4j: "
-    if compose exec -T neo4j cypher-shell -u neo4j -p testpassword "RETURN 1" > /dev/null 2>&1; then
+    if compose exec -T neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Ready${NC}"
     else
         echo -e "${RED}✗ Not ready${NC}"
@@ -81,7 +81,7 @@ function seed_data() {
     echo -e "${BLUE}Seeding test data...${NC}"
     export NEO4J_URI=bolt://localhost:7687
     export NEO4J_USER=neo4j
-    export NEO4J_PASSWORD=testpassword
+    export NEO4J_PASSWORD=neo4jtest
     python "${SCRIPT_DIR}/seed_data.py"
 }
 
@@ -93,7 +93,7 @@ function check_status() {
     echo -e "${BLUE}Health Checks:${NC}"
     
     echo -n "Neo4j (bolt://localhost:7687): "
-    if compose exec -T neo4j cypher-shell -u neo4j -p testpassword "RETURN 1" > /dev/null 2>&1; then
+    if compose exec -T neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"
