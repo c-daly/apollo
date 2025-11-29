@@ -2,8 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies (with SSL bypass for sandboxed environments)
-RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org flask neo4j
+# Install dependencies and curl for healthcheck
+RUN pip install --no-cache-dir --trusted-host pypi.org --trusted-host files.pythonhosted.org flask neo4j && \
+    apt-get update && apt-get install -y --no-install-recommends curl && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy the mock service
 COPY sophia_mock.py .

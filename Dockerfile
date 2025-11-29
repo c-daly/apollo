@@ -1,28 +1,15 @@
-FROM python:3.11-slim
+FROM ghcr.io/c-daly/logos-foundry:0.1.0
 
-WORKDIR /app
+WORKDIR /app/apollo
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy poetry files
-COPY pyproject.toml ./
-
-# Install poetry
-RUN pip install poetry
-
-# Install dependencies
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi --no-root
-
-# Copy source code
+# Copy source code and configuration
 COPY src ./src
+COPY pyproject.toml poetry.lock README.md ./
 COPY config.example.yaml ./config.yaml
 
-# Install the package
-RUN poetry install --no-interaction --no-ansi
+# Install Apollo's specific dependencies (SDKs, etc.) and Apollo itself
+# logos utilities are already available from foundry base
+RUN poetry install --only main --no-interaction --no-ansi
 
 # Expose port
 EXPOSE 8003

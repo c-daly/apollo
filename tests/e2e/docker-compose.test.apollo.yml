@@ -1,4 +1,3 @@
-version: '3.9'
 services:
   test-runner:
     image: ghcr.io/c-daly/logos-foundry:0.1.0
@@ -7,7 +6,7 @@ services:
       - ${APOLLO_ROOT:-./../..}:/app/apollo:ro
     working_dir: /app/apollo
     environment:
-      NEO4J_URI: bolt://neo4j:27687
+      NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: neo4jtest
       PYTHONPATH: /app:/app/apollo/src
@@ -26,13 +25,13 @@ services:
 
   sophia-mock:
     build:
-      context: ./mocks/sophia
+      context: ../../mocks/sophia
       dockerfile: Dockerfile
     container_name: apollo-test-sophia
     ports:
       - "28080:8080"
     environment:
-      NEO4J_URI: bolt://neo4j:27687
+      NEO4J_URI: bolt://neo4j:7687
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: neo4jtest
     depends_on:
@@ -49,3 +48,4 @@ services:
       retries: 5
     networks:
       - default
+

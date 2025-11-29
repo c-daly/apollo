@@ -61,6 +61,29 @@ npm install
 
 This will install all JavaScript/TypeScript dependencies defined in `webapp/package.json`. The lock file (`package-lock.json`) ensures reproducible builds across all environments.
 
+### Using Docker
+
+Apollo is available as a pre-built container image for easy deployment:
+
+```bash
+# Pull the latest Apollo image
+docker pull ghcr.io/c-daly/apollo:latest
+
+# Run Apollo API server
+docker run -d \
+  -p 8003:8003 \
+  -e NEO4J_URI=bolt://neo4j:7687 \
+  -e NEO4J_USER=neo4j \
+  -e NEO4J_PASSWORD=your_password \
+  -e SOPHIA_HOST=sophia \
+  -e SOPHIA_PORT=8002 \
+  -e HERMES_HOST=hermes \
+  -e HERMES_PORT=8001 \
+  ghcr.io/c-daly/apollo:latest
+```
+
+The container includes all Python dependencies and the Apollo API service. For development and testing, Apollo uses the `logos-foundry` base image which includes all LOGOS shared packages.
+
 ## Quick Start
 
 ### Running the Full Stack Demo
