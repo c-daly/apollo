@@ -27,7 +27,7 @@ def test_neo4j_config_defaults() -> None:
     config = Neo4jConfig()
     assert config.uri == "bolt://localhost:7687"
     assert config.user == "neo4j"
-    assert config.password == "password"
+    assert config.password == "neo4jtest"
 
 
 def test_milvus_config_defaults() -> None:
