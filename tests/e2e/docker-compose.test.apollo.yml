@@ -1,5 +1,25 @@
 version: '3.9'
 services:
+  test-runner:
+    image: ghcr.io/c-daly/logos-foundry:0.1.0
+    container_name: apollo-test-runner
+    volumes:
+      - ../../src:/app/apollo/src:ro
+      - ../:/app/apollo/tests:ro
+      - ../../pyproject.toml:/app/apollo/pyproject.toml:ro
+    working_dir: /app/apollo
+    environment:
+      NEO4J_URI: bolt://neo4j:27687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: neo4jtest
+      PYTHONPATH: /app:/app/apollo/src
+    command: pytest tests/e2e -v --ignore=tests/e2e/test_e2e_flow.py
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    networks:
+      - default
+
   sophia-mock:
     build:
       context: ./mocks/sophia

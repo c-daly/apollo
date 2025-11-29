@@ -31,7 +31,6 @@ ruff = "^0.1.0"
 mypy = "^1.0.0"
 types-pyyaml = "^6.0.0"
 types-requests = "^2.28.0"
-logos-foundry = {path = "../logos", develop = true}
 
 [tool.poetry.scripts]
 apollo-cli = "apollo.cli.main:main"

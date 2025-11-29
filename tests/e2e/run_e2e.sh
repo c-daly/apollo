@@ -108,8 +108,22 @@ function check_status() {
 }
 
 function run_test() {
-    echo -e "${BLUE}Running E2E test suite...${NC}"
-    python "${SCRIPT_DIR}/test_e2e_flow.py"
+    echo -e "${BLUE}Starting services...${NC}"
+    start_services
+    
+    echo -e "${BLUE}Running E2E tests in container...${NC}"
+    if compose run --rm test-runner; then
+        echo -e "${GREEN}✓ Tests passed${NC}"
+        RESULT=0
+    else
+        echo -e "${RED}✗ Tests failed${NC}"
+        RESULT=1
+    fi
+    
+    echo -e "${BLUE}Stopping services...${NC}"
+    stop_services
+    
+    return $RESULT
 }
 
 function clean_all() {
