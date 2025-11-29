@@ -70,7 +70,8 @@ def test_sophia_client_create_goal() -> None:
     config = SophiaConfig()
     client = SophiaClient(config)
 
-    response = client.create_goal("Navigate to kitchen", {"priority": "high"})
+    goal = {"description": "Navigate to kitchen", "target_state": "in_kitchen"}
+    response = client.create_goal(goal, {"priority": "high"})
 
     assert isinstance(response, SophiaResponse)
     assert response.success is False

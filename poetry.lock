@@ -538,8 +538,8 @@ urllib3 = ">=2.1.0,<3.0.0"
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "9549b089203ed1d8bb6560ab56ba02e7dbbefb61"
-resolved_reference = "9549b089203ed1d8bb6560ab56ba02e7dbbefb61"
+reference = "main"
+resolved_reference = "a3f4062f67be48a74f60aedf80e89c7ddc59ef89"
 subdirectory = "sdk/python/hermes"
 
 [[package]]
@@ -561,8 +561,8 @@ urllib3 = ">=2.1.0,<3.0.0"
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "9549b089203ed1d8bb6560ab56ba02e7dbbefb61"
-resolved_reference = "9549b089203ed1d8bb6560ab56ba02e7dbbefb61"
+reference = "fix/dict-only-goal-format"
+resolved_reference = "9bd69495eea2c28c5f5a2f005d7c973f96649b36"
 subdirectory = "sdk/python/sophia"
 
 [[package]]
@@ -1601,4 +1601,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "2a4fea398a3e0edb801743f8e309715f0c3081f12d936773cf37134f67bcc33c"
+content-hash = "8a918bf29635f7901f31f36f95c6f247e43421f4fdee10d9f993743e1af11ab9"

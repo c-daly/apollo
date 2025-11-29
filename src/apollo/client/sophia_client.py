@@ -71,12 +71,17 @@ class SophiaClient:
         return self.get_state(limit=limit)
 
     def create_goal(
-        self, goal: str, metadata: Optional[Dict[str, Any]] = None
+        self, goal: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None
     ) -> SophiaResponse:
-        """Create a goal by submitting a plan request."""
+        """Create a goal by submitting a plan request.
+        
+        Args:
+            goal: Goal dict with 'description' and 'target_state' keys
+            metadata: Optional metadata for the request
+        """
         if not goal:
             return SophiaResponse(
-                success=False, error="Goal description cannot be empty"
+                success=False, error="Goal cannot be empty"
             )
 
         metadata_copy = dict(metadata) if metadata else {}
