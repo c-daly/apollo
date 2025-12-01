@@ -228,7 +228,9 @@ def seed_data():
                 """,
                     entry,
                 )
-                logger.info(f"  - Created diary entry: {entry['id']} ({entry['entry_type']})")
+                logger.info(
+                    f"  - Created diary entry: {entry['id']} ({entry['entry_type']})"
+                )
 
             # Verify data
             result = session.run(
