@@ -2,6 +2,32 @@
 
 This module provides utilities for resolving paths and loading environment
 configuration, following the pattern established in logos_test_utils.
+
+Repository Root Resolution
+--------------------------
+The ``get_repo_root()`` function resolves the Apollo repository root using:
+
+1. ``APOLLO_REPO_ROOT`` environment variable (if set and path exists)
+2. ``GITHUB_WORKSPACE`` environment variable (set by GitHub Actions in CI)
+3. Fallback to parent of this package (works when running from source)
+
+This allows tests and scripts to work correctly when the repository is relocated
+or mounted at a non-standard path (e.g., CI containers, symlinked workspaces).
+
+Usage::
+
+    from apollo.env import get_repo_root, load_stack_env, get_neo4j_config
+
+    # Get repo root (honors APOLLO_REPO_ROOT if set)
+    root = get_repo_root()
+
+    # Load stack environment from .env.test
+    env = load_stack_env()
+
+    # Get service configs with sensible defaults
+    neo4j = get_neo4j_config()
+    milvus = get_milvus_config()
+    sophia = get_sophia_config()
 """
 
 from __future__ import annotations
