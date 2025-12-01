@@ -429,28 +429,6 @@ function GraphViewer() {
       <div className="graph-content">
         <div className="graph-container" ref={containerRef}></div>
 
-        {selectedNodeData && (
-          <div className="node-details">
-            <h3>Node Details</h3>
-            <button className="close-btn" onClick={() => setSelectedNode(null)}>
-              ×
-            </button>
-            <div className="detail-item">
-              <strong>ID:</strong> {selectedNodeData.id}
-            </div>
-            <div className="detail-item">
-              <strong>Type:</strong> {selectedNodeData.type}
-            </div>
-            <div className="detail-item">
-              <strong>Labels:</strong> {selectedNodeData.labels.join(', ')}
-            </div>
-            <div className="detail-item">
-              <strong>Properties:</strong>
-              <pre>{JSON.stringify(selectedNodeData.properties, null, 2)}</pre>
-            </div>
-          </div>
-        )}
-
         <div className="graph-legend">
           <h3>Legend</h3>
           {renderLegendItem('#4ade80', 'Goal')}
@@ -469,6 +447,32 @@ function GraphViewer() {
       </div>
 
       <div className="world-state-panels">
+        {selectedNodeData && (
+          <div className="world-card node-details-card">
+            <div className="world-card-header">
+              <h3>Node Details</h3>
+              <button className="close-btn" onClick={() => setSelectedNode(null)}>
+                ×
+              </button>
+            </div>
+            <div className="node-details-content">
+              <div className="detail-item">
+                <strong>ID:</strong> <span>{selectedNodeData.id}</span>
+              </div>
+              <div className="detail-item">
+                <strong>Type:</strong> <span>{selectedNodeData.type}</span>
+              </div>
+              <div className="detail-item">
+                <strong>Labels:</strong> <span>{selectedNodeData.labels.join(', ')}</span>
+              </div>
+              <div className="detail-item detail-properties">
+                <strong>Properties:</strong>
+                <pre>{JSON.stringify(selectedNodeData.properties, null, 2)}</pre>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="world-card">
           <div className="world-card-header">
             <h3>Agents</h3>

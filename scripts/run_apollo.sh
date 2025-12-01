@@ -21,11 +21,14 @@ if [[ -f "${PROJECT_ROOT}/.env" ]]; then
 fi
 
 DETACH=false
+SEED_DATA=false
 for arg in "$@"; do
   case $arg in
     -d|--detach)
       DETACH=true
-      shift
+      ;;
+    --seed)
+      SEED_DATA=true
       ;;
   esac
 done
@@ -114,6 +117,18 @@ fi
 
 start_api
 start_webapp
+
+# Seed database if requested
+if [ "$SEED_DATA" = true ]; then
+    SEED_SCRIPT="${PROJECT_ROOT}/tests/e2e/seed_data.py"
+    if [[ -f "$SEED_SCRIPT" ]]; then
+        log_info "Seeding database..."
+        sleep 3  # Give services a moment to initialize
+        poetry run python "$SEED_SCRIPT" && log_success "Database seeded." || log_warn "Seed script failed."
+    else
+        log_warn "Seed script not found at $SEED_SCRIPT"
+    fi
+fi
 
 if [ "$DETACH" = true ]; then
     log_success "Apollo stack started in background."

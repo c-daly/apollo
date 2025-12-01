@@ -180,6 +180,76 @@
   position: relative;
 }
 
+.node-details-card {
+  grid-column: span 2;
+}
+
+.node-details-card .world-card-header {
+  position: relative;
+}
+
+.node-details-card .close-btn {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.node-details-card .close-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.node-details-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.node-details-content .detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.node-details-content .detail-item strong {
+  color: #646cff;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.node-details-content .detail-item span {
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.node-details-content .detail-properties {
+  grid-column: 1 / -1;
+}
+
+.node-details-content .detail-properties pre {
+  background-color: #1a1a1a;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+  color: #e0e0e0;
+  line-height: 1.5;
+}
+
 .node-details h3 {
   margin-top: 0;
   margin-bottom: 1rem;
