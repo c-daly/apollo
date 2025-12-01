@@ -13,6 +13,14 @@ from pathlib import Path
 from typing import Optional
 import logging
 
+# Try to import the env module for repo root resolution
+try:
+    from apollo.env import get_repo_root
+
+    HAS_ENV_MODULE = True
+except ImportError:
+    HAS_ENV_MODULE = False
+
 # Try to import python-dotenv, but don't fail if missing (fallback to os.environ)
 try:
     from dotenv import load_dotenv
@@ -92,9 +100,13 @@ def validate_env(env_path: Optional[Path] = None) -> bool:
 
 
 def main():
-    # Assume .env is in the project root (parent of scripts/)
-    script_dir = Path(__file__).parent.resolve()
-    project_root = script_dir.parent
+    # Resolve project root - prefer env module, fallback to path traversal
+    if HAS_ENV_MODULE:
+        project_root = get_repo_root()
+    else:
+        # Fallback: assume .env is in the project root (parent of scripts/)
+        script_dir = Path(__file__).parent.resolve()
+        project_root = script_dir.parent
     env_file = project_root / ".env"
 
     if not validate_env(env_file):

@@ -42,7 +42,11 @@ The E2E test validates the complete system integration:
 Test scripts use the `apollo.env` module to load configuration:
 
 ```python
-from apollo.env import get_neo4j_config, get_sophia_config
+from apollo.env import get_repo_root, get_neo4j_config, get_sophia_config
+
+# Get the repository root path (honors APOLLO_REPO_ROOT if set)
+repo_root = get_repo_root()
+# Returns: Path to repository root
 
 # Get Neo4j connection config (defaults to localhost:27687 for host access)
 neo4j = get_neo4j_config()
@@ -58,7 +62,26 @@ The env helpers check in order:
 2. Loaded `.env.test` values (if passed)
 3. Sensible defaults for local development
 
-You can override settings via environment variables:
+#### Repository Root Resolution
+
+The `get_repo_root()` function resolves the Apollo repository root using this priority:
+
+1. **`APOLLO_REPO_ROOT`** environment variable (if set and path exists)
+2. **`GITHUB_WORKSPACE`** environment variable (set by GitHub Actions in CI)
+3. **Fallback**: Parent of the installed package (works when running from source)
+
+This allows tests to run correctly even when the repository is relocated or mounted at a non-standard path. To override:
+
+```bash
+# Run tests with an explicit repo root
+export APOLLO_REPO_ROOT=/path/to/relocated/apollo
+pytest tests/e2e/
+
+# Or pass inline
+APOLLO_REPO_ROOT=/custom/path python tests/e2e/test_e2e_flow.py
+```
+
+You can also override service connection settings via environment variables:
 ```bash
 export NEO4J_URI=bolt://custom-host:7687
 python tests/e2e/test_e2e_flow.py

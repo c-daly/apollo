@@ -168,6 +168,70 @@ def seed_data():
             """
             )
 
+            # Create persona diary entries
+            logger.info("Creating persona diary entries...")
+            diary_entries = [
+                {
+                    "id": "diary-001",
+                    "entry_type": "observation",
+                    "content": "I have initialized in a workspace with three colored blocks: red, blue, and green. The blocks are positioned in the lower portion of the workspace. My initial assessment suggests these objects are suitable for manipulation tasks.",
+                    "summary": "Initial workspace observation",
+                    "sentiment": "neutral",
+                    "confidence": 0.95,
+                    "emotion_tags": ["curious", "alert"],
+                },
+                {
+                    "id": "diary-002",
+                    "entry_type": "belief",
+                    "content": "Based on the spatial arrangement of the blocks, I believe the workspace is configured for a sorting or stacking exercise. The uniform block sizes suggest precise manipulation will be required.",
+                    "summary": "Hypothesis about task purpose",
+                    "sentiment": "positive",
+                    "confidence": 0.75,
+                    "emotion_tags": ["confident", "analytical"],
+                },
+                {
+                    "id": "diary-003",
+                    "entry_type": "decision",
+                    "content": "I have decided to prioritize understanding the relationship between objects before attempting any manipulation. This cautious approach will help me avoid errors and build a more accurate world model.",
+                    "summary": "Decision to observe before acting",
+                    "sentiment": "positive",
+                    "confidence": 0.85,
+                    "emotion_tags": ["cautious", "methodical"],
+                },
+                {
+                    "id": "diary-004",
+                    "entry_type": "reflection",
+                    "content": "My initial startup sequence completed successfully. I notice that having clear visual information about object properties (color, position) makes planning significantly easier. I should remember this when evaluating future scenarios.",
+                    "summary": "Reflection on information value",
+                    "sentiment": "positive",
+                    "confidence": 0.90,
+                    "emotion_tags": ["thoughtful", "satisfied"],
+                },
+            ]
+
+            for entry in diary_entries:
+                session.run(
+                    """
+                    CREATE (entry:PersonaEntry {
+                        id: $id,
+                        timestamp: datetime(),
+                        entry_type: $entry_type,
+                        content: $content,
+                        summary: $summary,
+                        sentiment: $sentiment,
+                        confidence: $confidence,
+                        related_process_ids: [],
+                        related_goal_ids: [],
+                        emotion_tags: $emotion_tags,
+                        metadata: '{}'
+                    })
+                """,
+                    entry,
+                )
+                logger.info(
+                    f"  - Created diary entry: {entry['id']} ({entry['entry_type']})"
+                )
+
             # Verify data
             result = session.run(
                 """
