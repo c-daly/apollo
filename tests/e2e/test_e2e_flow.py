@@ -22,19 +22,25 @@ import requests
 from neo4j import GraphDatabase
 from apollo.client.sophia_client import SophiaClient
 from apollo.config.settings import SophiaConfig
+from apollo.env import get_neo4j_config, get_sophia_config
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
-# Test configuration
-NEO4J_URI = "bolt://localhost:27687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "neo4jtest"
-SOPHIA_HOST = "localhost"
-SOPHIA_PORT = 28080
-SOPHIA_BASE_URL = f"http://{SOPHIA_HOST}:{SOPHIA_PORT}"
+# Load test configuration - use defaults for host access (localhost with mapped ports)
+# The .env.test file has Docker-internal values; OS env vars can override if needed
+_neo4j_config = get_neo4j_config()
+_sophia_config = get_sophia_config()
+
+# Test configuration from environment
+NEO4J_URI = _neo4j_config["uri"]
+NEO4J_USER = _neo4j_config["user"]
+NEO4J_PASSWORD = _neo4j_config["password"]
+SOPHIA_HOST = _sophia_config["host"]
+SOPHIA_PORT = int(_sophia_config["port"])
+SOPHIA_BASE_URL = _sophia_config["base_url"]
 
 # Paths
 E2E_DIR = Path(__file__).parent

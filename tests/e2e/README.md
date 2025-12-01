@@ -34,8 +34,35 @@ The E2E test validates the complete system integration:
 - `seed_data.py`: Populates initial test data
 - `test_e2e_flow.py`: Main E2E test runner
 - `mocks/sophia/`: Mock Sophia service implementation
-- `stack/apollo/.env.test`: Connection settings consumed by docker compose
+- `stack/apollo/.env.test`: Connection settings consumed by docker compose (Docker-internal values)
 - `stack/apollo/STACK_VERSION`: Hash of the template inputs (detects drift)
+
+### Environment Configuration
+
+Test scripts use the `apollo.env` module to load configuration:
+
+```python
+from apollo.env import get_neo4j_config, get_sophia_config
+
+# Get Neo4j connection config (defaults to localhost:27687 for host access)
+neo4j = get_neo4j_config()
+# Returns: {"uri": "bolt://localhost:27687", "user": "neo4j", "password": "neo4jtest"}
+
+# Get Sophia mock config (defaults to localhost:28080)
+sophia = get_sophia_config()
+# Returns: {"host": "localhost", "port": "28080", "base_url": "http://localhost:28080"}
+```
+
+The env helpers check in order:
+1. OS environment variables (e.g., `NEO4J_URI`)
+2. Loaded `.env.test` values (if passed)
+3. Sensible defaults for local development
+
+You can override settings via environment variables:
+```bash
+export NEO4J_URI=bolt://custom-host:7687
+python tests/e2e/test_e2e_flow.py
+```
 
 ### Updating the stack definition
 
