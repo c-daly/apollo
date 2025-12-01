@@ -7,19 +7,21 @@ This script populates Neo4j with initial state for testing:
 - Initial state nodes
 """
 
-import os
 import sys
 import time
 import logging
 from neo4j import GraphDatabase
+from apollo.env import get_neo4j_config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Neo4j configuration
-NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:27687")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jtest")
+# Load Neo4j configuration - use defaults for host access (localhost with mapped ports)
+_neo4j_config = get_neo4j_config()
+
+NEO4J_URI = _neo4j_config["uri"]
+NEO4J_USER = _neo4j_config["user"]
+NEO4J_PASSWORD = _neo4j_config["password"]
 
 
 def wait_for_neo4j(max_retries=30, delay=2):
