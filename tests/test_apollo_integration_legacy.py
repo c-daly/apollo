@@ -76,9 +76,7 @@ class TestApolloHCGIntegration:
         assert data["status"] in ["ok", "degraded"]
         # Should include dependency health status
         assert (
-            "dependencies" in data
-            or "services" in data
-            or "neo4j" in str(data).lower()
+            "dependencies" in data or "services" in data or "neo4j" in str(data).lower()
         )
 
     def test_get_hcg_entities_from_neo4j(self, integration_client):
