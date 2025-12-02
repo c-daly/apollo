@@ -1,0 +1,30 @@
+{
+  "status": "degraded",
+  "version": "0.1.0",
+  "services": {
+    "stt": "unavailable",
+    "tts": "unavailable",
+    "nlp": "unavailable",
+    "embeddings": "unavailable",
+    "llm": "available"
+  },
+  "milvus": {
+    "connected": true,
+    "host": "localhost",
+    "port": "19530",
+    "collection": "hermes_embeddings"
+  },
+  "queue": {
+    "enabled": false,
+    "pending": 0,
+    "processed": 0
+  },
+  "llm": {
+    "default_provider": "openai",
+    "configured": true,
+    "providers": {
+      "echo": true,
+      "openai": true
+    }
+  }
+}

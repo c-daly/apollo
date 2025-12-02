@@ -25,7 +25,7 @@ const __dirname = dirname(__filename);
  */
 
 // Output directory for verification screenshots
-const EVIDENCE_DIR = path.join(__dirname, '../../logs/p2-verification');
+const EVIDENCE_DIR = path.join(__dirname, '../../docs/evidence');
 
 // Service URLs - Apollo talks to Hermes, which talks to Sophia
 const HERMES_URL = process.env.HERMES_URL || 'http://localhost:8080';
@@ -72,7 +72,7 @@ test.describe('P2-M1: Services Online', () => {
       fullPage: true,
     });
     
-    const healthResponse = await page.request.get(`${APOLLO_API_URL}/health`);
+    const healthResponse = await page.request.get(`${APOLLO_API_URL}/api/hcg/health`);
     const healthData = await healthResponse.json();
     fs.writeFileSync(
       path.join(EVIDENCE_DIR, 'p2-m1', 'apollo_api_health.json'),
@@ -187,7 +187,7 @@ test.describe('P2-M3: Perception & Media Upload', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    const mediaLink = page.locator('a:has-text("Media"), a:has-text("Upload"), button:has-text("Media"), [data-testid="media"]');
+    const mediaLink = page.getByRole('button', { name: 'Upload Media' });
     if (await mediaLink.isVisible()) {
       await mediaLink.click();
       await page.waitForLoadState('networkidle');
