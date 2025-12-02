@@ -149,40 +149,14 @@ class TestPersonaEndpoints:
 
 
 class TestMediaEndpoints:
-    """Test media upload and retrieval endpoints (Sophia proxy)."""
-
-    @pytest.mark.asyncio
-    async def test_upload_media_missing_token(self, test_client, monkeypatch):
-        """Test POST /api/media/upload without Sophia token configured."""
-        from apollo.config.settings import ApolloConfig
-        from unittest.mock import Mock
-
-        # Mock config to return None for sophia.api_key
-        mock_config = Mock()
-        mock_config.sophia.api_key = None
-        mock_config.sophia.host = "localhost"
-        mock_config.sophia.port = 8001
-
-        monkeypatch.setattr(ApolloConfig, "load", lambda: mock_config)
-        monkeypatch.delenv("SOPHIA_API_TOKEN", raising=False)
-
-        file = BytesIO(b"fake image content")
-        response = test_client.post(
-            "/api/media/upload",
-            files={"file": ("test.png", file, "image/png")},
-            data={"media_type": "IMAGE"},
-        )
-        assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-        assert "token not configured" in response.json()["detail"].lower()
+    """Test media upload and retrieval endpoints (Hermes proxy)."""
 
     @pytest.mark.asyncio
     async def test_upload_media_success(
         self, test_client, monkeypatch, sample_media_file
     ):
-        """Test POST /api/media/upload with mocked Sophia response."""
+        """Test POST /api/media/upload with mocked Hermes response."""
         from unittest.mock import AsyncMock, Mock
-
-        monkeypatch.setenv("SOPHIA_API_TOKEN", "test-token")
 
         # Mock httpx.AsyncClient
         mock_response = Mock()
@@ -193,7 +167,9 @@ class TestMediaEndpoints:
             "media_type": "IMAGE",
             "metadata": {"file_size": len(sample_media_file), "mime_type": "image/png"},
             "neo4j_node_id": "node-123",
-            "message": "Media ingested successfully",
+            "embedding_id": "embed-456",
+            "transcription": None,
+            "message": "Media ingested via Hermes.",
         }
         mock_response.raise_for_status = Mock()
 
