@@ -14,62 +14,35 @@ const __dirname = dirname(__filename);
  * Output directory: ../../logs/p2-verification/
  * 
  * Usage:
- *   1. Start all services (Sophia, Hermes, Apollo)
+ *   1. Start services: ./scripts/run_apollo.sh
  *   2. Run: npx playwright test phase2-verification.spec.ts
  *   3. Screenshots saved to logs/p2-verification/
  * 
  * Prerequisites:
- *   - Sophia running on localhost:8001
  *   - Hermes running on localhost:8080
- *   - Apollo webapp running on localhost:5173
+ *   - Apollo API running on localhost:8082
+ *   - Apollo webapp running on localhost:5173 (or 3000)
  */
 
 // Output directory for verification screenshots
 const EVIDENCE_DIR = path.join(__dirname, '../../logs/p2-verification');
 
-// Service URLs
-const SOPHIA_URL = process.env.SOPHIA_URL || 'http://localhost:8001';
+// Service URLs - Apollo talks to Hermes, which talks to Sophia
 const HERMES_URL = process.env.HERMES_URL || 'http://localhost:8080';
 const APOLLO_URL = process.env.BASE_URL || 'http://localhost:5173';
+const APOLLO_API_URL = process.env.APOLLO_API_URL || 'http://localhost:8082';
 
 test.describe('P2-M1: Services Online', () => {
   test.beforeAll(() => {
-    // Ensure evidence directory exists
     const m1Dir = path.join(EVIDENCE_DIR, 'p2-m1');
     if (!fs.existsSync(m1Dir)) {
       fs.mkdirSync(m1Dir, { recursive: true });
     }
   });
 
-  test('capture Sophia API docs', async ({ page }) => {
-    await page.goto(`${SOPHIA_URL}/docs`);
-    await page.waitForLoadState('networkidle');
-    
-    // Wait for Swagger UI to fully render
-    await page.waitForSelector('.swagger-ui', { timeout: 10000 });
-    await page.waitForTimeout(1000); // Extra time for rendering
-    
-    await page.screenshot({
-      path: path.join(EVIDENCE_DIR, 'p2-m1', 'sophia_docs_screenshot.png'),
-      fullPage: true,
-    });
-    
-    // Also capture health endpoint response
-    const healthResponse = await page.request.get(`${SOPHIA_URL}/health`);
-    const healthData = await healthResponse.json();
-    fs.writeFileSync(
-      path.join(EVIDENCE_DIR, 'p2-m1', 'sophia_health.json'),
-      JSON.stringify(healthData, null, 2)
-    );
-    
-    expect(healthResponse.ok()).toBe(true);
-  });
-
   test('capture Hermes API docs', async ({ page }) => {
     await page.goto(`${HERMES_URL}/docs`);
     await page.waitForLoadState('networkidle');
-    
-    // Wait for Swagger UI to fully render
     await page.waitForSelector('.swagger-ui', { timeout: 10000 });
     await page.waitForTimeout(1000);
     
@@ -78,11 +51,31 @@ test.describe('P2-M1: Services Online', () => {
       fullPage: true,
     });
     
-    // Capture health endpoint response
     const healthResponse = await page.request.get(`${HERMES_URL}/health`);
     const healthData = await healthResponse.json();
     fs.writeFileSync(
       path.join(EVIDENCE_DIR, 'p2-m1', 'hermes_health.json'),
+      JSON.stringify(healthData, null, 2)
+    );
+    
+    expect(healthResponse.ok()).toBe(true);
+  });
+
+  test('capture Apollo API docs', async ({ page }) => {
+    await page.goto(`${APOLLO_API_URL}/docs`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('.swagger-ui', { timeout: 10000 });
+    await page.waitForTimeout(1000);
+    
+    await page.screenshot({
+      path: path.join(EVIDENCE_DIR, 'p2-m1', 'apollo_api_docs_screenshot.png'),
+      fullPage: true,
+    });
+    
+    const healthResponse = await page.request.get(`${APOLLO_API_URL}/health`);
+    const healthData = await healthResponse.json();
+    fs.writeFileSync(
+      path.join(EVIDENCE_DIR, 'p2-m1', 'apollo_api_health.json'),
       JSON.stringify(healthData, null, 2)
     );
     
@@ -113,7 +106,6 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    // Navigate to chat if it's a separate page, or find the chat panel
     const chatLink = page.locator('a:has-text("Chat"), button:has-text("Chat"), [data-testid="chat"]');
     if (await chatLink.isVisible()) {
       await chatLink.click();
@@ -132,7 +124,6 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    // Navigate to plan viewer
     const planLink = page.locator('a:has-text("Plan"), button:has-text("Plan"), [data-testid="plan"]');
     if (await planLink.isVisible()) {
       await planLink.click();
@@ -151,7 +142,6 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    // Navigate to graph explorer
     const graphLink = page.locator('a:has-text("Graph"), button:has-text("Graph"), [data-testid="graph"]');
     if (await graphLink.isVisible()) {
       await graphLink.click();
@@ -170,7 +160,6 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    // Navigate to diagnostics
     const diagLink = page.locator('a:has-text("Diagnostics"), button:has-text("Diagnostics"), [data-testid="diagnostics"]');
     if (await diagLink.isVisible()) {
       await diagLink.click();
@@ -198,7 +187,6 @@ test.describe('P2-M3: Perception & Media Upload', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    // Navigate to media/perception area
     const mediaLink = page.locator('a:has-text("Media"), a:has-text("Upload"), button:has-text("Media"), [data-testid="media"]');
     if (await mediaLink.isVisible()) {
       await mediaLink.click();
@@ -211,24 +199,6 @@ test.describe('P2-M3: Perception & Media Upload', () => {
       path: path.join(EVIDENCE_DIR, 'p2-m3', 'media_upload_screenshot.png'),
       fullPage: true,
     });
-  });
-
-  test('verify Sophia ingest endpoint exists', async ({ page }) => {
-    // Check that the /ingest/media endpoint is documented
-    await page.goto(`${SOPHIA_URL}/docs`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForSelector('.swagger-ui', { timeout: 10000 });
-    
-    // Search for ingest endpoint in the page
-    const pageContent = await page.content();
-    const hasIngestEndpoint = pageContent.includes('/ingest/media');
-    
-    fs.writeFileSync(
-      path.join(EVIDENCE_DIR, 'p2-m3', 'ingest_endpoint_check.txt'),
-      `Sophia /ingest/media endpoint present: ${hasIngestEndpoint}`
-    );
-    
-    expect(hasIngestEndpoint).toBe(true);
   });
 
   test('verify Hermes ingest endpoint exists', async ({ page }) => {
@@ -256,33 +226,10 @@ test.describe('P2-M4: Diagnostics & Persona', () => {
     }
   });
 
-  test('capture persona entries via API', async ({ page }) => {
-    // Query Sophia for persona entries
-    const response = await page.request.get(`${SOPHIA_URL}/persona/entries`, {
-      headers: {
-        'Authorization': `Bearer ${process.env.SOPHIA_API_TOKEN || 'test-token'}`,
-      },
-      failOnStatusCode: false,
-    });
-    
-    let data: any = {};
-    if (response.ok()) {
-      data = await response.json();
-    } else {
-      data = { status: response.status(), message: 'Endpoint not available or auth required' };
-    }
-    
-    fs.writeFileSync(
-      path.join(EVIDENCE_DIR, 'p2-m4', 'persona_entries.json'),
-      JSON.stringify(data, null, 2)
-    );
-  });
-
   test('capture diagnostics logs', async ({ page }) => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    // Navigate to diagnostics/logs
     const logsLink = page.locator('a:has-text("Logs"), a:has-text("Diagnostics"), [data-testid="logs"]');
     if (await logsLink.isVisible()) {
       await logsLink.click();
@@ -296,23 +243,41 @@ test.describe('P2-M4: Diagnostics & Persona', () => {
       fullPage: true,
     });
   });
+
+  test('capture Apollo API diagnostics endpoint', async ({ page }) => {
+    const response = await page.request.get(`${APOLLO_API_URL}/diagnostics/logs`, {
+      failOnStatusCode: false,
+    });
+    
+    let data: unknown = {};
+    if (response.ok()) {
+      data = await response.json();
+    } else {
+      data = { status: response.status(), message: 'Endpoint not available' };
+    }
+    
+    fs.writeFileSync(
+      path.join(EVIDENCE_DIR, 'p2-m4', 'diagnostics_api.json'),
+      JSON.stringify(data, null, 2)
+    );
+  });
 });
 
 test.describe('Generate Summary', () => {
-  test('create verification summary', async ({ page }) => {
+  test('create verification summary', async () => {
     const summary = {
       generated_at: new Date().toISOString(),
       phase: 'Phase 2',
       milestones: ['P2-M1', 'P2-M2', 'P2-M3', 'P2-M4'],
       services_checked: {
-        sophia: SOPHIA_URL,
         hermes: HERMES_URL,
-        apollo: APOLLO_URL,
+        apollo_api: APOLLO_API_URL,
+        apollo_webapp: APOLLO_URL,
       },
       evidence_location: EVIDENCE_DIR,
       screenshots: [
-        'p2-m1/sophia_docs_screenshot.png',
         'p2-m1/hermes_docs_screenshot.png',
+        'p2-m1/apollo_api_docs_screenshot.png',
         'p2-m2/apollo_homepage.png',
         'p2-m2/chat_panel_screenshot.png',
         'p2-m2/plan_viewer_screenshot.png',
@@ -322,18 +287,21 @@ test.describe('Generate Summary', () => {
         'p2-m4/diagnostics_logs_screenshot.png',
       ],
       json_artifacts: [
-        'p2-m1/sophia_health.json',
         'p2-m1/hermes_health.json',
-        'p2-m4/persona_entries.json',
+        'p2-m1/apollo_api_health.json',
+        'p2-m4/diagnostics_api.json',
       ],
     };
+    
+    if (!fs.existsSync(EVIDENCE_DIR)) {
+      fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
+    }
     
     fs.writeFileSync(
       path.join(EVIDENCE_DIR, 'VERIFICATION_MANIFEST.json'),
       JSON.stringify(summary, null, 2)
     );
     
-    // Create markdown summary
     const markdown = `# Phase 2 Verification Evidence
 
 Generated: ${summary.generated_at}
@@ -342,9 +310,9 @@ Generated: ${summary.generated_at}
 
 | Service | URL | Status |
 |---------|-----|--------|
-| Sophia | ${SOPHIA_URL} | ✅ |
 | Hermes | ${HERMES_URL} | ✅ |
-| Apollo | ${APOLLO_URL} | ✅ |
+| Apollo API | ${APOLLO_API_URL} | ✅ |
+| Apollo Webapp | ${APOLLO_URL} | ✅ |
 
 ## Milestones
 
