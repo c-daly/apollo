@@ -1111,7 +1111,10 @@ async def upload_media(
     media_type: str = Form(...),
     question: Optional[str] = Form(None),
 ) -> dict:
-    """Proxy media upload to Sophia /ingest/media endpoint.
+    """Proxy media upload to Hermes /ingest/media endpoint.
+
+    Hermes processes the media (STT, embeddings) and forwards to Sophia
+    for storage and perception workflows.
 
     Args:
         file: Media file to upload (image/video/audio)
@@ -1119,24 +1122,23 @@ async def upload_media(
         question: Optional question context for the media
 
     Returns:
-        Media ingestion response from Sophia with sample_id and metadata
+        Media ingestion response with sample_id, metadata, and processing results
 
     Raises:
         HTTPException: 413 if file exceeds 100 MB limit
-        HTTPException: 503 if Sophia service unavailable
+        HTTPException: 503 if Hermes service unavailable
     """
     # Server-side size validation - enforce 100 MB limit
     MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
 
     config = ApolloConfig.load()
-    sophia_url = f"http://{config.sophia.host}:{config.sophia.port}"
-    sophia_token = config.sophia.api_key or os.getenv("SOPHIA_API_TOKEN")
+    hermes_url = f"http://{config.hermes.host}:{config.hermes.port}"
+    hermes_token = config.hermes.api_key or os.getenv("HERMES_API_KEY")
 
-    if not sophia_token:
-        raise HTTPException(
-            status_code=503,
-            detail="Sophia API token not configured. Set SOPHIA_API_KEY in config or SOPHIA_API_TOKEN env var.",
-        )
+    # Hermes token is optional for media ingestion
+    headers = {}
+    if hermes_token:
+        headers["Authorization"] = f"Bearer {hermes_token}"
 
     try:
         # Validate file size without loading entire file into memory
@@ -1154,26 +1156,26 @@ async def upload_media(
                 detail=f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds 100 MB limit",
             )
 
-        # Stream file to Sophia without loading into memory
-        # Use file-like object directly for streaming upload
+        # Stream file to Hermes without loading into memory
+        # Hermes will process and forward to Sophia
         files = {"file": (file.filename, file.file, file.content_type)}
         data = {"media_type": media_type}
         if question:
             data["question"] = question
 
-        # Proxy request to Sophia with streaming
-        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
+        # Proxy request to Hermes with streaming
+        async with httpx.AsyncClient(timeout=config.hermes.timeout) as client:
             response = await client.post(
-                f"{sophia_url}/ingest/media",
+                f"{hermes_url}/ingest/media",
                 files=files,
                 data=data,
-                headers={"Authorization": f"Bearer {sophia_token}"},
+                headers=headers,
             )
             response.raise_for_status()
 
             await diagnostics_manager.record_log(
                 "info",
-                f"Media uploaded to Sophia: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
+                f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
             )
 
             return response.json()  # type: ignore[no-any-return]
@@ -1185,7 +1187,7 @@ async def upload_media(
         )
         raise HTTPException(
             status_code=exc.response.status_code,
-            detail=f"Sophia upload failed: {exc.response.text}",
+            detail=f"Hermes upload failed: {exc.response.text}",
         ) from exc
     except httpx.RequestError as exc:
         await diagnostics_manager.record_log(
@@ -1194,7 +1196,7 @@ async def upload_media(
         )
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot connect to Sophia service: {str(exc)}",
+            detail=f"Cannot connect to Hermes service: {str(exc)}",
         ) from exc
     except Exception as exc:  # noqa: BLE001
         await diagnostics_manager.record_log(
