@@ -16,14 +16,42 @@ const __dirname = dirname(__filename);
  * 
  * Usage:
  *   1. Start services: ./scripts/run_apollo.sh
- *   2. Run: npx playwright test phase2-verification.spec.ts
+ *   2. Run: RUN_FULL_STACK=1 npx playwright test phase2-verification.spec.ts
  *   3. Screenshots saved to logs/p2-verification/
  * 
  * Prerequisites:
  *   - Hermes running on localhost:8080
  *   - Apollo API running on localhost:8082
  *   - Apollo webapp running on localhost:5173 (or 3000)
+ * 
+ * CI Behavior:
+ *   These tests are SKIPPED by default in CI because they require the full
+ *   LOGOS service stack (Hermes, Apollo API, Apollo webapp) to be running.
+ *   The standard CI only starts the webapp preview server.
+ * 
+ *   To run these tests:
+ *   - Locally: Start full stack with ./scripts/run_apollo.sh, then:
+ *       RUN_FULL_STACK=1 npx playwright test phase2-verification.spec.ts
+ *   - In CI: Would require a dedicated workflow that spins up all services
+ *       via docker-compose before running tests.
+ * 
+ *   This is intentional - these are milestone verification tests meant to be
+ *   run manually when capturing evidence, not on every PR.
  */
+
+// -----------------------------------------------------------------------------
+// SKIP CONDITION: Require RUN_FULL_STACK=1 to run these tests
+// -----------------------------------------------------------------------------
+// These tests connect to:
+//   - Hermes API (localhost:8080) 
+//   - Apollo API (localhost:8082)
+//   - Apollo webapp (localhost:3000 or 5173)
+// 
+// Without all services running, the tests fail with "Connection refused".
+// We skip them unless explicitly enabled to avoid CI failures.
+// -----------------------------------------------------------------------------
+const FULL_STACK_AVAILABLE = process.env.RUN_FULL_STACK === '1';
+test.skip(!FULL_STACK_AVAILABLE, 'Skipping phase2-verification tests - requires full stack (set RUN_FULL_STACK=1)');
 
 // Output directory for verification screenshots
 const EVIDENCE_DIR = path.join(__dirname, '../../docs/evidence');
