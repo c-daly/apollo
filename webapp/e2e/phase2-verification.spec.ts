@@ -1,4 +1,4 @@
-/* eslint-env node */
+/* global process */
 import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
