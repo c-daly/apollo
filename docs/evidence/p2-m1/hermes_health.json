@@ -6,13 +6,13 @@
     "tts": "unavailable",
     "nlp": "unavailable",
     "embeddings": "unavailable",
-    "llm": "available"
+    "llm": "unavailable"
   },
   "milvus": {
-    "connected": true,
+    "connected": false,
     "host": "localhost",
-    "port": "19530",
-    "collection": "hermes_embeddings"
+    "port": "18530",
+    "collection": null
   },
   "queue": {
     "enabled": false,
@@ -21,10 +21,10 @@
   },
   "llm": {
     "default_provider": "openai",
-    "configured": true,
+    "configured": false,
     "providers": {
       "echo": true,
-      "openai": true
+      "openai": false
     }
   }
 }

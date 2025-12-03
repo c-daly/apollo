@@ -1,0 +1,34 @@
+<testsuites id="" name="" tests="15" failures="0" skipped="0" errors="0" time="7.9986109999999995">
+<testsuite name="phase2-verification.spec.ts" timestamp="2025-12-02T23:52:38.074Z" hostname="chromium" tests="15" failures="0" skipped="0" time="33.4" errors="0">
+<testcase name="P2-M1: Services Online › capture Hermes API docs" classname="phase2-verification.spec.ts" time="2.743">
+</testcase>
+<testcase name="P2-M1: Services Online › capture Apollo API docs" classname="phase2-verification.spec.ts" time="2.691">
+</testcase>
+<testcase name="P2-M2: Apollo Dual Surface › capture chat panel" classname="phase2-verification.spec.ts" time="2.246">
+</testcase>
+<testcase name="P2-M2: Apollo Dual Surface › capture graph explorer" classname="phase2-verification.spec.ts" time="4.062">
+</testcase>
+<testcase name="P2-M2: Apollo Dual Surface › capture diagnostics panel" classname="phase2-verification.spec.ts" time="2.926">
+</testcase>
+<testcase name="P2-M3: Perception &amp; Media Upload › capture media upload interface" classname="phase2-verification.spec.ts" time="2.054">
+</testcase>
+<testcase name="P2-M3: Perception &amp; Media Upload › capture media library" classname="phase2-verification.spec.ts" time="3.264">
+</testcase>
+<testcase name="P2-M3: Perception &amp; Media Upload › verify Hermes ingest endpoint exists" classname="phase2-verification.spec.ts" time="1.256">
+</testcase>
+<testcase name="P2-M4: Diagnostics &amp; Persona › capture diagnostics logs" classname="phase2-verification.spec.ts" time="2.487">
+</testcase>
+<testcase name="P2-M4: Diagnostics &amp; Persona › capture plan timeline" classname="phase2-verification.spec.ts" time="2.749">
+</testcase>
+<testcase name="P2-M4: Diagnostics &amp; Persona › capture telemetry" classname="phase2-verification.spec.ts" time="3.262">
+</testcase>
+<testcase name="P2-M4: Diagnostics &amp; Persona › capture Apollo API diagnostics endpoint" classname="phase2-verification.spec.ts" time="0.258">
+</testcase>
+<testcase name="P2-M4: Diagnostics &amp; Persona › capture persona diary panel" classname="phase2-verification.spec.ts" time="3.01">
+</testcase>
+<testcase name="P2-M4: Diagnostics &amp; Persona › capture persona API endpoint" classname="phase2-verification.spec.ts" time="0.383">
+</testcase>
+<testcase name="Generate Summary › create verification summary" classname="phase2-verification.spec.ts" time="0.009">
+</testcase>
+</testsuite>
+</testsuites>

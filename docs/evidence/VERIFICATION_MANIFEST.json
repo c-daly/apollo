@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-12-02T22:02:31.446Z",
+  "generated_at": "2025-12-02T23:52:38.826Z",
   "phase": "Phase 2",
   "milestones": [
     "P2-M1",
@@ -10,9 +10,9 @@
   "services_checked": {
     "hermes": "http://localhost:8080",
     "apollo_api": "http://localhost:8082",
-    "apollo_webapp": "http://localhost:5173"
+    "apollo_webapp": "http://localhost:3000"
   },
-  "evidence_location": "/home/fearsidhe/projects/LOGOS/apollo/logs/p2-verification",
+  "evidence_location": "/home/fearsidhe/projects/LOGOS/apollo/docs/evidence",
   "screenshots": [
     "p2-m1/hermes_docs_screenshot.png",
     "p2-m1/apollo_api_docs_screenshot.png",
