@@ -1,11 +1,14 @@
 # Apollo Configuration Example
 # Copy this file to config.yaml and customize as needed
+#
+# IMPORTANT: See docs/AUTHENTICATION.md for the full authentication chain.
+# All services must use matching tokens for inter-service communication.
 
 sophia:
   host: localhost
-  port: 8080
+  port: 8000           # Default dev port (Sophia runs on 8000, not 8001)
   timeout: 30
-  api_key: ""  # Optional bearer token for Sophia API
+  api_key: "sophia_dev"  # MUST match Sophia's SOPHIA_API_TOKEN env var
 
 hermes:
   host: localhost

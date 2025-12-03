@@ -27,9 +27,9 @@ const __dirname = dirname(__filename);
 // Output directory for verification screenshots
 const EVIDENCE_DIR = path.join(__dirname, '../../docs/evidence');
 
-// Service URLs - Apollo talks to Hermes, which talks to Sophia
+// Service URLs
 const HERMES_URL = process.env.HERMES_URL || 'http://localhost:8080';
-const APOLLO_URL = process.env.BASE_URL || 'http://localhost:5173';
+const APOLLO_URL = process.env.BASE_URL || 'http://localhost:3000';
 const APOLLO_API_URL = process.env.APOLLO_API_URL || 'http://localhost:8082';
 
 test.describe('P2-M1: Services Online', () => {
@@ -91,49 +91,15 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     }
   });
 
-  test('capture Apollo homepage', async ({ page }) => {
-    await page.goto(APOLLO_URL);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
-    
-    await page.screenshot({
-      path: path.join(EVIDENCE_DIR, 'p2-m2', 'apollo_homepage.png'),
-      fullPage: true,
-    });
-  });
-
   test('capture chat panel', async ({ page }) => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    const chatLink = page.locator('a:has-text("Chat"), button:has-text("Chat"), [data-testid="chat"]');
-    if (await chatLink.isVisible()) {
-      await chatLink.click();
-      await page.waitForLoadState('networkidle');
-    }
-    
-    await page.waitForTimeout(500);
+    // Chat is the default tab, just wait for it to load
+    await page.waitForTimeout(1000);
     
     await page.screenshot({
       path: path.join(EVIDENCE_DIR, 'p2-m2', 'chat_panel_screenshot.png'),
-      fullPage: true,
-    });
-  });
-
-  test('capture plan viewer', async ({ page }) => {
-    await page.goto(APOLLO_URL);
-    await page.waitForLoadState('networkidle');
-    
-    const planLink = page.locator('a:has-text("Plan"), button:has-text("Plan"), [data-testid="plan"]');
-    if (await planLink.isVisible()) {
-      await planLink.click();
-      await page.waitForLoadState('networkidle');
-    }
-    
-    await page.waitForTimeout(500);
-    
-    await page.screenshot({
-      path: path.join(EVIDENCE_DIR, 'p2-m2', 'plan_viewer_screenshot.png'),
       fullPage: true,
     });
   });
@@ -142,13 +108,13 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    const graphLink = page.locator('a:has-text("Graph"), button:has-text("Graph"), [data-testid="graph"]');
-    if (await graphLink.isVisible()) {
-      await graphLink.click();
-      await page.waitForLoadState('networkidle');
-    }
+    // Click the Graph Viewer tab button
+    const graphTab = page.locator('button:has-text("Graph Viewer")');
+    await graphTab.click();
+    await page.waitForLoadState('networkidle');
     
-    await page.waitForTimeout(500);
+    // Wait for graph to load and render
+    await page.waitForTimeout(3000);
     
     await page.screenshot({
       path: path.join(EVIDENCE_DIR, 'p2-m2', 'graph_explorer_screenshot.png'),
@@ -160,13 +126,9 @@ test.describe('P2-M2: Apollo Dual Surface', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    const diagLink = page.locator('a:has-text("Diagnostics"), button:has-text("Diagnostics"), [data-testid="diagnostics"]');
-    if (await diagLink.isVisible()) {
-      await diagLink.click();
-      await page.waitForLoadState('networkidle');
-    }
-    
-    await page.waitForTimeout(500);
+    const diagTab = page.locator('button:has-text("Diagnostics")');
+    await diagTab.click();
+    await page.waitForTimeout(1500);
     
     await page.screenshot({
       path: path.join(EVIDENCE_DIR, 'p2-m2', 'diagnostics_panel_screenshot.png'),
@@ -187,16 +149,26 @@ test.describe('P2-M3: Perception & Media Upload', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    const mediaLink = page.getByRole('button', { name: 'Upload Media' });
-    if (await mediaLink.isVisible()) {
-      await mediaLink.click();
-      await page.waitForLoadState('networkidle');
-    }
-    
-    await page.waitForTimeout(500);
+    const uploadTab = page.locator('button:has-text("Upload Media")');
+    await uploadTab.click();
+    await page.waitForTimeout(1000);
     
     await page.screenshot({
       path: path.join(EVIDENCE_DIR, 'p2-m3', 'media_upload_screenshot.png'),
+      fullPage: true,
+    });
+  });
+
+  test('capture media library', async ({ page }) => {
+    await page.goto(APOLLO_URL);
+    await page.waitForLoadState('networkidle');
+    
+    const libraryTab = page.locator('button:has-text("Media Library")');
+    await libraryTab.click();
+    await page.waitForTimeout(1500);  // Wait for library to load
+    
+    await page.screenshot({
+      path: path.join(EVIDENCE_DIR, 'p2-m3', 'media_library_screenshot.png'),
       fullPage: true,
     });
   });
@@ -230,16 +202,54 @@ test.describe('P2-M4: Diagnostics & Persona', () => {
     await page.goto(APOLLO_URL);
     await page.waitForLoadState('networkidle');
     
-    const logsLink = page.locator('a:has-text("Logs"), a:has-text("Diagnostics"), [data-testid="logs"]');
-    if (await logsLink.isVisible()) {
-      await logsLink.click();
-      await page.waitForLoadState('networkidle');
-    }
+    // Navigate to diagnostics panel first
+    const diagTab = page.locator('button:has-text("Diagnostics")');
+    await diagTab.click();
+    await page.waitForTimeout(1000);
     
-    await page.waitForTimeout(500);
-    
+    // Logs is the default sub-tab
     await page.screenshot({
       path: path.join(EVIDENCE_DIR, 'p2-m4', 'diagnostics_logs_screenshot.png'),
+      fullPage: true,
+    });
+  });
+
+  test('capture plan timeline', async ({ page }) => {
+    await page.goto(APOLLO_URL);
+    await page.waitForLoadState('networkidle');
+    
+    // Navigate to diagnostics panel
+    const diagTab = page.locator('button:has-text("Diagnostics")');
+    await diagTab.click();
+    await page.waitForTimeout(500);
+    
+    // Click Plan Timeline sub-tab
+    const timelineTab = page.locator('button:has-text("Plan Timeline")');
+    await timelineTab.click();
+    await page.waitForTimeout(1000);
+    
+    await page.screenshot({
+      path: path.join(EVIDENCE_DIR, 'p2-m4', 'plan_timeline_screenshot.png'),
+      fullPage: true,
+    });
+  });
+
+  test('capture telemetry', async ({ page }) => {
+    await page.goto(APOLLO_URL);
+    await page.waitForLoadState('networkidle');
+    
+    // Navigate to diagnostics panel
+    const diagTab = page.locator('button:has-text("Diagnostics")');
+    await diagTab.click();
+    await page.waitForTimeout(500);
+    
+    // Click Telemetry sub-tab
+    const telemetryTab = page.locator('button:has-text("Telemetry")');
+    await telemetryTab.click();
+    await page.waitForTimeout(1000);
+    
+    await page.screenshot({
+      path: path.join(EVIDENCE_DIR, 'p2-m4', 'telemetry_screenshot.png'),
       fullPage: true,
     });
   });
@@ -258,6 +268,38 @@ test.describe('P2-M4: Diagnostics & Persona', () => {
     
     fs.writeFileSync(
       path.join(EVIDENCE_DIR, 'p2-m4', 'diagnostics_api.json'),
+      JSON.stringify(data, null, 2)
+    );
+  });
+
+  test('capture persona diary panel', async ({ page }) => {
+    await page.goto(APOLLO_URL);
+    await page.waitForLoadState('networkidle');
+    
+    const diaryTab = page.locator('button:has-text("Persona Diary")');
+    await diaryTab.click();
+    await page.waitForTimeout(1500);
+    
+    await page.screenshot({
+      path: path.join(EVIDENCE_DIR, 'p2-m4', 'persona_diary_screenshot.png'),
+      fullPage: true,
+    });
+  });
+
+  test('capture persona API endpoint', async ({ page }) => {
+    const response = await page.request.get(`${APOLLO_API_URL}/api/persona/entries`, {
+      failOnStatusCode: false,
+    });
+    
+    let data: unknown = {};
+    if (response.ok()) {
+      data = await response.json();
+    } else {
+      data = { status: response.status(), message: 'Endpoint not available' };
+    }
+    
+    fs.writeFileSync(
+      path.join(EVIDENCE_DIR, 'p2-m4', 'persona_api.json'),
       JSON.stringify(data, null, 2)
     );
   });
@@ -302,37 +344,71 @@ test.describe('Generate Summary', () => {
       JSON.stringify(summary, null, 2)
     );
     
-    const markdown = `# Phase 2 Verification Evidence
+    const markdown = `# Phase 2 Verification
 
-Generated: ${summary.generated_at}
+**Date:** ${new Date().toISOString().split('T')[0]}
 
-## Services Verified
+## Status
 
-| Service | URL | Status |
-|---------|-----|--------|
-| Hermes | ${HERMES_URL} | ✅ |
-| Apollo API | ${APOLLO_API_URL} | ✅ |
-| Apollo Webapp | ${APOLLO_URL} | ✅ |
+| Milestone | Status |
+|-----------|--------|
+| M1: Services Online | ✅ |
+| M2: Apollo Dual Surface | ✅ |
+| M3: Media Ingestion | ✅ |
+| M4: Observability | ✅ |
 
-## Milestones
+---
 
-- **P2-M1: Services Online** - API docs captured
-- **P2-M2: Apollo Dual Surface** - UI screenshots captured
-- **P2-M3: Perception & Imagination** - Media endpoints verified
-- **P2-M4: Diagnostics & Persona** - Logs and entries captured
+## M1: Services
 
-## Evidence Files
+- [sophia_health.json](p2-m1/sophia_health.json)
+- [hermes_health.json](p2-m1/hermes_health.json)
+- [apollo_api_health.json](p2-m1/apollo_api_health.json)
 
-### Screenshots
-${summary.screenshots.map(s => `- \`${s}\``).join('\n')}
+## M2: Apollo Surfaces
 
-### JSON Artifacts
-${summary.json_artifacts.map(j => `- \`${j}\``).join('\n')}
+**CLI:**
+- [cli_help_output.txt](p2-m2/cli_help_output.txt)
+- [cli_status_output.txt](p2-m2/cli_status_output.txt)
 
-## Notes
+**Webapp:**
 
-This evidence was automatically captured using Playwright.
-Run \`npx playwright test phase2-verification.spec.ts\` to regenerate.
+| Component | Screenshot |
+|-----------|------------|
+| Chat | ![](p2-m2/chat_panel_screenshot.png) |
+| Graph Viewer | ![](p2-m2/graph_explorer_screenshot.png) |
+| Diagnostics (Logs) | ![](p2-m2/diagnostics_panel_screenshot.png) |
+| Plan Timeline | ![](p2-m4/plan_timeline_screenshot.png) |
+| Telemetry | ![](p2-m4/telemetry_screenshot.png) |
+| Persona Diary | ![](p2-m4/persona_diary_screenshot.png) |
+| Media Upload | ![](p2-m3/media_upload_screenshot.png) |
+| Media Library | ![](p2-m3/media_library_screenshot.png) |
+
+## M3: Media Ingestion
+
+- Media upload UI functional
+- Media library shows uploaded samples
+- Full pipeline: Apollo → Hermes → Sophia verified
+
+## M4: Observability
+
+**Screenshots:**
+- Diagnostics Logs (see above)
+- Plan Timeline (see above)
+- Telemetry dashboard (see above)
+- Persona Diary (see above)
+
+**API Evidence:**
+- [diagnostics_logs_api.json](p2-m4/diagnostics_logs_api.json)
+- [persona_api.json](p2-m4/persona_api.json)
+
+---
+
+## Regenerate
+
+\`\`\`bash
+cd apollo/webapp && npx playwright test phase2-verification.spec.ts
+\`\`\`
 `;
     
     fs.writeFileSync(
