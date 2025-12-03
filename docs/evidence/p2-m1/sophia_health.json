@@ -1,0 +1,8 @@
+{
+  "status": "healthy",
+  "components": {
+    "neo4j": true,
+    "milvus": true
+  },
+  "version": "0.1.0"
+}

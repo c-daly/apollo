@@ -1,0 +1,5 @@
+Agent State
+
+Error: Sophia API error while retrieving state: Internal Server Error
+
+Tip: Ensure Sophia service is running and accessible

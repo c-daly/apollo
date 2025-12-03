@@ -1,0 +1,25 @@
+Usage: apollo-cli [OPTIONS] COMMAND [ARGS]...
+
+  Apollo CLI - Command interface for Project LOGOS.
+
+  Apollo provides a command-line interface for interacting with Sophia (the
+  cognitive core), visualizing agent state, and monitoring plan execution.
+
+Options:
+  --version      Show the version and exit.
+  --config PATH  Path to config file (default: config.yaml or defaults)
+  --help         Show this message and exit.
+
+Commands:
+  chat      Send a conversational query through Hermes' LLM gateway.
+  diary     Create a persona diary entry.
+  embed     Generate text embedding using Hermes.
+  execute   Execute a single step from a plan.
+  goal      Create a new goal in Sophia.
+  history   Display command history.
+  plan      Invoke the Sophia planner with a goal description.
+  plans     Show the most recent world-model states returned by Sophia.
+  send      Send a command to Sophia cognitive core.
+  simulate  Simulate plan execution without committing changes.
+  state     Display current agent state.
+  status    Display current connection status.

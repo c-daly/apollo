@@ -196,6 +196,24 @@ Hermes defaults to a deterministic `echo` provider so demos work without credent
 
 See [docs/HERMES_SETUP.md](docs/HERMES_SETUP.md) for a complete walkthrough, including verification commands and Milvus/ML extras.
 
+### Authentication & Token Configuration
+
+The LOGOS stack uses bearer tokens for inter-service authentication. All services must share the same token value (`sophia_dev` for development).
+
+**Quick setup:**
+```bash
+# Sophia (validates tokens)
+SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --port 8000
+
+# Hermes (forwards tokens to Sophia)
+SOPHIA_API_KEY="sophia_dev" SOPHIA_PORT="8000" python -m hermes.main
+
+# Apollo (reads token from config.yaml: sophia.api_key)
+./scripts/run_apollo.sh
+```
+
+See [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md) for the complete authentication chain, common issues, and troubleshooting.
+
 ### Shared SDK Clients
 
 Apollo CLI now depends exclusively on the generated Python SDKs that live in the [`logos`](https://github.com/c-daly/logos) repository:

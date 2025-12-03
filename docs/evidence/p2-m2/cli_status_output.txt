@@ -1,0 +1,9 @@
+Apollo CLI v0.1.0
+
+Sophia Configuration:
+  Host: localhost
+  Port: 8000
+  URL: http://localhost:8000
+
+Connection Status:
+  ✓ Sophia is accessible
