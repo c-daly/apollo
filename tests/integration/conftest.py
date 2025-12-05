@@ -46,9 +46,9 @@ def integration_client() -> Generator[httpx.Client, None, None]:
     Tests FAIL if Apollo is not running - no skip logic.
     """
     with httpx.Client(base_url=APOLLO_BASE_URL, timeout=30.0) as client:
-        # Verify Apollo is reachable
+        # Verify Apollo is reachable - use the actual health endpoint
         try:
-            response = client.get("/health")
+            response = client.get("/api/hcg/health")
             if response.status_code != 200:
                 pytest.fail(
                     f"Apollo health check failed with status {response.status_code}. "
