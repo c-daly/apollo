@@ -31,13 +31,9 @@ jobs:
         echo "Waiting for Milvus..."
         timeout 120 bash -c 'until curl -f http://localhost:29091/healthz 2>/dev/null; do sleep 2; done'
         echo "All services ready!"
-      pytest_env_script: |
-        export NEO4J_URI=bolt://localhost:27687
-        export NEO4J_USER=neo4j
-        export NEO4J_PASSWORD=neo4jtest
-        export MILVUS_HOST=localhost
-        export MILVUS_PORT=29530
       # Run all tests including e2e (integration still excluded)
+      # Note: e2e tests have their own defaults for test ports (27xxx, 28xxx, 29xxx)
+      # Unit tests use standard defaults (7687, 19530, etc.)
       pytest_command: 'pytest tests/ -m "not integration" -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
       upload_coverage: false  # We'll upload with flags in a separate job

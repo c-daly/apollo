@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from apollo.config.settings import (
     ApolloConfig,
     HCGConfig,
