@@ -58,7 +58,10 @@ class TestInfrastructureHealth:
 
         The test stack should ensure Sophia is running.
         """
-        resp = httpx.get(f"{sophia_url}/state", timeout=5)
+        import os
+        token = os.getenv("SOPHIA_API_KEY", "test-token-for-sophia")
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = httpx.get(f"{sophia_url}/state", headers=headers, timeout=5)
         assert resp.status_code == 200, f"Sophia state failed: {resp.status_code}"
         data = resp.json()
         assert (

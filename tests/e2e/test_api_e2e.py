@@ -7,6 +7,8 @@ Uses httpx for HTTP testing.
 Based on sophia/tests/e2e/test_sophia_e2e.py patterns.
 """
 
+import os
+
 import pytest
 import httpx
 
@@ -15,7 +17,8 @@ pytestmark = pytest.mark.e2e
 
 
 # Apollo backend API base URL
-APOLLO_API_PORT = 8003  # Default Apollo backend port
+# Uses 28003 external port (maps to 8003 inside container)
+APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "28003"))
 APOLLO_API_URL = f"http://localhost:{APOLLO_API_PORT}"
 
 
