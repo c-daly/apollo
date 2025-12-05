@@ -3,7 +3,7 @@ services:
     image: ghcr.io/c-daly/logos-foundry:0.1.0
     container_name: apollo-test-runner
     volumes:
-      - ${APOLLO_ROOT:-./../..}:/app/apollo:ro
+      - ${APOLLO_REPO_ROOT:-./../..}:/app/apollo:ro
     working_dir: /app/apollo
     environment:
       NEO4J_URI: bolt://neo4j:7687
@@ -25,8 +25,8 @@ services:
 
   sophia-mock:
     build:
-      context: ./mocks/sophia
-      dockerfile: Dockerfile
+      context: ${APOLLO_REPO_ROOT:-./../..}
+      dockerfile: tests/e2e/mocks/sophia/Dockerfile
     container_name: apollo-test-sophia
     ports:
       - "28080:8080"

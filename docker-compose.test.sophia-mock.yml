@@ -7,8 +7,8 @@ services:
   sophia-mock:
     container_name: apollo-test-sophia
     build:
-      context: ./tests/e2e/mocks/sophia
-      dockerfile: Dockerfile
+      context: ${APOLLO_REPO_ROOT:-.}
+      dockerfile: tests/e2e/mocks/sophia/Dockerfile
     ports:
       - "28080:8080"
     environment:
