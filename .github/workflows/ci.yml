@@ -43,6 +43,8 @@ jobs:
         export MILVUS_METRICS_PORT=29091
         export SOPHIA_HOST=localhost
         export SOPHIA_PORT=48001
+        export SOPHIA_API_TOKEN=test-token-for-apollo
+        export RUN_INTEGRATION_TESTS=1
       # Run ALL tests with full stack available
       pytest_command: 'pytest tests/ -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
