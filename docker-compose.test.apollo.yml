@@ -39,7 +39,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "28003:8003"
+      - "8003:8003"
     environment:
       - APOLLO_PORT=8003
       - NEO4J_URI=bolt://neo4j:7687

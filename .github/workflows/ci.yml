@@ -33,7 +33,7 @@ jobs:
         echo "Waiting for Sophia..."
         timeout 120 bash -c 'until curl -f http://localhost:48001/health 2>/dev/null; do sleep 2; done'
         echo "Waiting for Apollo..."
-        timeout 120 bash -c 'until curl -f http://localhost:28003/api/hcg/health 2>/dev/null; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:8003/api/hcg/health 2>/dev/null; do sleep 2; done'
         echo "All services ready!"
       pytest_env_script: |
         export NEO4J_URI=bolt://localhost:27687
