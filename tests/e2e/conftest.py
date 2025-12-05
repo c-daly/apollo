@@ -12,7 +12,7 @@ These tests validate the full Apollo system including:
 - WebSocket diagnostics streaming
 - Persona diary workflows
 
-Based on sophia and logos e2e test patterns.
+Based on sophia e2e test patterns.
 """
 
 import os
@@ -22,39 +22,32 @@ from uuid import uuid4
 import pytest
 import httpx
 
-# Load configuration from environment using apollo.env module
-from apollo.env import get_neo4j_config, get_milvus_config, get_sophia_config
-
 # E2E tests require the stack to be running
 pytestmark = pytest.mark.e2e
 
-
 # =============================================================================
-# Service Configuration (loaded from environment)
+# Service Configuration from environment
+# Apollo uses 27xxx/28xxx/29xxx port offset to avoid conflicts
 # =============================================================================
 
-# Load configs from environment - CI sets these, locally use defaults
-_neo4j_config = get_neo4j_config()
-_milvus_config = get_milvus_config()
-_sophia_config = get_sophia_config()
+# Sophia mock config (Apollo talks to Sophia)
+SOPHIA_PORT = os.getenv("SOPHIA_PORT", "28080")
+SOPHIA_HOST = os.getenv("SOPHIA_HOST", "localhost")
+SOPHIA_URL = os.getenv("SOPHIA_URL", f"http://{SOPHIA_HOST}:{SOPHIA_PORT}")
 
-# Neo4j config
-NEO4J_URI = _neo4j_config["uri"]
-NEO4J_USER = _neo4j_config["user"]
-NEO4J_PASSWORD = _neo4j_config["password"]
-# Extract port from URI for HTTP access (browser)
-NEO4J_BOLT_PORT = NEO4J_URI.split(":")[-1] if ":" in NEO4J_URI else "7687"
-NEO4J_HTTP_PORT = os.getenv("NEO4J_HTTP_PORT", "7474")
+# Infrastructure ports (Apollo uses 27xxx/29xxx offset)
+NEO4J_HTTP_PORT = os.getenv("NEO4J_HTTP_PORT", "27474")
+NEO4J_BOLT_PORT = os.getenv("NEO4J_BOLT_PORT", "27687")
+MILVUS_PORT = os.getenv("MILVUS_PORT", "29530")
+MILVUS_METRICS_PORT = os.getenv("MILVUS_METRICS_PORT", "29091")
 
-# Milvus config
-MILVUS_HOST = _milvus_config["host"]
-MILVUS_PORT = _milvus_config["port"]
-MILVUS_METRICS_PORT = os.getenv("MILVUS_METRICS_PORT", "9091")
+# Neo4j connection config
+NEO4J_URI = os.getenv("NEO4J_URI", f"bolt://localhost:{NEO4J_BOLT_PORT}")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jtest")
 
-# Sophia config
-SOPHIA_HOST = _sophia_config["host"]
-SOPHIA_PORT = _sophia_config["port"]
-SOPHIA_URL = _sophia_config["base_url"]
+# Milvus connection config
+MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
 
 
 # =============================================================================

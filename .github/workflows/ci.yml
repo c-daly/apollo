@@ -33,8 +33,17 @@ jobs:
         echo "Waiting for Sophia mock..."
         timeout 60 bash -c 'until curl -f http://localhost:28080/health 2>/dev/null; do sleep 2; done'
         echo "All services ready!"
-      # Load test ports for e2e tests
-      pytest_env_script: 'set -a && source .env.test && set +a'
+      pytest_env_script: |
+        export NEO4J_URI=bolt://localhost:27687
+        export NEO4J_HTTP_PORT=27474
+        export NEO4J_USER=neo4j
+        export NEO4J_PASSWORD=neo4jtest
+        export MILVUS_HOST=localhost
+        export MILVUS_PORT=29530
+        export MILVUS_METRICS_PORT=29091
+        export SOPHIA_HOST=localhost
+        export SOPHIA_PORT=28080
+        export SOPHIA_URL=http://localhost:28080
       pytest_command: 'pytest tests -m "not integration" -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
       upload_coverage: false  # We'll upload with flags in a separate job
