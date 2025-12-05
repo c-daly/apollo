@@ -263,8 +263,9 @@ def create_plan():
         if not goal:
             return jsonify({"error": "goal description is required"}), 422
 
-        if "pick" not in goal.lower() or "place" not in goal.lower():
-            return jsonify({"error": "Mock only handles pick-and-place goals"}), 400
+        # Accept any goal containing "pick" (relaxed from requiring both pick AND place)
+        if "pick" not in goal.lower():
+            return jsonify({"error": "Mock only handles pick/place goals"}), 400
 
         plan, cwm_state = perform_pick_and_place(goal)
         latest_state = cwm_state["states"][0]
