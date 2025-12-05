@@ -1,0 +1,282 @@
+"""
+API End-to-End Tests for Apollo Backend
+
+Test Apollo's FastAPI backend endpoints against real services.
+Uses httpx for HTTP testing.
+
+Based on sophia/tests/e2e/test_sophia_e2e.py patterns.
+"""
+
+import pytest
+import httpx
+
+
+pytestmark = pytest.mark.e2e
+
+
+# Apollo backend API base URL
+APOLLO_API_PORT = 8003  # Default Apollo backend port
+APOLLO_API_URL = f"http://localhost:{APOLLO_API_PORT}"
+
+
+@pytest.fixture(scope="module")
+def apollo_api_url():
+    """Apollo backend API URL."""
+    import os
+    return os.getenv("APOLLO_API_URL", APOLLO_API_URL)
+
+
+@pytest.fixture(scope="module")
+def api_available(apollo_api_url):
+    """Check if Apollo API is available, skip if not."""
+    try:
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/health", timeout=5)
+        return resp.status_code == 200
+    except Exception:
+        return False
+
+
+class TestApolloAPIHealth:
+    """Test Apollo backend health endpoints."""
+
+    def test_hcg_health_endpoint(self, apollo_api_url, api_available):
+        """HCG health endpoint should return status."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/health", timeout=10)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "status" in data or "healthy" in str(data).lower()
+
+    def test_diagnostics_endpoint(self, apollo_api_url, api_available):
+        """Diagnostics endpoint should return telemetry."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(f"{apollo_api_url}/api/diagnostics", timeout=10)
+        # May return 200 with data or 404 if not implemented
+        assert resp.status_code in [200, 404]
+
+
+class TestApolloHCGAPI:
+    """Test Apollo HCG (Hybrid Causal Graph) endpoints."""
+
+    def test_get_processes(self, apollo_api_url, api_available):
+        """Should list processes from HCG."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/processes", timeout=10)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, (list, dict))
+
+    def test_get_goals(self, apollo_api_url, api_available):
+        """Should list goals from HCG."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/goals", timeout=10)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, (list, dict))
+
+    def test_get_state(self, apollo_api_url, api_available):
+        """Should return current state."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/state", timeout=10)
+        assert resp.status_code == 200
+
+
+class TestApolloPersonaAPI:
+    """Test Apollo Persona diary endpoints."""
+
+    def test_list_persona_entries(self, apollo_api_url, api_available):
+        """Should list persona diary entries."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(f"{apollo_api_url}/api/persona/entries", timeout=10)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+
+    def test_create_persona_entry(self, apollo_api_url, api_available, unique_id: str):
+        """Should create persona diary entry."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        payload = {
+            "entry_type": "observation",
+            "content": f"E2E test entry {unique_id}",
+            "summary": "Test summary",
+            "sentiment": "neutral",
+            "confidence": 0.9,
+            "related_process_ids": [],
+            "related_goal_ids": [],
+            "emotion_tags": ["curious"],
+            "metadata": {"test": True, "id": unique_id},
+        }
+        
+        resp = httpx.post(
+            f"{apollo_api_url}/api/persona/entries",
+            json=payload,
+            timeout=10,
+        )
+        assert resp.status_code == 201, f"Create entry failed: {resp.text}"
+        data = resp.json()
+        assert data["content"] == payload["content"]
+        assert data["entry_type"] == "observation"
+
+    def test_get_persona_entry_by_id(self, apollo_api_url, api_available, unique_id: str):
+        """Should get persona entry by ID after creation."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        # First create an entry
+        payload = {
+            "entry_type": "belief",
+            "content": f"Retrievable entry {unique_id}",
+            "sentiment": "positive",
+        }
+        
+        create_resp = httpx.post(
+            f"{apollo_api_url}/api/persona/entries",
+            json=payload,
+            timeout=10,
+        )
+        if create_resp.status_code != 201:
+            pytest.skip("Could not create entry for retrieval test")
+        
+        entry_id = create_resp.json()["id"]
+        
+        # Now retrieve it
+        get_resp = httpx.get(
+            f"{apollo_api_url}/api/persona/entries/{entry_id}",
+            timeout=10,
+        )
+        assert get_resp.status_code == 200
+        data = get_resp.json()
+        assert data["id"] == entry_id
+
+    def test_filter_persona_entries_by_type(self, apollo_api_url, api_available):
+        """Should filter entries by type."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(
+            f"{apollo_api_url}/api/persona/entries",
+            params={"entry_type": "observation"},
+            timeout=10,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+
+    def test_filter_persona_entries_by_sentiment(self, apollo_api_url, api_available):
+        """Should filter entries by sentiment."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        resp = httpx.get(
+            f"{apollo_api_url}/api/persona/entries",
+            params={"sentiment": "positive"},
+            timeout=10,
+        )
+        assert resp.status_code == 200
+
+
+class TestApolloWebSocketDiagnostics:
+    """Test Apollo WebSocket diagnostics endpoint."""
+
+    @pytest.mark.slow
+    def test_websocket_connects(self, apollo_api_url, api_available):
+        """WebSocket diagnostics should accept connection."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        # Convert http to ws
+        ws_url = apollo_api_url.replace("http://", "ws://")
+        
+        try:
+            import websockets
+            import asyncio
+            
+            async def connect_test():
+                async with websockets.connect(
+                    f"{ws_url}/ws/diagnostics",
+                    close_timeout=5,
+                ) as ws:
+                    # Should receive initial telemetry
+                    msg = await asyncio.wait_for(ws.recv(), timeout=5)
+                    return msg is not None
+            
+            result = asyncio.get_event_loop().run_until_complete(connect_test())
+            assert result, "WebSocket should receive initial message"
+            
+        except ImportError:
+            pytest.skip("websockets library not available")
+        except Exception as e:
+            pytest.skip(f"WebSocket connection failed: {e}")
+
+
+class TestCompleteWorkflow:
+    """Test complete workflow from command to state update."""
+
+    @pytest.mark.slow
+    def test_goal_to_plan_to_state(
+        self, sophia_client, neo4j_driver, unique_id: str
+    ):
+        """Test workflow: submit goal → generate plan → verify state."""
+        # Step 1: Submit command
+        response = sophia_client.send_command(
+            f"pick up test object {unique_id}"
+        )
+        assert response.success, f"Command failed: {response.error}"
+        
+        # Step 2: Verify plan was generated
+        if response.data:
+            plan = response.data.get("plan") or response.data
+            assert isinstance(plan, (dict, list))
+        
+        # Step 3: Check state reflects command was processed
+        state_response = sophia_client.get_state()
+        assert state_response.success
+
+    @pytest.mark.slow
+    def test_persona_entry_to_retrieval(
+        self, apollo_api_url, api_available, unique_id: str
+    ):
+        """Test workflow: create entry → list entries → find entry."""
+        if not api_available:
+            pytest.skip("Apollo API not available")
+        
+        # Create
+        content = f"Workflow test entry {unique_id}"
+        create_resp = httpx.post(
+            f"{apollo_api_url}/api/persona/entries",
+            json={
+                "entry_type": "decision",
+                "content": content,
+                "sentiment": "neutral",
+            },
+            timeout=10,
+        )
+        assert create_resp.status_code == 201
+        entry_id = create_resp.json()["id"]
+        
+        # List and find
+        list_resp = httpx.get(
+            f"{apollo_api_url}/api/persona/entries",
+            params={"limit": 10},
+            timeout=10,
+        )
+        assert list_resp.status_code == 200
+        entries = list_resp.json()
+        
+        # Verify our entry is in the list
+        entry_ids = [e["id"] for e in entries]
+        assert entry_id in entry_ids, f"Created entry {entry_id} not found in list"

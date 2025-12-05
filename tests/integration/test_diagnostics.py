@@ -135,13 +135,3 @@ def test_persona_entry_broadcasts_to_websocket(mock_dependencies):
             assert data["id"] == created_entry["id"]
             assert data["content"] == "Integration test entry"
             assert data["metadata"]["test_id"] == "ws_integration"
-
-
-def test_websocket_receives_telemetry_updates(mock_dependencies):
-    """Verify that the websocket receives periodic telemetry updates."""
-    # We need to mock asyncio.sleep to speed up the test or just wait for one update
-    # But since the telemetry poller runs in a background task, it might be tricky
-    # to control deterministically without more complex mocking.
-    # For this integration test, we might just check the initial state or
-    # rely on the fact that we can trigger updates manually if we wanted to.
-    pass
