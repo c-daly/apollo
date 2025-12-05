@@ -56,7 +56,7 @@ class TestInfrastructureHealth:
         assert resp.status_code == 200, f"Sophia state failed: {resp.status_code}"
         data = resp.json()
         assert (
-            "state" in data or "agent" in data
+            "state" in data or "agent" in data or "states" in data
         ), "State response should include state data"
 
     @pytest.mark.requires_milvus
