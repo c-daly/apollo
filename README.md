@@ -32,7 +32,7 @@ Apollo consists of two main components:
 
 - **Node.js 18+** (for web dashboard) - [Download](https://nodejs.org/)
 - **npm 9+** (comes with Node.js)
-- **Python 3.9+** (for CLI tool)
+- **Python 3.11+** (for CLI tool)
 - **Docker** (for connecting to LOGOS infrastructure)
 
 Verify your installation:
@@ -520,8 +520,8 @@ Apollo uses standardized test stacks generated from the shared LOGOS template to
 **Port Assignments (Apollo-specific):**
 - Neo4j HTTP: `27474`
 - Neo4j Bolt: `27687`
-- Milvus gRPC: `29530`
-- Milvus Metrics: `29091`
+- Milvus gRPC: `27530`
+- Milvus Metrics: `27091`
 - Sophia Mock: `28080`
 - Credentials: `neo4j/neo4jtest`
 

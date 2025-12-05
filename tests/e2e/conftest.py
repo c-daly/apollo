@@ -38,8 +38,8 @@ SOPHIA_URL = os.getenv("SOPHIA_URL", f"http://{SOPHIA_HOST}:{SOPHIA_PORT}")
 # Infrastructure ports (Apollo uses 27xxx/29xxx offset)
 NEO4J_HTTP_PORT = os.getenv("NEO4J_HTTP_PORT", "27474")
 NEO4J_BOLT_PORT = os.getenv("NEO4J_BOLT_PORT", "27687")
-MILVUS_PORT = os.getenv("MILVUS_PORT", "29530")
-MILVUS_METRICS_PORT = os.getenv("MILVUS_METRICS_PORT", "29091")
+MILVUS_PORT = os.getenv("MILVUS_PORT", "27530")
+MILVUS_METRICS_PORT = os.getenv("MILVUS_METRICS_PORT", "27091")
 
 # Neo4j connection config
 NEO4J_URI = os.getenv("NEO4J_URI", f"bolt://localhost:{NEO4J_BOLT_PORT}")

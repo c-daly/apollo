@@ -57,8 +57,8 @@ Apollo uses port ranges that avoid conflicts with other LOGOS repositories:
 |---------|---------|-------------|
 | Neo4j HTTP | 27474 | Neo4j browser |
 | Neo4j Bolt | 27687 | Neo4j bolt protocol |
-| Milvus gRPC | 29530 | Milvus vector DB |
-| Milvus Health | 29091 | Milvus health endpoint |
+| Milvus gRPC | 27530 | Milvus vector DB |
+| Milvus Health | 27091 | Milvus health endpoint |
 | MinIO | 29000-29001 | Object storage |
 
 Other repositories use different ranges:

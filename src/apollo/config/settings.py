@@ -140,6 +140,43 @@ class ApolloConfig(BaseModel):
 
     def apply_env_overrides(self) -> None:
         """Let environment variables override config-file values."""
+        # Sophia connection
+        self.sophia.host = _get_client_host("SOPHIA_HOST", self.sophia.host)
+        self.sophia.port = int(os.getenv("SOPHIA_PORT", self.sophia.port))
+        if env_sophia_key := os.getenv("SOPHIA_API_KEY"):
+            self.sophia.api_key = env_sophia_key
+
+        # Hermes connection
+        self.hermes.host = _get_client_host("HERMES_HOST", self.hermes.host)
+        self.hermes.port = int(os.getenv("HERMES_PORT", self.hermes.port))
+        if env_hermes_key := os.getenv("HERMES_API_KEY"):
+            self.hermes.api_key = env_hermes_key
+        if env_provider := os.getenv("HERMES_LLM_PROVIDER"):
+            self.hermes.provider = env_provider
+        if env_model := os.getenv("HERMES_LLM_MODEL"):
+            self.hermes.model = env_model
+        if env_temperature := os.getenv("HERMES_LLM_TEMPERATURE"):
+            try:
+                self.hermes.temperature = float(env_temperature)
+            except ValueError:
+                pass
+        if env_max_tokens := os.getenv("HERMES_LLM_MAX_TOKENS"):
+            try:
+                self.hermes.max_tokens = int(env_max_tokens)
+            except ValueError:
+                pass
+        if env_system_prompt := os.getenv("HERMES_SYSTEM_PROMPT"):
+            self.hermes.system_prompt = env_system_prompt
+
+        # Persona diary API
+        self.persona_api.host = _get_client_host(
+            "APOLLO_HOST", self.persona_api.host
+        )
+        self.persona_api.port = int(os.getenv("APOLLO_PORT", self.persona_api.port))
+        if env_apollo_key := os.getenv("APOLLO_API_KEY"):
+            self.persona_api.api_key = env_apollo_key
+
+        # HCG infra connections
         if self.hcg and self.hcg.neo4j:
             if env_uri := os.getenv("NEO4J_URI"):
                 self.hcg.neo4j.uri = env_uri

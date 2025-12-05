@@ -68,6 +68,8 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+plugins = ["pytest_asyncio"]
+pythonpath = ["src"]
 addopts = "-v --cov=apollo --cov-report=term-missing"
 asyncio_mode = "auto"
 markers = [
