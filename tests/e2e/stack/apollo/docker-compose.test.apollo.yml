@@ -1,5 +1,5 @@
 # Overlay for docker-compose.test.yml that adds Sophia and Apollo services
-# Usage: docker compose -f stack/apollo/docker-compose.test.yml -f docker-compose.test.apollo.yml up
+# Usage: docker compose -f tests/e2e/stack/apollo/docker-compose.test.yml -f tests/e2e/stack/apollo/docker-compose.test.apollo.yml up
 #
 # This overlay adds:
 # - Sophia API service from the published container image
@@ -36,7 +36,7 @@ services:
   apollo:
     container_name: apollo-e2e-api
     build:
-      context: ../../
+      context: .
       dockerfile: Dockerfile
     ports:
       - "28003:8003"
