@@ -31,6 +31,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APOLLO_ROOT="${APOLLO_ROOT:-$(dirname "$SCRIPT_DIR")}"
 
+# Port configuration (2xxxx prefix for apollo per LOGOS ecosystem standard)
+NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
+NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
+SOPHIA_MOCK_PORT="${SOPHIA_MOCK_PORT:-28080}"
+MILVUS_PORT="${MILVUS_PORT:-29530}"
+MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-29091}"
+
 # Options
 RUN_UNIT=true
 RUN_INTEGRATION=true
@@ -207,11 +214,11 @@ if [[ "$RUN_INTEGRATION" == "true" ]]; then
     log_header "Step 4: Run Integration Tests"
     
     export RUN_INTEGRATION_TESTS=1
-    export NEO4J_URI="bolt://localhost:27687"
+    export NEO4J_URI="bolt://localhost:${NEO4J_BOLT_PORT:-27687}"
     export NEO4J_USER="neo4j"
     export NEO4J_PASSWORD="neo4jtest"
     export SOPHIA_HOST="localhost"
-    export SOPHIA_PORT="28080"
+    export SOPHIA_PORT="${SOPHIA_MOCK_PORT:-28080}"
     
     if poetry run pytest tests/integration/ "${PYTEST_ARGS[@]}"; then
         log_success "Integration tests passed"
