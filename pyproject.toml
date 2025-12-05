@@ -72,4 +72,9 @@ addopts = "-v --cov=apollo --cov-report=term-missing"
 asyncio_mode = "auto"
 markers = [
     "integration: marks tests as integration tests requiring real services (deselect with '-m \"not integration\"')",
+    "e2e: marks tests as end-to-end tests requiring running test stack",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "requires_neo4j: marks tests that require Neo4j",
+    "requires_milvus: marks tests that require Milvus",
+    "requires_sophia: marks tests that require Sophia service",
 ]
