@@ -15,4 +15,4 @@ RUN poetry install --only main --no-interaction --no-ansi
 EXPOSE 8003
 
 # Run the API server
-CMD ["poetry", "run", "apollo-api"]
+CMD ["uvicorn", "apollo.api.server:app", "--host", "0.0.0.0", "--port", "8003"]
