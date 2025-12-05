@@ -145,7 +145,7 @@ class TestServiceConfigs:
         monkeypatch.delenv("NEO4J_PASSWORD", raising=False)
 
         config = get_neo4j_config()
-        assert config["uri"] == "bolt://localhost:27687"
+        assert config["uri"] == "bolt://localhost:7687"
         assert config["user"] == "neo4j"
         assert config["password"] == "neo4jtest"
 
@@ -168,7 +168,7 @@ class TestServiceConfigs:
 
         config = get_milvus_config()
         assert config["host"] == "localhost"
-        assert config["port"] == "29530"
+        assert config["port"] == "19530"
         assert "healthz" in config["healthcheck"]
 
     def test_get_sophia_config_defaults(self, monkeypatch):
@@ -178,5 +178,5 @@ class TestServiceConfigs:
 
         config = get_sophia_config()
         assert config["host"] == "localhost"
-        assert config["port"] == "28080"
-        assert config["base_url"] == "http://localhost:28080"
+        assert config["port"] == "8080"
+        assert config["base_url"] == "http://localhost:8080"
