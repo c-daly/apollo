@@ -16,8 +16,8 @@ import httpx
 pytestmark = pytest.mark.e2e
 
 
-# Apollo backend API base URL
-APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "8003"))
+# Apollo backend API base URL (uses test port offset 28003)
+APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "28003"))
 APOLLO_API_URL = f"http://localhost:{APOLLO_API_PORT}"
 
 
