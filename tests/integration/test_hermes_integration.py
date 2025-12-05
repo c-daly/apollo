@@ -30,8 +30,7 @@ class TestChatEndpoint:
         response = integration_client.post(
             "/api/chat/stream",
             json={
-                "message": "Hello, what is 2+2?",
-                "conversation_id": "test-conv-001",
+                "messages": [{"role": "user", "content": "Hello, what is 2+2?"}],
             },
         )
 
