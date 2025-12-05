@@ -150,7 +150,7 @@ def get_neo4j_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
         Dictionary with uri, user, and password
     """
     # These all have defaults so they won't be None
-    uri = get_env_value("NEO4J_URI", env, "bolt://localhost:27687")
+    uri = get_env_value("NEO4J_URI", env, "bolt://localhost:7687")
     user = get_env_value("NEO4J_USER", env, "neo4j")
     password = get_env_value("NEO4J_PASSWORD", env, "neo4jtest")
     assert uri is not None
@@ -174,9 +174,9 @@ def get_milvus_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
     """
     # These all have defaults so they won't be None
     host = get_env_value("MILVUS_HOST", env, "localhost")
-    port = get_env_value("MILVUS_PORT", env, "29530")
+    port = get_env_value("MILVUS_PORT", env, "19530")
     healthcheck = get_env_value(
-        "MILVUS_HEALTHCHECK", env, "http://localhost:29091/healthz"
+        "MILVUS_HEALTHCHECK", env, "http://localhost:9091/healthz"
     )
     assert host is not None
     assert port is not None
@@ -198,7 +198,7 @@ def get_sophia_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
         Dictionary with host, port, and base_url
     """
     host = get_env_value("SOPHIA_HOST", env, "localhost")
-    port = get_env_value("SOPHIA_PORT", env, "28080")
+    port = get_env_value("SOPHIA_PORT", env, "8080")
     assert host is not None
     assert port is not None
     return {
