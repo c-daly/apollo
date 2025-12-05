@@ -2,7 +2,8 @@
 #
 # Apollo Test Stack Manager
 #
-# Manages the test infrastructure (Neo4j, Milvus, Mock Sophia) for Apollo testing.
+# Manages the full test stack (Neo4j, Milvus, Sophia) for Apollo testing.
+# All services are started together - no need to run separate repos.
 # Handles port conflicts, cleanup, and provides consistent environment for tests.
 #
 # Usage:
@@ -34,8 +35,8 @@ export APOLLO_ROOT
 
 # Stack configuration
 STACK_DIR="${APOLLO_ROOT}/tests/e2e/stack/apollo"
-OVERLAY_FILE="${APOLLO_ROOT}/tests/e2e/docker-compose.test.apollo.yml"
 COMPOSE_FILE="${STACK_DIR}/docker-compose.test.yml"
+SOPHIA_OVERLAY="${APOLLO_ROOT}/tests/e2e/docker-compose.test.apollo.yml"
 ENV_FILE="${STACK_DIR}/.env.test"
 
 # Load environment from .env.test if it exists
@@ -46,19 +47,18 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-# Apollo uses 27xxx/28xxx port range to avoid conflicts with other LOGOS repos
+# Apollo uses 27xxx/29xxx port range to avoid conflicts with other LOGOS repos
 # These match the docker-compose.test.yml configuration
+# Sophia is included via docker-compose.test.sophia.yml overlay
 NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
 NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
 MILVUS_PORT="${MILVUS_PORT:-29530}"
 MILVUS_HEALTH_PORT="${MILVUS_HEALTH_PORT:-29091}"
-SOPHIA_MOCK_PORT="${SOPHIA_MOCK_PORT:-28080}"
 MINIO_PORT="${MINIO_PORT:-29000}"
 MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-29001}"
 
 NEO4J_CONTAINER="${NEO4J_CONTAINER:-apollo-test-neo4j}"
 MILVUS_CONTAINER="${MILVUS_CONTAINER:-apollo-test-milvus}"
-SOPHIA_MOCK_CONTAINER="${SOPHIA_MOCK_CONTAINER:-apollo-test-sophia}"
 
 NEO4J_USER="${NEO4J_USER:-neo4j}"
 NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4jtest}"
@@ -66,8 +66,8 @@ NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4jtest}"
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
 
 # Export for child processes
-export NEO4J_HTTP_PORT NEO4J_BOLT_PORT MILVUS_PORT MILVUS_HEALTH_PORT SOPHIA_MOCK_PORT
-export NEO4J_CONTAINER MILVUS_CONTAINER SOPHIA_MOCK_CONTAINER
+export NEO4J_HTTP_PORT NEO4J_BOLT_PORT MILVUS_PORT MILVUS_HEALTH_PORT
+export NEO4J_CONTAINER MILVUS_CONTAINER
 export NEO4J_USER NEO4J_PASSWORD
 
 # Colors for output
@@ -85,7 +85,6 @@ PORT_LABELS=(
     "Neo4j Bolt"
     "Milvus gRPC"
     "Milvus Health"
-    "Sophia Mock"
     "MinIO"
     "MinIO Console"
 )
@@ -95,7 +94,6 @@ PORT_VALUES=(
     "$NEO4J_BOLT_PORT"
     "$MILVUS_PORT"
     "$MILVUS_HEALTH_PORT"
-    "$SOPHIA_MOCK_PORT"
     "$MINIO_PORT"
     "$MINIO_CONSOLE_PORT"
 )
@@ -123,12 +121,12 @@ log_header() {
     echo -e "${CYAN}$(printf '=%.0s' {1..50})${NC}"
 }
 
-# Docker compose wrapper
+# Docker compose wrapper (includes Sophia overlay)
 compose() {
     docker compose \
         --env-file "$ENV_FILE" \
         -f "$COMPOSE_FILE" \
-        -f "$OVERLAY_FILE" \
+        -f "$SOPHIA_OVERLAY" \
         "$@"
 }
 
@@ -317,7 +315,7 @@ cmd_up() {
     log_info "Waiting for services to become healthy..."
     echo -n "  "
     
-    local services=("neo4j" "milvus" "sophia-mock")
+    local services=("neo4j" "milvus")
     local failed=0
     
     for service in "${services[@]}"; do
@@ -337,13 +335,25 @@ cmd_up() {
     
     echo ""
     if [[ $failed -eq 0 ]]; then
-        log_success "All services are ready"
+        log_success "All local services are ready"
         echo ""
         log_info "Service endpoints:"
         echo "  Neo4j Browser: http://localhost:${NEO4J_HTTP_PORT}"
         echo "  Neo4j Bolt:    bolt://localhost:${NEO4J_BOLT_PORT}"
-        echo "  Sophia Mock:   http://localhost:${SOPHIA_MOCK_PORT}"
         echo "  Milvus:        localhost:${MILVUS_PORT}"
+        
+        # Check if Sophia is available (part of our stack)
+        echo ""
+        local sophia_port="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-48001}}"
+        if curl -sf "http://localhost:${sophia_port}/health" &>/dev/null; then
+            log_success "Sophia is available at http://localhost:${sophia_port}"
+        else
+            log_error "Sophia is NOT available at http://localhost:${sophia_port}"
+            echo ""
+            echo "  Sophia should be running as part of the test stack."
+            echo "  Check logs: $0 logs sophia"
+            return 1
+        fi
         return 0
     else
         log_error "$failed service(s) failed to start"
@@ -409,10 +419,11 @@ cmd_status() {
         echo -e "${RED}unhealthy${NC}"
     fi
     
-    # Sophia Mock
-    printf "  %-15s " "Sophia Mock:"
-    if curl -sf "http://localhost:${SOPHIA_MOCK_PORT}/health" &>/dev/null; then
-        echo -e "${GREEN}healthy${NC} (http://localhost:${SOPHIA_MOCK_PORT})"
+    # Sophia (part of the stack via overlay)
+    local sophia_port="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-48001}}"
+    printf "  %-15s " "Sophia:"
+    if curl -sf "http://localhost:${sophia_port}/health" &>/dev/null; then
+        echo -e "${GREEN}healthy${NC} (http://localhost:${sophia_port})"
     else
         echo -e "${RED}unhealthy${NC}"
     fi
@@ -467,7 +478,7 @@ cmd_run() {
     export NEO4J_USER
     export NEO4J_PASSWORD
     export SOPHIA_HOST="localhost"
-    export SOPHIA_PORT="${SOPHIA_MOCK_PORT}"
+    export SOPHIA_PORT="${SOPHIA_PORT:-48001}"  # Real Sophia service port (tests skip if unavailable)
     export RUN_INTEGRATION_TESTS=1
     
     cd "$APOLLO_ROOT"
@@ -492,7 +503,7 @@ ${BOLD}Apollo Test Stack Manager${NC}
 Usage: $0 [COMMAND]
 
 Commands:
-    up        Start test infrastructure (Neo4j, Milvus, Mock Sophia)
+    up        Start test infrastructure (Neo4j, Milvus)
     down      Stop and remove containers
     status    Show service health status
     clean     Stop services and remove volumes (full cleanup)
@@ -503,11 +514,11 @@ Commands:
     run       Start stack, run integration tests, stop stack
     help      Show this help message
 
-Port Configuration (Apollo uses 27xxx/28xxx/29xxx range):
-    Neo4j:       ${NEO4J_HTTP_PORT} (http), ${NEO4J_BOLT_PORT} (bolt)
-    Milvus:      ${MILVUS_PORT} (grpc), ${MILVUS_HEALTH_PORT} (health)
-    Sophia Mock: ${SOPHIA_MOCK_PORT}
-    MinIO:       ${MINIO_PORT}, ${MINIO_CONSOLE_PORT}
+Port Configuration (Apollo uses 27xxx/29xxx range):
+    Neo4j:  ${NEO4J_HTTP_PORT} (http), ${NEO4J_BOLT_PORT} (bolt)
+    Milvus: ${MILVUS_PORT} (grpc), ${MILVUS_HEALTH_PORT} (health)
+    MinIO:  ${MINIO_PORT}, ${MINIO_CONSOLE_PORT}
+    Sophia: 48001 (ghcr.io/c-daly/sophia:latest)
 
 Examples:
     $0 up              # Start services for manual testing

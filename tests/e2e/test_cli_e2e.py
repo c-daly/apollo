@@ -178,10 +178,12 @@ class TestCLIEmbed:
     def test_embed_command(self, cli_runner):
         """Embed command should generate embeddings."""
         result = cli_runner.invoke(cli, ["embed", "test text for embedding"])
-        # May skip if embedding service not available
-        if "not available" in result.output.lower():
-            pytest.skip("Embedding service not available")
-        assert result.exit_code in [0, 1], f"embed crashed: {result.output}"
+        # Embedding service must be available for integration tests
+        assert "not available" not in result.output.lower(), (
+            "Embedding service not available. Start the test stack: "
+            "./scripts/test_stack.sh up"
+        )
+        assert result.exit_code == 0, f"embed failed: {result.output}"
 
 
 class TestCLIHelp:

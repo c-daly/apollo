@@ -59,13 +59,18 @@ Apollo uses port ranges that avoid conflicts with other LOGOS repositories:
 | Neo4j Bolt | 27687 | Neo4j bolt protocol |
 | Milvus gRPC | 29530 | Milvus vector DB |
 | Milvus Health | 29091 | Milvus health endpoint |
-| Sophia Mock | 28080 | Mock Sophia service |
 | MinIO | 29000-29001 | Object storage |
 
 Other repositories use different ranges:
-- Sophia: 37xxx
-- Hermes: 47xxx (planned)
-- Logos infra: 7xxx (standard)
+- Hermes: 1xxxx
+- Apollo: 2xxxx (this repo)
+- Logos: 3xxxx
+- Sophia: 4xxxx
+- Talos: 5xxxx
+
+Note: Sophia service is **required** and managed by the sophia repo.
+Start sophia's test stack before Apollo's: `cd ../sophia && ./scripts/test_stack.sh up`
+Apollo's test_stack.sh will verify Sophia is available.
 
 ## Development Scripts
 
