@@ -81,19 +81,21 @@ class TestApolloHCGAPI:
         data = resp.json()
         assert isinstance(data, (list, dict))
 
-    def test_get_goals(self, apollo_api_url, api_available):
-        """Should list goals from HCG."""
+    def test_get_entities(self, apollo_api_url, api_available):
+        """Should list entities from HCG."""
 
-        resp = httpx.get(f"{apollo_api_url}/api/hcg/goals", timeout=10)
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/entities", timeout=10)
         assert resp.status_code == 200
         data = resp.json()
-        assert isinstance(data, (list, dict))
+        assert isinstance(data, list)
 
-    def test_get_state(self, apollo_api_url, api_available):
-        """Should return current state."""
+    def test_get_states(self, apollo_api_url, api_available):
+        """Should return states list."""
 
-        resp = httpx.get(f"{apollo_api_url}/api/hcg/state", timeout=10)
+        resp = httpx.get(f"{apollo_api_url}/api/hcg/states", timeout=10)
         assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
 
 
 class TestApolloPersonaAPI:

@@ -21,7 +21,8 @@ def test_sophia_client_initialization() -> None:
 
 def test_sophia_client_send_command() -> None:
     """Test sending command returns connection error when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     response = client.send_command("test command")
@@ -33,7 +34,8 @@ def test_sophia_client_send_command() -> None:
 
 def test_sophia_client_get_state() -> None:
     """Test getting state returns connection error when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     response = client.get_state()
@@ -45,7 +47,8 @@ def test_sophia_client_get_state() -> None:
 
 def test_sophia_client_get_plans() -> None:
     """Test getting plans returns connection error when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     response = client.get_plans(limit=5)
@@ -68,7 +71,8 @@ def test_sophia_client_health_check() -> None:
 
 def test_sophia_client_create_goal() -> None:
     """Test creating goal returns connection error when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     response = client.create_goal("Navigate to kitchen", {"priority": "high"})
@@ -80,7 +84,8 @@ def test_sophia_client_create_goal() -> None:
 
 def test_sophia_client_invoke_planner() -> None:
     """Test invoking planner returns connection error when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     response = client.invoke_planner("goal_12345")
@@ -92,7 +97,8 @@ def test_sophia_client_invoke_planner() -> None:
 
 def test_sophia_client_execute_step() -> None:
     """Test executing step returns connection error when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     response = client.execute_step("plan_12345", step_index=0)
