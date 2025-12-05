@@ -136,7 +136,7 @@ class DiagnosticsManager:
 
     async def record_log(self, level: str, message: str) -> None:
         entry = DiagnosticLogEntry(
-            id=f"log-{int(datetime.utcnow().timestamp()*1000)}",
+            id=f"log-{int(datetime.utcnow().timestamp() * 1000)}",
             timestamp=datetime.utcnow(),
             level=level,
             message=message,

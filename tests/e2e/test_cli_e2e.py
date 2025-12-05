@@ -89,9 +89,7 @@ class TestCLIGoal:
     @pytest.mark.requires_sophia
     def test_goal_with_priority(self, cli_runner):
         """Goal command should accept priority option."""
-        result = cli_runner.invoke(
-            cli, ["goal", "urgent task", "--priority", "high"]
-        )
+        result = cli_runner.invoke(cli, ["goal", "urgent task", "--priority", "high"])
         assert result.exit_code == 0, f"goal with priority failed: {result.output}"
 
 
@@ -140,8 +138,10 @@ class TestCLIDiary:
             [
                 "diary",
                 f"E2E test entry {unique_id}",
-                "--type", "observation",
-                "--sentiment", "neutral",
+                "--type",
+                "observation",
+                "--sentiment",
+                "neutral",
             ],
         )
         # May fail if persona API not available, but shouldn't crash
@@ -155,13 +155,20 @@ class TestCLIDiary:
             [
                 "diary",
                 f"Feeling productive {unique_id}",
-                "--type", "reflection",
-                "--sentiment", "positive",
-                "--emotion", "focused",
-                "--emotion", "curious",
+                "--type",
+                "reflection",
+                "--sentiment",
+                "positive",
+                "--emotion",
+                "focused",
+                "--emotion",
+                "curious",
             ],
         )
-        assert result.exit_code in [0, 1], f"diary with emotions crashed: {result.output}"
+        assert result.exit_code in [
+            0,
+            1,
+        ], f"diary with emotions crashed: {result.output}"
 
 
 class TestCLIEmbed:

@@ -70,11 +70,10 @@ def status(ctx: click.Context) -> None:
         console.print("  [green]✓[/green] Sophia is accessible")
     else:
         console.print(
-            "  [yellow]✗[/yellow] Cannot connect to Sophia " f"at {client.base_url}"
+            f"  [yellow]✗[/yellow] Cannot connect to Sophia at {client.base_url}"
         )
         console.print(
-            "\n[dim]Tip: Make sure Sophia service is running "
-            "or check your config[/dim]"
+            "\n[dim]Tip: Make sure Sophia service is running or check your config[/dim]"
         )
 
 
@@ -439,9 +438,9 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
                 embedding = display_data["embedding"]
                 if len(embedding) > 10:
                     display_data["embedding"] = embedding[:5] + ["..."] + embedding[-5:]
-                    display_data[
-                        "_note"
-                    ] = f"Full embedding has {len(embedding)} dimensions"
+                    display_data["_note"] = (
+                        f"Full embedding has {len(embedding)} dimensions"
+                    )
 
             response_text = yaml.dump(
                 display_data, default_flow_style=False, sort_keys=False

@@ -47,19 +47,21 @@ def sample_entry():
 @pytest.fixture
 def mock_neo4j_node():
     """Mock Neo4j Node object with standard test data."""
-    return _make_mock_node({
-        "id": "entry-123",
-        "timestamp": datetime(2024, 1, 15, 10, 30, 0),
-        "entry_type": "thought",
-        "content": "This is a test thought",
-        "summary": "Test summary",
-        "sentiment": "positive",
-        "confidence": 0.85,
-        "related_process_ids": ["proc-1", "proc-2"],
-        "related_goal_ids": ["goal-1"],
-        "emotion_tags": ["curious", "focused"],
-        "metadata": '{"source": "test", "version": "1.0"}',
-    })
+    return _make_mock_node(
+        {
+            "id": "entry-123",
+            "timestamp": datetime(2024, 1, 15, 10, 30, 0),
+            "entry_type": "thought",
+            "content": "This is a test thought",
+            "summary": "Test summary",
+            "sentiment": "positive",
+            "confidence": 0.85,
+            "related_process_ids": ["proc-1", "proc-2"],
+            "related_goal_ids": ["goal-1"],
+            "emotion_tags": ["curious", "focused"],
+            "metadata": '{"source": "test", "version": "1.0"}',
+        }
+    )
 
 
 def _make_mock_node(data: dict) -> Mock:
@@ -75,17 +77,17 @@ def _make_mock_node(data: dict) -> Mock:
 @pytest.fixture
 def mock_neo4j_session():
     """Pre-configured mock Neo4j session.
-    
+
     Returns a tuple of (mock_session, configure_result) where configure_result
     is a helper function to set up query results.
     """
     mock_session = MagicMock()
     mock_result = Mock()
     mock_session.run.return_value = mock_result
-    
+
     def configure_result(single_value="NOT_SET", list_value=None):
         """Configure the mock to return specific results.
-        
+
         Use single_value=None explicitly for "not found" cases.
         """
         if single_value != "NOT_SET":
@@ -93,35 +95,34 @@ def mock_neo4j_session():
         if list_value is not None:
             # For list results, the session.run returns an iterable
             mock_session.run.return_value = list_value
-    
+
     return mock_session, configure_result
 
 
 @pytest.fixture
 def mock_store(neo4j_config, mock_neo4j_session):
     """Pre-configured PersonaDiaryStore with mocked Neo4j driver.
-    
+
     The store is already connected. Access mock_session via store._test_session
     to configure results or verify calls.
     """
     mock_session, configure_result = mock_neo4j_session
-    
+
     with patch("apollo.data.persona_store.GraphDatabase") as mock_graph_db:
         mock_driver = Mock()
         mock_driver.session.return_value = MagicMock(
-            __enter__=Mock(return_value=mock_session),
-            __exit__=Mock(return_value=None)
+            __enter__=Mock(return_value=mock_session), __exit__=Mock(return_value=None)
         )
         mock_graph_db.driver.return_value = mock_driver
-        
+
         store = PersonaDiaryStore(neo4j_config)
         store.connect()
-        
+
         # Attach helpers for test access
         store._test_session = mock_session
         store._test_configure = configure_result
         store._test_driver = mock_driver
-        
+
         yield store
 
 
@@ -218,18 +219,20 @@ class TestPersonaDiaryStoreCreateEntry:
         assert result.id == "entry-123"
         assert result.entry_type == "thought"
 
-    def test_create_entry_auto_connects(self, neo4j_config, sample_entry, mock_neo4j_node):
+    def test_create_entry_auto_connects(
+        self, neo4j_config, sample_entry, mock_neo4j_node
+    ):
         """Test create_entry auto-connects if not connected."""
         with patch("apollo.data.persona_store.GraphDatabase") as mock_graph_db:
             mock_session = MagicMock()
             mock_result = Mock()
             mock_result.single.return_value = {"entry": mock_neo4j_node}
             mock_session.run.return_value = mock_result
-            
+
             mock_driver = Mock()
             mock_driver.session.return_value = MagicMock(
                 __enter__=Mock(return_value=mock_session),
-                __exit__=Mock(return_value=None)
+                __exit__=Mock(return_value=None),
             )
             mock_graph_db.driver.return_value = mock_driver
 
@@ -400,11 +403,13 @@ class TestPersonaDiaryStoreParseNode:
 
     def test_parse_node_missing_id(self, neo4j_config):
         """Test parsing node without ID raises error."""
-        node = _make_mock_node({
-            "timestamp": datetime.now(),
-            "entry_type": "thought",
-            "content": "Test",
-        })
+        node = _make_mock_node(
+            {
+                "timestamp": datetime.now(),
+                "entry_type": "thought",
+                "content": "Test",
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
 
         with pytest.raises(ValueError, match="missing string 'id'"):
@@ -412,11 +417,13 @@ class TestPersonaDiaryStoreParseNode:
 
     def test_parse_node_missing_timestamp(self, neo4j_config):
         """Test parsing node without timestamp raises error."""
-        node = _make_mock_node({
-            "id": "entry-123",
-            "entry_type": "thought",
-            "content": "Test",
-        })
+        node = _make_mock_node(
+            {
+                "id": "entry-123",
+                "entry_type": "thought",
+                "content": "Test",
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
 
         with pytest.raises(ValueError, match="missing 'timestamp'"):
@@ -424,11 +431,13 @@ class TestPersonaDiaryStoreParseNode:
 
     def test_parse_node_missing_entry_type(self, neo4j_config):
         """Test parsing node without entry_type raises error."""
-        node = _make_mock_node({
-            "id": "entry-123",
-            "timestamp": datetime.now(),
-            "content": "Test",
-        })
+        node = _make_mock_node(
+            {
+                "id": "entry-123",
+                "timestamp": datetime.now(),
+                "content": "Test",
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
 
         with pytest.raises(ValueError, match="missing string 'entry_type'"):
@@ -436,11 +445,13 @@ class TestPersonaDiaryStoreParseNode:
 
     def test_parse_node_missing_content(self, neo4j_config):
         """Test parsing node without content raises error."""
-        node = _make_mock_node({
-            "id": "entry-123",
-            "timestamp": datetime.now(),
-            "entry_type": "thought",
-        })
+        node = _make_mock_node(
+            {
+                "id": "entry-123",
+                "timestamp": datetime.now(),
+                "entry_type": "thought",
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
 
         with pytest.raises(ValueError, match="missing string 'content'"):
@@ -448,14 +459,16 @@ class TestPersonaDiaryStoreParseNode:
 
     def test_parse_node_timestamp_string(self, neo4j_config):
         """Test parsing node with timestamp as ISO string."""
-        node = _make_mock_node({
-            "id": "entry-123",
-            "timestamp": "2024-01-15T10:30:00",
-            "entry_type": "thought",
-            "content": "Test",
-        })
+        node = _make_mock_node(
+            {
+                "id": "entry-123",
+                "timestamp": "2024-01-15T10:30:00",
+                "entry_type": "thought",
+                "content": "Test",
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
-        
+
         result = store._parse_node(node)
 
         assert isinstance(result.timestamp, datetime)
@@ -463,29 +476,33 @@ class TestPersonaDiaryStoreParseNode:
 
     def test_parse_node_metadata_dict(self, neo4j_config):
         """Test parsing node with metadata as dict."""
-        node = _make_mock_node({
-            "id": "entry-123",
-            "timestamp": datetime.now(),
-            "entry_type": "thought",
-            "content": "Test",
-            "metadata": {"key": "value"},
-        })
+        node = _make_mock_node(
+            {
+                "id": "entry-123",
+                "timestamp": datetime.now(),
+                "entry_type": "thought",
+                "content": "Test",
+                "metadata": {"key": "value"},
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
-        
+
         result = store._parse_node(node)
 
         assert result.metadata == {"key": "value"}
 
     def test_parse_node_empty_lists(self, neo4j_config):
         """Test parsing node with missing list fields defaults to empty lists."""
-        node = _make_mock_node({
-            "id": "entry-123",
-            "timestamp": datetime.now(),
-            "entry_type": "thought",
-            "content": "Test",
-        })
+        node = _make_mock_node(
+            {
+                "id": "entry-123",
+                "timestamp": datetime.now(),
+                "entry_type": "thought",
+                "content": "Test",
+            }
+        )
         store = PersonaDiaryStore(neo4j_config)
-        
+
         result = store._parse_node(node)
 
         assert result.related_process_ids == []

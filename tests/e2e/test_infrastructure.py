@@ -45,7 +45,9 @@ class TestInfrastructureHealth:
     def test_sophia_mock_is_running(self, sophia_url: str):
         """Sophia mock should respond to health checks."""
         resp = httpx.get(f"{sophia_url}/health", timeout=5)
-        assert resp.status_code == 200, f"Sophia health check failed: {resp.status_code}"
+        assert (
+            resp.status_code == 200
+        ), f"Sophia health check failed: {resp.status_code}"
 
     @pytest.mark.requires_sophia
     def test_sophia_mock_returns_state(self, sophia_url: str):
@@ -53,7 +55,9 @@ class TestInfrastructureHealth:
         resp = httpx.get(f"{sophia_url}/state", timeout=5)
         assert resp.status_code == 200, f"Sophia state failed: {resp.status_code}"
         data = resp.json()
-        assert "state" in data or "agent" in data, "State response should include state data"
+        assert (
+            "state" in data or "agent" in data
+        ), "State response should include state data"
 
     @pytest.mark.requires_milvus
     def test_milvus_is_healthy(self, infrastructure_ports: dict):
@@ -93,7 +97,7 @@ class TestNeo4jConnectivity:
                 "CREATE (n:TestNode {id: $id, name: 'e2e_test'})",
                 id=unique_id,
             )
-            
+
             # Verify
             result = session.run(
                 "MATCH (n:TestNode {id: $id}) RETURN n.name AS name",
@@ -101,7 +105,7 @@ class TestNeo4jConnectivity:
             )
             record = result.single()
             assert record["name"] == "e2e_test"
-            
+
             # Cleanup
             session.run(
                 "MATCH (n:TestNode {id: $id}) DELETE n",

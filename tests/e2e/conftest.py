@@ -141,7 +141,7 @@ def neo4j_driver(neo4j_config):
         from neo4j import GraphDatabase
     except ImportError:
         pytest.skip("neo4j driver not available")
-    
+
     driver = GraphDatabase.driver(
         neo4j_config["uri"],
         auth=(neo4j_config["user"], neo4j_config["password"]),
@@ -155,7 +155,7 @@ def sophia_client(sophia_config):
     """Apollo's SophiaClient for testing CLI workflows."""
     from apollo.client.sophia_client import SophiaClient
     from apollo.config.settings import SophiaConfig
-    
+
     config = SophiaConfig(
         host=sophia_config["host"],
         port=sophia_config["port"],
@@ -232,7 +232,7 @@ def check_milvus_health(ports: dict) -> bool:
 @pytest.fixture(scope="session", autouse=True)
 def verify_infrastructure(infrastructure_ports):
     """Verify infrastructure is running.
-    
+
     The test runner script (run_tests.sh e2e) starts the stack before
     running pytest. This fixture just confirms everything is healthy.
     """
@@ -241,13 +241,13 @@ def verify_infrastructure(infrastructure_ports):
             f"Neo4j not available on port {infrastructure_ports['neo4j_http']}. "
             f"Run: ./scripts/test_stack.sh up"
         )
-    
+
     if not check_sophia_health(infrastructure_ports):
         pytest.fail(
             f"Sophia mock not available on port {infrastructure_ports['sophia']}. "
             f"Run: ./scripts/test_stack.sh up"
         )
-    
+
     # Milvus is optional
     if not check_milvus_health(infrastructure_ports):
-        print(f"⚠️  Milvus not available (some tests may skip)")
+        print("⚠️  Milvus not available (some tests may skip)")
