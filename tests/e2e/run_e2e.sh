@@ -8,6 +8,13 @@ BASE_COMPOSE_FILE="${SCRIPT_DIR}/stack/apollo/docker-compose.test.yml"
 OVERLAY_COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.test.apollo.yml"
 COMPOSE_ENV_FILE="${SCRIPT_DIR}/stack/apollo/.env.test"
 
+# Port configuration (2xxxx prefix for apollo per LOGOS ecosystem standard)
+NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
+NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
+SOPHIA_MOCK_PORT="${SOPHIA_MOCK_PORT:-28080}"
+MILVUS_PORT="${MILVUS_PORT:-29530}"
+MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-29091}"
+
 compose() {
     docker compose \
         --env-file "${COMPOSE_ENV_FILE}" \
@@ -60,7 +67,7 @@ function start_services() {
     
     # Check Sophia
     echo -n "Sophia: "
-    if curl -s -f http://localhost:28080/health > /dev/null 2>&1; then
+    if curl -s -f "http://localhost:${SOPHIA_MOCK_PORT}/health" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Ready${NC}"
     else
         echo -e "${RED}✗ Not ready${NC}"
@@ -79,7 +86,7 @@ function show_logs() {
 
 function seed_data() {
     echo -e "${BLUE}Seeding test data...${NC}"
-    export NEO4J_URI=bolt://localhost:27687
+    export NEO4J_URI="bolt://localhost:${NEO4J_BOLT_PORT}"
     export NEO4J_USER=neo4j
     export NEO4J_PASSWORD=neo4jtest
     python "${SCRIPT_DIR}/seed_data.py"
@@ -92,15 +99,15 @@ function check_status() {
     echo ""
     echo -e "${BLUE}Health Checks:${NC}"
     
-    echo -n "Neo4j (bolt://localhost:27687): "
+    echo -n "Neo4j (bolt://localhost:${NEO4J_BOLT_PORT}): "
     if compose exec -T neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"
     fi
     
-    echo -n "Sophia (http://localhost:28080): "
-    if curl -s -f http://localhost:28080/health > /dev/null 2>&1; then
+    echo -n "Sophia (http://localhost:${SOPHIA_MOCK_PORT}): "
+    if curl -s -f "http://localhost:${SOPHIA_MOCK_PORT}/health" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"
