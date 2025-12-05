@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from logos_sophia_sdk.models.plan_request import PlanRequest
+from logos_sophia_sdk.models.plan_request_goal import PlanRequestGoal
 from logos_sophia_sdk.models.simulation_request import SimulationRequest
 
 from apollo.config.settings import SophiaConfig
@@ -43,7 +44,8 @@ class SophiaClient:
         if not command:
             return SophiaResponse(success=False, error="Command cannot be empty")
 
-        request = PlanRequest(goal=command, metadata={"source": "apollo-cli"})
+        goal = PlanRequestGoal(description=command, target_state="user_command")
+        request = PlanRequest(goal=goal, metadata={"source": "apollo-cli"})
         return self._submit_plan(request, context="sending command")
 
     def get_state(
@@ -82,8 +84,9 @@ class SophiaClient:
         metadata_copy = dict(metadata) if metadata else {}
         priority = metadata_copy.pop("priority", None)
 
+        goal_obj = PlanRequestGoal(description=goal, target_state="user_goal")
         request = PlanRequest(
-            goal=goal,
+            goal=goal_obj,
             metadata=metadata_copy or None,
             priority=str(priority) if priority is not None else None,
         )
@@ -96,7 +99,8 @@ class SophiaClient:
                 success=False, error="Goal identifier cannot be empty"
             )
 
-        request = PlanRequest(goal=goal_id)
+        goal = PlanRequestGoal(description=goal_id, target_state=goal_id)
+        request = PlanRequest(goal=goal)
         return self._submit_plan(request, context="invoking planner")
 
     def execute_step(self, plan_id: str, step_index: int = 0) -> SophiaResponse:

@@ -57,7 +57,8 @@ def test_sophia_client_get_plans() -> None:
 
 def test_sophia_client_health_check() -> None:
     """Test health check returns False when service unavailable."""
-    config = SophiaConfig()
+    # Use explicit unreachable config to avoid picking up test env vars
+    config = SophiaConfig(host="localhost", port=59999)
     client = SophiaClient(config)
 
     health = client.health_check()

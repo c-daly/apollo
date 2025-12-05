@@ -11,7 +11,7 @@ volumes:
 services:
   neo4j:
     container_name: apollo-test-neo4j
-    image: neo4j:5.13.0
+    image: neo4j:5.14.0
     ports:
     - 27474:7474
     - 27687:7687

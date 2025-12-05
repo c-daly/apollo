@@ -70,11 +70,10 @@ def status(ctx: click.Context) -> None:
         console.print("  [green]✓[/green] Sophia is accessible")
     else:
         console.print(
-            "  [yellow]✗[/yellow] Cannot connect to Sophia " f"at {client.base_url}"
+            f"  [yellow]✗[/yellow] Cannot connect to Sophia at {client.base_url}"
         )
         console.print(
-            "\n[dim]Tip: Make sure Sophia service is running "
-            "or check your config[/dim]"
+            "\n[dim]Tip: Make sure Sophia service is running or check your config[/dim]"
         )
 
 

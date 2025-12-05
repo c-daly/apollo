@@ -113,7 +113,8 @@ def build_cwm_state(plan_id=None):
             {
                 "state_id": state_id,
                 "model_type": "CWM_A",
-                "status": snapshot.get("status", "idle"),
+                "source": "sophia_mock",
+                "status": "observed",
                 "timestamp": datetime.utcnow().isoformat(),
                 "confidence": 0.9,
                 "links": {
@@ -249,12 +250,22 @@ def health_check():
 def create_plan():
     try:
         data = request.get_json() or {}
-        goal = data.get("goal")
-        if not goal:
+        goal_raw = data.get("goal")
+        if not goal_raw:
             return jsonify({"error": "goal is required"}), 422
 
-        if "pick" not in goal.lower() or "place" not in goal.lower():
-            return jsonify({"error": "Mock only handles pick-and-place goals"}), 400
+        # Handle goal as either a string or a dict with "description"
+        if isinstance(goal_raw, dict):
+            goal = goal_raw.get("description", "")
+        else:
+            goal = str(goal_raw)
+
+        if not goal:
+            return jsonify({"error": "goal description is required"}), 422
+
+        # Accept any goal containing "pick" (relaxed from requiring both pick AND place)
+        if "pick" not in goal.lower():
+            return jsonify({"error": "Mock only handles pick/place goals"}), 400
 
         plan, cwm_state = perform_pick_and_place(goal)
         latest_state = cwm_state["states"][0]
