@@ -7,7 +7,7 @@ services:
   sophia-mock:
     container_name: apollo-test-sophia
     build:
-      context: ${APOLLO_REPO_ROOT:-.}
+      context: ${GITHUB_WORKSPACE:-.}
       dockerfile: tests/e2e/mocks/sophia/Dockerfile
     ports:
       - "28080:8080"
