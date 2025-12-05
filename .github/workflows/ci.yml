@@ -40,8 +40,8 @@ jobs:
         export MILVUS_HOST=localhost
         export MILVUS_PORT=29530
         export MILVUS_METRICS_PORT=29091
-        # Sophia not available in CI - tests marked requires_sophia will skip
-      pytest_command: 'pytest tests -m "not integration and not requires_sophia" -v --cov=apollo --cov-report=term --cov-report=xml'
+        # Sophia not available in CI - e2e tests require real Sophia
+      pytest_command: 'pytest tests -m "not integration and not requires_sophia and not e2e" -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
       upload_coverage: false  # We'll upload with flags in a separate job
       enable_node: true
