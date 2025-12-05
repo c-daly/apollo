@@ -29,12 +29,24 @@ def apollo_api_url():
 
 @pytest.fixture(scope="module")
 def api_available(apollo_api_url):
-    """Check if Apollo API is available, skip if not."""
+    """Verify Apollo API is available - fail if not.
+
+    Integration tests should fail (not skip) if required services
+    are unavailable. The test stack should ensure everything is running.
+    """
     try:
         resp = httpx.get(f"{apollo_api_url}/api/hcg/health", timeout=5)
-        return resp.status_code == 200
-    except Exception:
-        return False
+        if resp.status_code != 200:
+            pytest.fail(
+                f"Apollo API health check failed with status {resp.status_code}. "
+                f"Start the API with: ./scripts/run_apollo.sh"
+            )
+        return True
+    except Exception as e:
+        pytest.fail(
+            f"Apollo API not available at {apollo_api_url}: {e}. "
+            f"Start the API with: ./scripts/run_apollo.sh"
+        )
 
 
 class TestApolloAPIHealth:
@@ -42,8 +54,6 @@ class TestApolloAPIHealth:
 
     def test_hcg_health_endpoint(self, apollo_api_url, api_available):
         """HCG health endpoint should return status."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(f"{apollo_api_url}/api/hcg/health", timeout=10)
         assert resp.status_code == 200
@@ -52,8 +62,6 @@ class TestApolloAPIHealth:
 
     def test_diagnostics_endpoint(self, apollo_api_url, api_available):
         """Diagnostics endpoint should return telemetry."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(f"{apollo_api_url}/api/diagnostics", timeout=10)
         # May return 200 with data or 404 if not implemented
@@ -65,8 +73,6 @@ class TestApolloHCGAPI:
 
     def test_get_processes(self, apollo_api_url, api_available):
         """Should list processes from HCG."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(f"{apollo_api_url}/api/hcg/processes", timeout=10)
         assert resp.status_code == 200
@@ -75,8 +81,6 @@ class TestApolloHCGAPI:
 
     def test_get_goals(self, apollo_api_url, api_available):
         """Should list goals from HCG."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(f"{apollo_api_url}/api/hcg/goals", timeout=10)
         assert resp.status_code == 200
@@ -85,8 +89,6 @@ class TestApolloHCGAPI:
 
     def test_get_state(self, apollo_api_url, api_available):
         """Should return current state."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(f"{apollo_api_url}/api/hcg/state", timeout=10)
         assert resp.status_code == 200
@@ -97,8 +99,6 @@ class TestApolloPersonaAPI:
 
     def test_list_persona_entries(self, apollo_api_url, api_available):
         """Should list persona diary entries."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(f"{apollo_api_url}/api/persona/entries", timeout=10)
         assert resp.status_code == 200
@@ -107,8 +107,6 @@ class TestApolloPersonaAPI:
 
     def test_create_persona_entry(self, apollo_api_url, api_available, unique_id: str):
         """Should create persona diary entry."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         payload = {
             "entry_type": "observation",
@@ -136,8 +134,6 @@ class TestApolloPersonaAPI:
         self, apollo_api_url, api_available, unique_id: str
     ):
         """Should get persona entry by ID after creation."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         # First create an entry
         payload = {
@@ -152,7 +148,9 @@ class TestApolloPersonaAPI:
             timeout=10,
         )
         if create_resp.status_code != 201:
-            pytest.skip("Could not create entry for retrieval test")
+            pytest.fail(
+                f"Could not create entry for retrieval test: {create_resp.status_code} - {create_resp.text}"
+            )
 
         entry_id = create_resp.json()["id"]
 
@@ -167,8 +165,6 @@ class TestApolloPersonaAPI:
 
     def test_filter_persona_entries_by_type(self, apollo_api_url, api_available):
         """Should filter entries by type."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(
             f"{apollo_api_url}/api/persona/entries",
@@ -181,8 +177,6 @@ class TestApolloPersonaAPI:
 
     def test_filter_persona_entries_by_sentiment(self, apollo_api_url, api_available):
         """Should filter entries by sentiment."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         resp = httpx.get(
             f"{apollo_api_url}/api/persona/entries",
@@ -198,8 +192,6 @@ class TestApolloWebSocketDiagnostics:
     @pytest.mark.slow
     def test_websocket_connects(self, apollo_api_url, api_available):
         """WebSocket diagnostics should accept connection."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         # Convert http to ws
         ws_url = apollo_api_url.replace("http://", "ws://")
@@ -221,9 +213,9 @@ class TestApolloWebSocketDiagnostics:
             assert result, "WebSocket should receive initial message"
 
         except ImportError:
-            pytest.skip("websockets library not available")
+            pytest.fail("websockets library not installed. Run: poetry install")
         except Exception as e:
-            pytest.skip(f"WebSocket connection failed: {e}")
+            pytest.fail(f"WebSocket connection failed: {e}")
 
 
 class TestCompleteWorkflow:
@@ -256,8 +248,6 @@ class TestCompleteWorkflow:
         self, apollo_api_url, api_available, unique_id: str
     ):
         """Test workflow: create entry → list entries → find entry."""
-        if not api_available:
-            pytest.skip("Apollo API not available")
 
         # Create
         content = f"Workflow test entry {unique_id}"

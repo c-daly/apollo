@@ -42,16 +42,22 @@ class TestInfrastructureHealth:
         assert len(data["results"]) > 0
 
     @pytest.mark.requires_sophia
-    def test_sophia_mock_is_running(self, sophia_url: str):
-        """Sophia mock should respond to health checks."""
+    def test_sophia_is_running(self, sophia_url: str):
+        """Sophia should respond to health checks.
+
+        The test stack should ensure Sophia is running.
+        """
         resp = httpx.get(f"{sophia_url}/health", timeout=5)
         assert (
             resp.status_code == 200
         ), f"Sophia health check failed: {resp.status_code}"
 
     @pytest.mark.requires_sophia
-    def test_sophia_mock_returns_state(self, sophia_url: str):
-        """Sophia mock should return agent state."""
+    def test_sophia_returns_state(self, sophia_url: str):
+        """Sophia should return agent state.
+
+        The test stack should ensure Sophia is running.
+        """
         resp = httpx.get(f"{sophia_url}/state", timeout=5)
         assert resp.status_code == 200, f"Sophia state failed: {resp.status_code}"
         data = resp.json()
@@ -62,14 +68,11 @@ class TestInfrastructureHealth:
     @pytest.mark.requires_milvus
     def test_milvus_is_healthy(self, infrastructure_ports: dict):
         """Milvus should report healthy status."""
-        try:
-            resp = httpx.get(
-                f"http://localhost:{infrastructure_ports['milvus_health']}/healthz",
-                timeout=5,
-            )
-            assert resp.status_code == 200, "Milvus healthz should return 200"
-        except httpx.ConnectError:
-            pytest.skip("Milvus not available")
+        resp = httpx.get(
+            f"http://localhost:{infrastructure_ports['milvus_health']}/healthz",
+            timeout=5,
+        )
+        assert resp.status_code == 200, "Milvus healthz should return 200"
 
 
 class TestNeo4jConnectivity:

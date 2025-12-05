@@ -98,11 +98,11 @@ run_integration_tests() {
     
     # Export environment for integration tests
     export RUN_INTEGRATION_TESTS=1
-    export NEO4J_URI="${NEO4J_URI:-bolt://localhost:27687}"
+    export NEO4J_URI="${NEO4J_URI:-bolt://localhost:${NEO4J_BOLT_PORT:-27687}}"
     export NEO4J_USER="${NEO4J_USER:-neo4j}"
     export NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4jtest}"
     export SOPHIA_HOST="${SOPHIA_HOST:-localhost}"
-    export SOPHIA_PORT="${SOPHIA_PORT:-28080}"
+    export SOPHIA_PORT="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-48001}}"
     
     local pytest_args=("tests/integration/" "-v")
     
@@ -132,7 +132,7 @@ run_e2e_tests() {
     export NEO4J_USER="${NEO4J_USER:-neo4j}"
     export NEO4J_PASSWORD="${NEO4J_PASSWORD:-neo4jtest}"
     export SOPHIA_HOST="${SOPHIA_HOST:-localhost}"
-    export SOPHIA_PORT="${SOPHIA_PORT:-28080}"
+    export SOPHIA_PORT="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-48001}}"
     export MILVUS_HOST="${MILVUS_HOST:-localhost}"
     export MILVUS_PORT="${MILVUS_PORT:-29530}"
     

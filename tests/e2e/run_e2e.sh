@@ -1,25 +1,31 @@
 #!/bin/bash
 # E2E test runner script with convenience commands
+#
+# This script manages the full e2e test stack including Sophia.
+# All services are started automatically - no need to run separate repos.
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_COMPOSE_FILE="${SCRIPT_DIR}/stack/apollo/docker-compose.test.yml"
-OVERLAY_COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.test.apollo.yml"
+APOLLO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+COMPOSE_FILE="${SCRIPT_DIR}/stack/apollo/docker-compose.test.yml"
+SOPHIA_OVERLAY="${SCRIPT_DIR}/docker-compose.test.apollo.yml"
 COMPOSE_ENV_FILE="${SCRIPT_DIR}/stack/apollo/.env.test"
 
 # Port configuration (2xxxx prefix for apollo per LOGOS ecosystem standard)
 NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
 NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
-SOPHIA_MOCK_PORT="${SOPHIA_MOCK_PORT:-28080}"
 MILVUS_PORT="${MILVUS_PORT:-29530}"
 MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-29091}"
+
+# Real Sophia uses 4xxxx ports (from sophia repo)
+SOPHIA_PORT="${SOPHIA_PORT:-48001}"
 
 compose() {
     docker compose \
         --env-file "${COMPOSE_ENV_FILE}" \
-        -f "${BASE_COMPOSE_FILE}" \
-        -f "${OVERLAY_COMPOSE_FILE}" \
+        -f "${COMPOSE_FILE}" \
+        -f "${SOPHIA_OVERLAY}" \
         "$@"
 }
 
@@ -51,27 +57,36 @@ function print_usage() {
 }
 
 function start_services() {
-    echo -e "${BLUE}Starting E2E test services...${NC}"
-    compose up -d
+    echo -e "${BLUE}Starting E2E test services (Neo4j, Milvus, Sophia)...${NC}"
+    compose up -d --build
     
     echo -e "${YELLOW}Waiting for services to be healthy...${NC}"
-    sleep 5
     
-    # Check Neo4j
+    # Wait for Neo4j
     echo -n "Neo4j: "
-    if compose exec -T neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Ready${NC}"
-    else
-        echo -e "${RED}✗ Not ready${NC}"
-    fi
+    for i in {1..30}; do
+        if compose exec -T neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ Ready${NC}"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            echo -e "${RED}✗ Not ready${NC}"
+        fi
+        sleep 2
+    done
     
-    # Check Sophia
+    # Wait for Sophia (part of our stack now)
     echo -n "Sophia: "
-    if curl -s -f "http://localhost:${SOPHIA_MOCK_PORT}/health" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ Ready${NC}"
-    else
-        echo -e "${RED}✗ Not ready${NC}"
-    fi
+    for i in {1..30}; do
+        if curl -s -f "http://localhost:${SOPHIA_PORT}/health" > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ Ready${NC}"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            echo -e "${RED}✗ Not ready${NC}"
+        fi
+        sleep 2
+    done
 }
 
 function stop_services() {
@@ -106,8 +121,8 @@ function check_status() {
         echo -e "${RED}✗ Unhealthy${NC}"
     fi
     
-    echo -n "Sophia (http://localhost:${SOPHIA_MOCK_PORT}): "
-    if curl -s -f "http://localhost:${SOPHIA_MOCK_PORT}/health" > /dev/null 2>&1; then
+    echo -n "Sophia (http://localhost:${SOPHIA_PORT}): "
+    if curl -s -f "http://localhost:${SOPHIA_PORT}/health" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Healthy${NC}"
     else
         echo -e "${RED}✗ Unhealthy${NC}"
@@ -118,8 +133,11 @@ function run_test() {
     echo -e "${BLUE}Starting services...${NC}"
     start_services
     
-    echo -e "${BLUE}Running E2E tests in container...${NC}"
-    if compose run --rm test-runner; then
+    echo -e "${BLUE}Running E2E tests...${NC}"
+    
+    # Run pytest directly on host (aligned with other LOGOS repos)
+    cd "$SCRIPT_DIR/../.."
+    if poetry run pytest tests/e2e/ -v -m "e2e"; then
         echo -e "${GREEN}✓ Tests passed${NC}"
         RESULT=0
     else

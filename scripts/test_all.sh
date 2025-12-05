@@ -218,7 +218,7 @@ if [[ "$RUN_INTEGRATION" == "true" ]]; then
     export NEO4J_USER="neo4j"
     export NEO4J_PASSWORD="neo4jtest"
     export SOPHIA_HOST="localhost"
-    export SOPHIA_PORT="${SOPHIA_MOCK_PORT:-28080}"
+    export SOPHIA_PORT="${SOPHIA_PORT:-48001}"
     
     if poetry run pytest tests/integration/ "${PYTEST_ARGS[@]}"; then
         log_success "Integration tests passed"

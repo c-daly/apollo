@@ -2,15 +2,14 @@
 End-to-End Test Fixtures for Apollo
 
 Provides fixtures for testing complete Apollo workflows with real
-Neo4j, Milvus, and mock Sophia services. The test stack must be running:
+Neo4j, Milvus, and Sophia services. Start the full test stack:
 
     ./scripts/test_stack.sh up
 
-These tests validate the full Apollo system including:
-- CLI commands against real services
-- API endpoints with real database connectivity
-- WebSocket diagnostics streaming
-- Persona diary workflows
+All services (including Sophia) are started together - no need to
+run separate repos. Tests will FAIL (not skip) if any service is
+unavailable. This is intentional - integration tests should not
+silently pass when infrastructure is missing.
 
 Based on sophia e2e test patterns.
 """
@@ -27,11 +26,12 @@ pytestmark = pytest.mark.e2e
 
 # =============================================================================
 # Service Configuration from environment
-# Apollo uses 27xxx/28xxx/29xxx port offset to avoid conflicts
+# Apollo uses 27xxx/29xxx port offset to avoid conflicts
+# Sophia uses 4xxxx ports (real Sophia, not mock)
 # =============================================================================
 
-# Sophia mock config (Apollo talks to Sophia)
-SOPHIA_PORT = os.getenv("SOPHIA_PORT", "28080")
+# Real Sophia config (from sophia repo, 4xxxx port range)
+SOPHIA_PORT = os.getenv("SOPHIA_PORT", "48001")
 SOPHIA_HOST = os.getenv("SOPHIA_HOST", "localhost")
 SOPHIA_URL = os.getenv("SOPHIA_URL", f"http://{SOPHIA_HOST}:{SOPHIA_PORT}")
 
@@ -108,7 +108,7 @@ def neo4j_config() -> dict:
 
 @pytest.fixture(scope="session")
 def sophia_config() -> dict:
-    """Sophia mock service configuration."""
+    """Sophia service configuration."""
     return {
         "host": SOPHIA_HOST,
         "port": int(SOPHIA_PORT),
@@ -127,7 +127,7 @@ def milvus_config() -> dict:
 
 @pytest.fixture(scope="session")
 def sophia_url() -> str:
-    """Base URL for Sophia mock API."""
+    """Base URL for Sophia API."""
     return SOPHIA_URL
 
 
@@ -142,7 +142,7 @@ def neo4j_driver(neo4j_config):
     try:
         from neo4j import GraphDatabase
     except ImportError:
-        pytest.skip("neo4j driver not available")
+        pytest.fail("neo4j driver not installed. Run: poetry install")
 
     driver = GraphDatabase.driver(
         neo4j_config["uri"],
@@ -208,7 +208,7 @@ def check_neo4j_health(ports: dict) -> bool:
 
 
 def check_sophia_health(ports: dict) -> bool:
-    """Check if Sophia mock is healthy."""
+    """Check if Sophia service is healthy."""
     try:
         resp = httpx.get(
             f"http://localhost:{ports['sophia']}/health",
@@ -236,7 +236,10 @@ def verify_infrastructure(infrastructure_ports):
     """Verify infrastructure is running.
 
     The test runner script (run_tests.sh e2e) starts the stack before
-    running pytest. This fixture just confirms everything is healthy.
+    running pytest. This fixture confirms everything is healthy.
+
+    Integration/E2E tests should FAIL (not skip) if services are unavailable.
+    The test stack is responsible for bringing up all required services.
     """
     if not check_neo4j_health(infrastructure_ports):
         pytest.fail(
@@ -246,10 +249,12 @@ def verify_infrastructure(infrastructure_ports):
 
     if not check_sophia_health(infrastructure_ports):
         pytest.fail(
-            f"Sophia mock not available on port {infrastructure_ports['sophia']}. "
-            f"Run: ./scripts/test_stack.sh up"
+            f"Sophia not available on port {infrastructure_ports['sophia']}. "
+            f"Run: ./scripts/test_stack.sh up (ensures Sophia is running)"
         )
 
-    # Milvus is optional
     if not check_milvus_health(infrastructure_ports):
-        print("⚠️  Milvus not available (some tests may skip)")
+        pytest.fail(
+            f"Milvus not available on port {infrastructure_ports['milvus_health']}. "
+            f"Run: ./scripts/test_stack.sh up"
+        )

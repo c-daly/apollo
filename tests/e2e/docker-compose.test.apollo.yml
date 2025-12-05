@@ -1,51 +1,32 @@
+# Overlay for docker-compose.test.yml that adds Sophia service
+# Usage: docker compose -f stack/apollo/docker-compose.test.yml -f docker-compose.test.apollo.yml up
+#
+# This overlay adds the Sophia API service from the published container image.
+# Sophia is started automatically as part of the test stack.
+
 services:
-  test-runner:
-    image: ghcr.io/c-daly/logos-foundry:0.1.0
-    container_name: apollo-test-runner
-    volumes:
-      - ${GITHUB_WORKSPACE:-./../..}:/app/apollo:ro
-    working_dir: /app/apollo
+  sophia:
+    image: ghcr.io/c-daly/sophia:latest
+    container_name: apollo-e2e-sophia
+    ports:
+      - "${SOPHIA_PORT:-48001}:8000"
     environment:
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: neo4j
-      NEO4J_PASSWORD: neo4jtest
-      PYTHONPATH: /app:/app/apollo/src
-    entrypoint: /bin/sh
-    command: 
-      - -c
-      - |
-        cd /app/apollo
-        poetry install --no-root --only main
-        pytest tests/ -m "not integration" -v --no-cov
+      - NEO4J_URI=bolt://neo4j:7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=neo4jtest
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
     depends_on:
       neo4j:
         condition: service_healthy
-    networks:
-      - default
-
-  sophia-mock:
-    build:
-      context: ${GITHUB_WORKSPACE:-./../..}
-      dockerfile: tests/e2e/mocks/sophia/Dockerfile
-    container_name: apollo-test-sophia
-    ports:
-      - "28080:8080"
-    environment:
-      NEO4J_URI: bolt://neo4j:7687
-      NEO4J_USER: neo4j
-      NEO4J_PASSWORD: neo4jtest
-    depends_on:
-      neo4j:
+      milvus:
         condition: service_healthy
     healthcheck:
-      test:
-        - CMD
-        - curl
-        - -f
-        - http://localhost:8080/health
-      interval: 5s
-      timeout: 3s
-      retries: 5
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
     networks:
       - default
 
