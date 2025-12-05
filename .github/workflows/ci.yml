@@ -38,10 +38,13 @@ jobs:
         poetry run pytest tests/unit -m "not integration" -v --cov=apollo --cov-report=term
         echo "=== Setting environment for e2e tests ==="
         export NEO4J_URI=bolt://localhost:27687
+        export NEO4J_HTTP_PORT=27474
         export NEO4J_USER=neo4j
         export NEO4J_PASSWORD=neo4jtest
         export MILVUS_HOST=localhost
         export MILVUS_PORT=29530
+        export MILVUS_METRICS_PORT=29091
+        export SOPHIA_PORT=28080
         echo "=== Running e2e tests ==="
         poetry run pytest tests/e2e -m "not integration" -v --cov=apollo --cov-append --cov-report=term --cov-report=xml
       coverage_python_version: '3.11'
