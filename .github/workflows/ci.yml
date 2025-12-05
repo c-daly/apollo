@@ -33,14 +33,9 @@ jobs:
         echo "Waiting for Sophia mock..."
         timeout 60 bash -c 'until curl -f http://localhost:28080/health 2>/dev/null; do sleep 2; done'
         echo "All services ready!"
-      # Run unit tests first (clean env), then e2e tests (with test ports from .env.test)
-      pytest_command: |
-        echo "=== Running unit tests (clean environment) ==="
-        poetry run pytest tests/unit -m "not integration" -v --cov=apollo --cov-report=term
-        echo "=== Loading .env.test for e2e tests ==="
-        set -a && source .env.test && set +a
-        echo "=== Running e2e tests ==="
-        poetry run pytest tests/e2e -m "not integration" -v --cov=apollo --cov-append --cov-report=term --cov-report=xml
+      # Load test ports for e2e tests
+      pytest_env_script: 'set -a && source .env.test && set +a'
+      pytest_command: 'pytest tests -m "not integration" -v --cov=apollo --cov-report=term --cov-report=xml'
       coverage_python_version: '3.11'
       upload_coverage: false  # We'll upload with flags in a separate job
       enable_node: true
