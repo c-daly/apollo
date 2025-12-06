@@ -101,7 +101,7 @@ services:
     volumes:
     - apollo_test_milvus:/var/lib/milvus
     ports:
-    - 29530:19530
+    - 39530:19530
     - 29091:9091
     healthcheck:
       test:
