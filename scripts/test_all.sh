@@ -31,12 +31,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APOLLO_ROOT="${APOLLO_ROOT:-$(dirname "$SCRIPT_DIR")}"
 
-# Port configuration (2xxxx prefix for apollo per LOGOS ecosystem standard)
+# Port configuration (27xxx prefix for apollo per LOGOS ecosystem standard)
 NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
 NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
 SOPHIA_MOCK_PORT="${SOPHIA_MOCK_PORT:-28080}"
-MILVUS_PORT="${MILVUS_PORT:-29530}"
-MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-29091}"
+MILVUS_PORT="${MILVUS_PORT:-27530}"
+MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-27091}"
 
 # Options
 RUN_UNIT=true

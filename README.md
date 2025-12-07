@@ -517,11 +517,12 @@ See [E2E Test Documentation](tests/e2e/README.md) for detailed information on en
 
 Apollo uses standardized test stacks generated from the shared LOGOS template to avoid port conflicts with other services.
 
-**Port Assignments (Apollo-specific):**
+**Port Assignments (Apollo-specific 27xxx range):**
 - Neo4j HTTP: `27474`
 - Neo4j Bolt: `27687`
-- Milvus gRPC: `29530`
-- Milvus Metrics: `29091`
+- Milvus gRPC: `27530`
+- Milvus Metrics: `27091`
+- MinIO: `27900-27901`
 - Sophia Mock: `28080`
 - Credentials: `neo4j/neo4jtest`
 

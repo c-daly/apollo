@@ -12,11 +12,11 @@ COMPOSE_FILE="${SCRIPT_DIR}/stack/apollo/docker-compose.test.yml"
 SOPHIA_OVERLAY="${SCRIPT_DIR}/docker-compose.test.apollo.yml"
 COMPOSE_ENV_FILE="${SCRIPT_DIR}/stack/apollo/.env.test"
 
-# Port configuration (2xxxx prefix for apollo per LOGOS ecosystem standard)
+# Port configuration (27xxx prefix for apollo per LOGOS ecosystem standard)
 NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
 NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
-MILVUS_PORT="${MILVUS_PORT:-29530}"
-MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-29091}"
+MILVUS_PORT="${MILVUS_PORT:-27530}"
+MILVUS_METRICS_PORT="${MILVUS_METRICS_PORT:-27091}"
 
 # Real Sophia uses 4xxxx ports (from sophia repo)
 SOPHIA_PORT="${SOPHIA_PORT:-48001}"

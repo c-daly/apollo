@@ -47,15 +47,15 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-# Apollo uses 27xxx/29xxx port range to avoid conflicts with other LOGOS repos
+# Apollo uses 27xxx port range (consistent prefix) to avoid conflicts with other LOGOS repos
 # These match the docker-compose.test.yml configuration
 # Sophia is included via docker-compose.test.sophia.yml overlay
 NEO4J_HTTP_PORT="${NEO4J_HTTP_PORT:-27474}"
 NEO4J_BOLT_PORT="${NEO4J_BOLT_PORT:-27687}"
-MILVUS_PORT="${MILVUS_PORT:-29530}"
-MILVUS_HEALTH_PORT="${MILVUS_HEALTH_PORT:-29091}"
-MINIO_PORT="${MINIO_PORT:-29000}"
-MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-29001}"
+MILVUS_PORT="${MILVUS_PORT:-27530}"
+MILVUS_HEALTH_PORT="${MILVUS_HEALTH_PORT:-27091}"
+MINIO_PORT="${MINIO_PORT:-27900}"
+MINIO_CONSOLE_PORT="${MINIO_CONSOLE_PORT:-27901}"
 
 NEO4J_CONTAINER="${NEO4J_CONTAINER:-apollo-test-neo4j}"
 MILVUS_CONTAINER="${MILVUS_CONTAINER:-apollo-test-milvus}"

@@ -78,7 +78,7 @@ export NEO4J_PASSWORD=neo4jtest
 export SOPHIA_HOST=localhost
 export SOPHIA_PORT=${LOGOS_SOPHIA_API_PORT:-48001}
 export MILVUS_HOST=localhost
-export MILVUS_PORT=${MILVUS_PORT:-29530}
+export MILVUS_PORT=${MILVUS_PORT:-27530}
 ```
 
 ## Legacy Components
