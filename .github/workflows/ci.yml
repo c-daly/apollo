@@ -27,9 +27,9 @@ jobs:
         echo "Waiting for etcd..."
         timeout 60 bash -c 'until docker exec apollo-test-milvus-etcd etcdctl endpoint health 2>/dev/null; do sleep 2; done'
         echo "Waiting for MinIO..."
-        timeout 60 bash -c 'until curl -f http://localhost:9000/minio/health/live 2>/dev/null; do sleep 2; done'
+        timeout 60 bash -c 'until curl -f http://localhost:27900/minio/health/live 2>/dev/null; do sleep 2; done'
         echo "Waiting for Milvus..."
-        timeout 120 bash -c 'until curl -f http://localhost:29091/healthz 2>/dev/null; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:27091/healthz 2>/dev/null; do sleep 2; done'
         echo "Waiting for Sophia..."
         timeout 120 bash -c 'until curl -f http://localhost:48001/health 2>/dev/null; do sleep 2; done'
         echo "Waiting for Apollo..."
@@ -41,8 +41,8 @@ jobs:
         export NEO4J_USER=neo4j
         export NEO4J_PASSWORD=neo4jtest
         export MILVUS_HOST=localhost
-        export MILVUS_PORT=29530
-        export MILVUS_METRICS_PORT=29091
+        export MILVUS_PORT=27530
+        export MILVUS_METRICS_PORT=27091
         export SOPHIA_HOST=localhost
         export SOPHIA_PORT=48001
         export SOPHIA_API_KEY=test-token-for-sophia

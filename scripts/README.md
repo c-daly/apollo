@@ -51,22 +51,22 @@ Unified test runner for unit, integration, and E2E tests.
 
 ## Port Configuration
 
-Apollo uses port ranges that avoid conflicts with other LOGOS repositories:
+Apollo uses port range 27xxx (consistent prefix) to avoid conflicts with other LOGOS repositories:
 
 | Service | Port(s) | Description |
 |---------|---------|-------------|
 | Neo4j HTTP | 27474 | Neo4j browser |
 | Neo4j Bolt | 27687 | Neo4j bolt protocol |
-| Milvus gRPC | 29530 | Milvus vector DB |
-| Milvus Health | 29091 | Milvus health endpoint |
-| MinIO | 29000-29001 | Object storage |
+| Milvus gRPC | 27530 | Milvus vector DB |
+| Milvus Health | 27091 | Milvus health endpoint |
+| MinIO | 27900-27901 | Object storage |
 
 Other repositories use different ranges:
-- Hermes: 1xxxx
-- Apollo: 2xxxx (this repo)
-- Logos: 3xxxx
-- Sophia: 4xxxx
-- Talos: 5xxxx
+- Hermes: 17xxx
+- Apollo: 27xxx (this repo)
+- Logos: 37xxx
+- Sophia: 47xxx
+- Talos: 57xxx
 
 Note: Sophia service is **required** and managed by the sophia repo.
 Start sophia's test stack before Apollo's: `cd ../sophia && ./scripts/test_stack.sh up`

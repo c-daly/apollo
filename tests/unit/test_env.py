@@ -166,11 +166,11 @@ class TestServiceConfigs:
     def test_get_milvus_config_reads_env(self, monkeypatch):
         """get_milvus_config reads from environment."""
         monkeypatch.setenv("MILVUS_HOST", "milvus-server")
-        monkeypatch.setenv("MILVUS_PORT", "29530")
+        monkeypatch.setenv("MILVUS_PORT", "27530")
 
         config = get_milvus_config()
         assert config["host"] == "milvus-server"
-        assert config["port"] == "29530"
+        assert config["port"] == "27530"
 
     def test_get_sophia_config_returns_dict(self):
         """get_sophia_config returns dict with expected keys."""
