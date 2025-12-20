@@ -11,7 +11,7 @@
   "milvus": {
     "connected": false,
     "host": "localhost",
-    "port": "18530",
+    "port": "17530",
     "collection": null
   },
   "queue": {
