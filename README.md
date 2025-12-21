@@ -71,18 +71,19 @@ docker pull ghcr.io/c-daly/apollo:latest
 
 # Run Apollo API server
 docker run -d \
-  -p 8003:8003 \
+  -p 27000:27000 \
+  -e APOLLO_PORT=27000 \
   -e NEO4J_URI=bolt://neo4j:7687 \
   -e NEO4J_USER=neo4j \
   -e NEO4J_PASSWORD=your_password \
   -e SOPHIA_HOST=sophia \
-  -e SOPHIA_PORT=8002 \
+  -e SOPHIA_PORT=8000 \
   -e HERMES_HOST=hermes \
-  -e HERMES_PORT=8001 \
+  -e HERMES_PORT=8080 \
   ghcr.io/c-daly/apollo:latest
 ```
 
-The container includes all Python dependencies and the Apollo API service. For development and testing, Apollo uses the `logos-foundry` base image which includes all LOGOS shared packages.
+The container includes all Python dependencies and the Apollo API service. For development and testing, Apollo uses the `logos-foundry` base image which includes all LOGOS shared packages. For host-based access, the LOGOS port offsets apply (Apollo API 27000, Sophia 47000, Hermes 17000, Neo4j Bolt 27687, Milvus gRPC 27530).
 
 ## Quick Start
 
@@ -120,7 +121,7 @@ apollo-cli goal "Navigate to the kitchen"
 # Create a goal with priority
 apollo-cli goal "Pick up the red block" --priority high
 
-# Invoke planner with a natural-language goal (Phase 2)
+# Invoke planner with a natural-language goal
 apollo-cli plan "Inspect the kitchen counters"
 
 # View current agent state
@@ -136,7 +137,7 @@ apollo-cli send "pick up the red block"
 apollo-cli history
 ```
 
-**Phase 2 Goal→Plan→Simulate→State Loop**:
+**Goal→Plan→Simulate→State Loop**:
 ```bash
 # 1. Create (or restate) the goal
 apollo-cli goal "Navigate to kitchen" --priority high
@@ -151,7 +152,7 @@ apollo-cli simulate <plan_id>
 apollo-cli state
 ```
 
-### Using Phase 2 Commands
+### Using Planning Commands
 
 **Simulate Plan Execution:**
 ```bash
@@ -190,7 +191,7 @@ Hermes defaults to a deterministic `echo` provider so demos work without credent
    ```bash
    cd ../hermes
    poetry install --with dev
-   poetry run hermes   # serves http://localhost:8080
+   HERMES_PORT=17000 poetry run hermes   # serves http://localhost:17000
    ```
 3. Point Apollo at it (`VITE_HERMES_*` in `.env`, `hermes.*` in `config.yaml`).
 
@@ -203,10 +204,10 @@ The LOGOS stack uses bearer tokens for inter-service authentication. All service
 **Quick setup:**
 ```bash
 # Sophia (validates tokens)
-SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --port 8000
+SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --port 47000
 
 # Hermes (forwards tokens to Sophia)
-SOPHIA_API_KEY="sophia_dev" SOPHIA_PORT="8000" python -m hermes.main
+SOPHIA_API_KEY="sophia_dev" SOPHIA_PORT="47000" python -m hermes.main
 
 # Apollo (reads token from config.yaml: sophia.api_key)
 ./scripts/run_apollo.sh
@@ -239,10 +240,10 @@ cd webapp
 cp .env.example .env
 
 # Edit .env with your API configuration
-# VITE_HCG_API_URL=http://localhost:8082
+# VITE_HCG_API_URL=http://localhost:27000
 # VITE_HCG_WS_URL=ws://localhost:8765
-# VITE_SOPHIA_API_URL=http://localhost:8080
-# VITE_HERMES_API_URL=http://localhost:8080
+# VITE_SOPHIA_API_URL=http://localhost:47000
+# VITE_HERMES_API_URL=http://localhost:17000
 # VITE_MOCK_DATA_MODE=false
 
 # Start development server
@@ -292,10 +293,10 @@ Apollo supports configuration through environment variables (recommended) or YAM
 
    # Optional (defaults shown)
    HERMES_HOST=0.0.0.0
-   HERMES_PORT=8080
+   HERMES_PORT=17000
    APOLLO_HOST=0.0.0.0
-   APOLLO_PORT=8000
-   NEO4J_URI=bolt://localhost:7687
+   APOLLO_PORT=27000
+   NEO4J_URI=bolt://localhost:27687
    ```
 
 3. Validate your environment:
@@ -315,13 +316,13 @@ Create a `config.yaml` file:
 # config.yaml
 sophia:
   host: localhost
-  port: 8080
+  port: 47000
   timeout: 30
   api_key: ${SOPHIA_API_KEY}  # Optional bearer token
 
 hermes:
   host: localhost
-  port: 8080
+  port: 17000
   timeout: 30
   api_key: ${HERMES_API_KEY}
   provider: openai        # Optional provider override
@@ -332,18 +333,18 @@ hermes:
 
 persona_api:
   host: localhost
-  port: 8082
+  port: 27000
   timeout: 15
   api_key: ${PERSONA_API_KEY}
   
 hcg:
   neo4j:
-    uri: bolt://localhost:7687
+    uri: bolt://localhost:27687
     user: neo4j
     password: password
   milvus:
     host: localhost
-    port: 19530
+    port: 27530
 ```
 
 **Environment Variables:**
@@ -353,7 +354,7 @@ export SOPHIA_API_KEY=your_sophia_key
 export HERMES_API_KEY=your_hermes_key
 ```
 
-The `persona_api` block configures how the CLI and `apollo-api` proxy reach Sophia's persona diary endpoints. Leave the defaults if `apollo-api` is running locally on port `8082`; otherwise adjust host/port/API key so the `apollo-cli diary`/`chat` commands and the webapp can submit entries.
+The `persona_api` block configures how the CLI and `apollo-api` proxy reach Sophia's persona diary endpoints. Leave the defaults if `apollo-api` is running locally on port `27000`; otherwise adjust host/port/API key so the `apollo-cli diary`/`chat` commands and the webapp can submit entries.
 
 ### Web Dashboard Configuration
 
@@ -368,17 +369,17 @@ Edit `.env` with your configuration:
 
 ```env
 # HCG API
-VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_API_URL=http://localhost:27000
 VITE_HCG_WS_URL=ws://localhost:8765
 VITE_HCG_TIMEOUT=30000
 
 # Sophia API
-VITE_SOPHIA_API_URL=http://localhost:8080
+VITE_SOPHIA_API_URL=http://localhost:47000
 VITE_SOPHIA_API_KEY=
 VITE_SOPHIA_TIMEOUT=30000
 
 # Hermes API
-VITE_HERMES_API_URL=http://localhost:8080
+VITE_HERMES_API_URL=http://localhost:17000
 VITE_HERMES_API_KEY=
 VITE_HERMES_TIMEOUT=30000
 VITE_HERMES_LLM_PROVIDER=
@@ -419,19 +420,20 @@ Apollo has comprehensive test coverage with both unit and integration tests.
 
 #### Backend Tests (Python)
 
+Use the scripts in `scripts/` for consistent setup:
+
 ```bash
-# Run all unit tests (excludes integration tests requiring real services)
-pytest tests/ -m "not integration"
+# Unit tests (default)
+./scripts/run_tests.sh
 
-# Run specific test file
-pytest tests/test_backend_api.py -v
+# Unit tests with coverage
+./scripts/run_tests.sh coverage
 
-# Run with coverage report
-pytest tests/ -m "not integration" --cov=apollo --cov-report=term --cov-report=html
+# Integration tests (starts stack automatically)
+./scripts/run_tests.sh integration
 
-# View coverage report in browser
-open htmlcov/index.html  # macOS
-xdg-open htmlcov/index.html  # Linux
+# Full test run (unit + integration + cleanup)
+./scripts/test_all.sh
 ```
 
 **Test Categories:**
@@ -443,15 +445,7 @@ xdg-open htmlcov/index.html  # Linux
 
 #### Integration Tests (Python)
 
-Integration tests require real service dependencies (Sophia, Hermes, Neo4j) to be running.
-
-```bash
-# Run only integration tests
-pytest tests/test_apollo_integration.py -m integration -v
-
-# Run all tests including integration tests
-pytest tests/
-```
+Integration tests require real service dependencies (Sophia, Hermes, Neo4j) to be running. The scripts manage this for you (`./scripts/run_tests.sh integration` or `./scripts/test_all.sh`).
 
 **Integration Test Workflows:**
 - Apollo→Sophia health check chain
@@ -504,10 +498,10 @@ Current test coverage (backend):
 
 Frontend: 88 tests passing covering all major components.
 
-#### Running M4 E2E Test
+#### Running Verification E2E Test
 
 ```bash
-# Run Phase 1 verification test
+# Run verification test
 ./PHASE1_VERIFY/scripts/m4_test.py
 ```
 
@@ -518,27 +512,29 @@ See [E2E Test Documentation](tests/e2e/README.md) for detailed information on en
 Apollo uses standardized test stacks generated from the shared LOGOS template to avoid port conflicts with other services.
 
 **Port Assignments (Apollo-specific 27xxx range):**
+- Apollo API: `27000`
 - Neo4j HTTP: `27474`
 - Neo4j Bolt: `27687`
 - Milvus gRPC: `27530`
 - Milvus Metrics: `27091`
 - MinIO: `27900-27901`
-- Sophia Mock: `28080`
+- Sophia API (overlay): `47000`
+- Sophia Mock (optional): `28080`
 - Credentials: `neo4j/neo4jtest`
 
 **Regenerating Test Stack:**
 ```bash
 cd ../logos
 poetry run render-test-stacks --repo apollo
-# Copy generated files from logos/tests/e2e/stack/apollo/ to apollo/tests/e2e/stack/apollo/
+# Copy generated files from logos/tests/e2e/stack/apollo/ to apollo/containers/
 ```
 
-**Test Stack Location:** `tests/e2e/stack/apollo/`
+**Test Stack Location:** `containers/`
 - `docker-compose.test.yml` - Generated infrastructure (Neo4j, Milvus)
 - `.env.test` - Connection settings
 - `STACK_VERSION` - Template version hash
 
-Apollo-specific services (like the Sophia mock) are defined in `tests/e2e/docker-compose.test.apollo.yml` and can be edited locally.
+Apollo-specific services (like the Sophia mock) are defined in `containers/docker-compose.test.apollo.yml` and can be edited locally.
 
 ### Code Quality
 
@@ -621,7 +617,7 @@ apollo/
 │   ├── API_CLIENTS.md # API client usage guide
 │   └── ...
 ├── examples/          # Example usage and scripts
-└── PHASE1_VERIFY/     # Phase 1 verification scripts
+└── PHASE1_VERIFY/     # Verification scripts (legacy naming)
     └── scripts/       # E2E test scripts and documentation
 ```
 
@@ -629,7 +625,7 @@ apollo/
 
 Apollo includes end-to-end verification scripts in `PHASE1_VERIFY/scripts/`:
 
-- **M4 Test**: Verifies the complete Phase 1 goal→plan→execute→state loop
+- **M4 Test**: Verifies the complete goal→plan→execute→state loop
 - Tests the full workflow: create goal → invoke planner → execute step → fetch state
 - Demonstrates proper architecture (CLI → API → Sophia → Neo4j)
 - Replaces direct database operations with proper API calls
@@ -638,7 +634,7 @@ See [PHASE1_VERIFY/scripts/README.md](PHASE1_VERIFY/scripts/README.md) for detai
 
 ## Development Status
 
-### Phase 1: Infrastructure & Core Commands ✅
+### Core Commands & Infrastructure ✅
 
 - ✅ Repository structure and configuration
 - ✅ Python CLI package setup
@@ -650,7 +646,7 @@ See [PHASE1_VERIFY/scripts/README.md](PHASE1_VERIFY/scripts/README.md) for detai
 - ✅ Complete goal→plan→execute→state loop
 - ✅ E2E verification scripts (M4 test)
 
-### Phase 2: Dual Surfaces ✅
+### Dual Surfaces ✅
 
 - ✅ OpenAPI specifications for Sophia and Hermes
 - ✅ Hermes client for text embedding
@@ -663,7 +659,7 @@ See [PHASE1_VERIFY/scripts/README.md](PHASE1_VERIFY/scripts/README.md) for detai
 - ✅ Environment configuration (.env support)
 - ✅ CI workflow for web app
 
-### Future Phases
+### Planned Work
 
 - ⏳ Real-time WebSocket connections
 - ⏳ SDK generation from OpenAPI specs

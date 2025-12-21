@@ -2,6 +2,13 @@
 # Uses the standardized reusable workflow from logos
 # Part of c-daly/logos#431 - Standardize CI/CD across LOGOS repos
 
+name: Free up disk space
+  run: |
+    sudo rm -rf /usr/local/lib/android
+    sudo docker system prune -af
+    sudo rm -rf /opt/hostedtoolcache/*
+    sudo apt-get clean
+    df -h
 name: Publish Apollo Container
 
 on:

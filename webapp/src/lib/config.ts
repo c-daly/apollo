@@ -80,13 +80,13 @@ function parseOptionalNumber(value: string | undefined): number | undefined {
  * Load Apollo configuration from environment variables
  *
  * Environment variables:
- * - VITE_SOPHIA_API_URL: Sophia API base URL (default: http://localhost:8080)
+ * - VITE_SOPHIA_API_URL: Sophia API base URL (default: http://localhost:47000)
  * - VITE_SOPHIA_API_KEY: Optional API key for Sophia authentication
  * - VITE_SOPHIA_TIMEOUT: Request timeout in milliseconds (default: 30000)
- * - VITE_HERMES_API_URL: Hermes API base URL (default: http://localhost:8080)
+ * - VITE_HERMES_API_URL: Hermes API base URL (default: http://localhost:17000)
  * - VITE_HERMES_API_KEY: Optional API key for Hermes authentication
  * - VITE_HERMES_TIMEOUT: Request timeout in milliseconds (default: 30000)
- * - VITE_HCG_API_URL: HCG REST API base URL (default: http://localhost:8082)
+ * - VITE_HCG_API_URL: HCG REST API base URL (default: http://localhost:27000)
  * - VITE_HCG_WS_URL: HCG WebSocket URL (default: ws://localhost:8765)
  * - VITE_HCG_TIMEOUT: HCG REST timeout in milliseconds (default: 30000)
  * - VITE_ENABLE_CHAT: Enable chat panel (default: true)
@@ -95,12 +95,12 @@ function parseOptionalNumber(value: string | undefined): number | undefined {
 export function loadConfig(): ApolloConfig {
   return {
     sophia: {
-      baseUrl: import.meta.env.VITE_SOPHIA_API_URL || 'http://localhost:8080',
+      baseUrl: import.meta.env.VITE_SOPHIA_API_URL || 'http://localhost:47000',
       apiKey: import.meta.env.VITE_SOPHIA_API_KEY || undefined,
       timeout: parseTimeout(import.meta.env.VITE_SOPHIA_TIMEOUT, 30000),
     },
     hermes: {
-      baseUrl: import.meta.env.VITE_HERMES_API_URL || 'http://localhost:8080',
+      baseUrl: import.meta.env.VITE_HERMES_API_URL || 'http://localhost:17000',
       apiKey: import.meta.env.VITE_HERMES_API_KEY || undefined,
       timeout: parseTimeout(import.meta.env.VITE_HERMES_TIMEOUT, 30000),
       llm: {
@@ -116,7 +116,7 @@ export function loadConfig(): ApolloConfig {
       },
     },
     hcg: {
-      apiUrl: import.meta.env.VITE_HCG_API_URL || 'http://localhost:8082',
+      apiUrl: import.meta.env.VITE_HCG_API_URL || 'http://localhost:27000',
       wsUrl: import.meta.env.VITE_HCG_WS_URL || 'ws://localhost:8765',
       timeout: parseTimeout(import.meta.env.VITE_HCG_TIMEOUT, 30000),
     },

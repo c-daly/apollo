@@ -520,6 +520,28 @@ files = [
 ]
 
 [[package]]
+name = "logos-foundry"
+version = "0.1.0"
+description = "LOGOS Foundry - Canonical source of truth for Project LOGOS specifications, ontology, and infrastructure"
+optional = false
+python-versions = "^3.11"
+groups = ["main"]
+files = []
+develop = false
+
+[package.dependencies]
+fastapi = "^0.115.0"
+pydantic = "^2.0.0"
+pydantic-settings = "^2.0.0"
+uvicorn = {version = "^0.32.0", extras = ["standard"]}
+
+[package.source]
+type = "git"
+url = "https://github.com/c-daly/logos.git"
+reference = "main"
+resolved_reference = "78a160dd30589d0fd3544cb2adc183fa0d113c8e"
+
+[[package]]
 name = "logos-hermes-sdk"
 version = "0.1.0"
 description = "Hermes API"
@@ -906,6 +928,30 @@ files = [
 
 [package.dependencies]
 typing-extensions = ">=4.14.1"
+
+[[package]]
+name = "pydantic-settings"
+version = "2.12.0"
+description = "Settings management using Pydantic"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "pydantic_settings-2.12.0-py3-none-any.whl", hash = "sha256:fddb9fd99a5b18da837b29710391e945b1e30c135477f484084ee513adb93809"},
+    {file = "pydantic_settings-2.12.0.tar.gz", hash = "sha256:005538ef951e3c2a68e1c08b292b5f2e71490def8589d4221b95dab00dafcfd0"},
+]
+
+[package.dependencies]
+pydantic = ">=2.7.0"
+python-dotenv = ">=0.21.0"
+typing-inspection = ">=0.4.0"
+
+[package.extras]
+aws-secrets-manager = ["boto3 (>=1.35.0)", "boto3-stubs[secretsmanager]"]
+azure-key-vault = ["azure-identity (>=1.16.0)", "azure-keyvault-secrets (>=4.8.0)"]
+gcp-secret-manager = ["google-cloud-secret-manager (>=2.23.1)"]
+toml = ["tomli (>=2.0.1)"]
+yaml = ["pyyaml (>=6.0.1)"]
 
 [[package]]
 name = "pygments"
@@ -1601,4 +1647,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "6c0888b8bdcd87c460a282e1420c1a733803922abf86e8c83987fea7cd3c6ec6"
+content-hash = "e3da293fab3288bf6abe70b5c8f0542197cd4b6192b474f309d3f7fb99551a44"

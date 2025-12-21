@@ -1,6 +1,6 @@
 # Apollo CLI Prototype Wiring
 
-This document captures how the modern Apollo CLI talks to Sophia and Hermes during the Phase 2 prototype push. The bespoke HTTP layer from Phase 1 has been removed—everything now flows through the generated Python SDKs so the CLI, browser, and automation suites share the same request/response contracts.
+This document captures how the Apollo CLI talks to Sophia and Hermes. The bespoke HTTP layer has been removed—everything now flows through the generated Python SDKs so the CLI, browser, and automation suites share the same request/response contracts.
 
 ## Architecture
 
@@ -18,6 +18,70 @@ logos_sophia_sdk / logos_hermes_sdk
             └── Hermes service (embeddings / LLM endpoints)
 ```
 
+## Dual Surfaces Overview
+
+```
+┌─────────────────────────────────────────┐
+│         User Interfaces                  │
+│  ┌──────────────┐   ┌────────────────┐  │
+│  │   CLI Tool   │   │   Browser UI   │  │
+│  │  (Terminal)  │   │  (React/Vite)  │  │
+│  └──────┬───────┘   └────────┬───────┘  │
+│         │                    │           │
+│         └──────────┬─────────┘           │
+│                    │                     │
+└────────────────────┼─────────────────────┘
+                     │
+         ┌───────────▼──────────┐
+         │   Shared SDK         │
+         │  (TypeScript/Python) │
+         │  Generated from      │
+         │  OpenAPI Specs       │
+         └───────────┬──────────┘
+                     │
+         ┌───────────▼──────────┐
+         │   Sophia/Hermes      │
+         │   REST APIs          │
+         └──────────────────────┘
+```
+
+The CLI and webapp share the same generated SDKs and request/response contracts,
+so every surface interprets the same payloads and error semantics.
+
+## Webapp Surface Overview
+
+The webapp uses the same SDK-backed services as the CLI. It focuses on:
+- **Chat**: Hermes `/llm` with persona context injection.
+- **Graph Viewer**: HCG snapshot and entity inspection.
+- **Diagnostics**: Logs, telemetry, and plan timeline via Apollo API.
+- **Persona Diary**: Live updates from Neo4j-backed entries.
+
+Configuration details live in the main README and `docs/API_CLIENTS.md`.
+
+## Shared CWM State Envelope
+
+Both CLI and web surfaces consume the same `CWMState` envelope so renderers can switch on `model_type` only:
+
+```json
+{
+  "state_id": "cwm_a_d7e1c2a7",
+  "model_type": "CWM_A",
+  "source": "orchestrator",
+  "timestamp": "2025-11-20T04:15:00Z",
+  "confidence": 0.92,
+  "status": "observed",
+  "links": {
+    "plan_id": "plan_456",
+    "entity_ids": ["entity_12"],
+    "process_ids": ["proc_99"]
+  },
+  "tags": ["capability:perception"],
+  "data": {
+    "...": "model-specific payload"
+  }
+}
+```
+
 Key points:
 
 - `src/apollo/sdk/__init__.py` owns SDK construction, auth headers, and shared error handling. Both `SophiaClient` and `HermesClient` simply translate CLI arguments into SDK model instances.
@@ -33,7 +97,7 @@ Key points:
 | `state`, `plans`    | `WorldModelApi.get_state` (cursor/limit filters) | `GET /state`           |
 | `simulate`          | `PlanningApi.run_simulation`                    | `POST /simulate`       |
 
-Execution (`apollo-cli execute`) remains informational in Phase 2 because the Talos executor is exposed elsewhere; the command warns users accordingly.
+Execution (`apollo-cli execute`) remains informational because the Talos executor is exposed elsewhere; the command warns users accordingly.
 
 ## Hermes Endpoints Used by the CLI
 
@@ -42,7 +106,7 @@ Execution (`apollo-cli execute`) remains informational in Phase 2 because the Ta
 | `embed`     | `DefaultApi.embed_text`        | `POST /embed_text` |
 | `chat`      | `DefaultApi.llm_generate`      | `POST /llm`        |
 
-Speech/text-to-speech endpoints are still available via the same SDK but remain out of scope for Phase 2. The new `apollo-cli chat` command shares its implementation with the browser chat panel: both compose metadata, inject persona diary context, and route responses/telemetry through Hermes + `/api/diagnostics/llm`.
+Speech/text-to-speech endpoints are still available via the same SDK but remain out of scope for this surface. The `apollo-cli chat` command shares its implementation with the browser chat panel: both compose metadata, inject persona diary context, and route responses/telemetry through Hermes + `/api/diagnostics/llm`.
 
 ## Configuration Path
 

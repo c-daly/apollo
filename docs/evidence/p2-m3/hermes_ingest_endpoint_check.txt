@@ -1,1 +1,0 @@
-Hermes /ingest/media endpoint present: true

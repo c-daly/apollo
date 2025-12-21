@@ -28,14 +28,14 @@ Configure Neo4j connection in `config.yaml`:
 ```yaml
 hcg:
   neo4j:
-    uri: bolt://localhost:7687
+    uri: bolt://localhost:27687
     user: neo4j
     password: password
 ```
 
 Or use environment variables:
 ```bash
-export NEO4J_URI=bolt://localhost:7687
+export NEO4J_URI=bolt://localhost:27687
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=neo4jtest
 ```
@@ -51,16 +51,16 @@ apollo-api
 ### Using uvicorn directly:
 
 ```bash
-uvicorn apollo.api.server:app --host 0.0.0.0 --port 8082
+uvicorn apollo.api.server:app --host 0.0.0.0 --port 27000
 ```
 
 ### Development mode with auto-reload:
 
 ```bash
-uvicorn apollo.api.server:app --reload --host 0.0.0.0 --port 8082
+uvicorn apollo.api.server:app --reload --host 0.0.0.0 --port 27000
 ```
 
-The API will be available at `http://localhost:8082`
+The API will be available at `http://localhost:27000`
 
 ## API Endpoints
 
@@ -92,7 +92,7 @@ Query entities from the HCG graph.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/entities?type=goal&limit=10"
+curl "http://localhost:27000/api/hcg/entities?type=goal&limit=10"
 ```
 
 **Response:**
@@ -119,7 +119,7 @@ Get a specific entity by its ID.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/entities/goal_123"
+curl "http://localhost:27000/api/hcg/entities/goal_123"
 ```
 
 ### States
@@ -134,7 +134,7 @@ Query state nodes from the HCG graph.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/states?limit=20"
+curl "http://localhost:27000/api/hcg/states?limit=20"
 ```
 
 ### Processes
@@ -150,7 +150,7 @@ Query process nodes from the HCG graph.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/processes?status=running"
+curl "http://localhost:27000/api/hcg/processes?status=running"
 ```
 
 ### Causal Edges
@@ -166,7 +166,7 @@ Query causal edges (relationships) from the HCG graph.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/edges?entity_id=goal_123&limit=50"
+curl "http://localhost:27000/api/hcg/edges?entity_id=goal_123&limit=50"
 ```
 
 ### Plan History
@@ -181,7 +181,7 @@ Query plan history from the HCG graph.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/plans?goal_id=goal_123"
+curl "http://localhost:27000/api/hcg/plans?goal_id=goal_123"
 ```
 
 **Response:**
@@ -214,7 +214,7 @@ Query state change history from the HCG graph.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/history?limit=30"
+curl "http://localhost:27000/api/hcg/history?limit=30"
 ```
 
 **Response:**
@@ -244,7 +244,7 @@ Get a complete snapshot of the HCG graph including entities and edges.
 
 **Example:**
 ```bash
-curl "http://localhost:8082/api/hcg/snapshot?entity_types=goal,plan&limit=100"
+curl "http://localhost:27000/api/hcg/snapshot?entity_types=goal,plan&limit=100"
 ```
 
 **Response:**
@@ -306,7 +306,7 @@ const { data, isLoading, error } = useGraphSnapshot(['goal', 'plan'], 200)
 Configure the HCG API endpoints in `webapp/.env`:
 
 ```env
-VITE_HCG_API_URL=http://localhost:8082
+VITE_HCG_API_URL=http://localhost:27000
 VITE_HCG_WS_URL=ws://localhost:8765
 ```
 
@@ -394,8 +394,8 @@ Error: [Errno 48] Address already in use
 
 **Solution:**
 ```bash
-# Find process using port 8082
-lsof -i :8082
+# Find process using port 27000
+lsof -i :27000
 
 # Kill the process
 kill -9 <PID>
@@ -406,13 +406,12 @@ uvicorn apollo.api.server:app --port 8083
 
 ## Documentation
 
-- API Documentation (Swagger UI): `http://localhost:8082/docs`
-- ReDoc Documentation: `http://localhost:8082/redoc`
-- OpenAPI JSON: `http://localhost:8082/openapi.json`
+- API Documentation (Swagger UI): `http://localhost:27000/docs`
+- ReDoc Documentation: `http://localhost:27000/redoc`
+- OpenAPI JSON: `http://localhost:27000/openapi.json`
 
 ## Support
 
 For issues or questions:
 1. Check the main README: `../../README.md`
-2. Review Phase 2 specification: `../../docs/phase2/PHASE2_SPEC.md`
-3. See verification docs: `../../docs/phase2/VERIFY.md`
+2. Review the wiring guide: `../../docs/PROTOTYPE-WIRING.md`

@@ -7,6 +7,11 @@ from typing import Optional
 import yaml
 from pydantic import BaseModel, Field
 
+from logos_config.env import get_env_value as resolve_env_value
+from logos_config.ports import APOLLO_PORTS, get_repo_ports
+
+SOPHIA_PORTS = get_repo_ports("sophia")
+HERMES_PORTS = get_repo_ports("hermes")
 
 def _get_client_host(env_var: str, default: str = "localhost") -> str:
     """Get a client-reachable host from environment variable.
@@ -14,7 +19,9 @@ def _get_client_host(env_var: str, default: str = "localhost") -> str:
     If the variable is set to 0.0.0.0 (bind all interfaces), return localhost
     instead so clients can connect.
     """
-    host = os.getenv(env_var, default)
+    host = resolve_env_value(env_var, default=default)
+    if host is None:
+        host = default
     return "localhost" if host == "0.0.0.0" else host
 
 
@@ -26,7 +33,10 @@ class SophiaConfig(BaseModel):
         description="Sophia API host",
     )
     port: int = Field(
-        default_factory=lambda: int(os.getenv("SOPHIA_PORT", "8080")),
+        default_factory=lambda: int(
+            resolve_env_value("SOPHIA_PORT", default=str(SOPHIA_PORTS.api))
+            or SOPHIA_PORTS.api
+        ),
         description="Sophia API port",
     )
     timeout: int = Field(default=30, description="Request timeout in seconds")
@@ -44,7 +54,10 @@ class HermesConfig(BaseModel):
         description="Hermes API host",
     )
     port: int = Field(
-        default_factory=lambda: int(os.getenv("HERMES_PORT", "8080")),
+        default_factory=lambda: int(
+            resolve_env_value("HERMES_PORT", default=str(HERMES_PORTS.api))
+            or HERMES_PORTS.api
+        ),
         description="Hermes API port",
     )
     timeout: int = Field(default=30, description="Request timeout in seconds")
@@ -83,7 +96,10 @@ class PersonaApiConfig(BaseModel):
         description="Persona API host (typically the Sophia service host)",
     )
     port: int = Field(
-        default_factory=lambda: int(os.getenv("APOLLO_PORT", "8082")),
+        default_factory=lambda: int(
+            resolve_env_value("APOLLO_PORT", default=str(APOLLO_PORTS.api))
+            or APOLLO_PORTS.api
+        ),
         description="Persona API port",
     )
     timeout: int = Field(default=15, description="Request timeout in seconds")
@@ -97,7 +113,11 @@ class Neo4jConfig(BaseModel):
     """Configuration for Neo4j HCG connection."""
 
     uri: str = Field(
-        default_factory=lambda: os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        default_factory=lambda: resolve_env_value(
+            "NEO4J_URI",
+            default=f"bolt://localhost:{APOLLO_PORTS.neo4j_bolt}",
+        )
+        or f"bolt://localhost:{APOLLO_PORTS.neo4j_bolt}",
         description="Neo4j Bolt URI",
     )
     user: str = Field(
@@ -114,11 +134,15 @@ class MilvusConfig(BaseModel):
     """Configuration for Milvus vector store connection."""
 
     host: str = Field(
-        default_factory=lambda: os.getenv("MILVUS_HOST", "localhost"),
+        default_factory=lambda: resolve_env_value("MILVUS_HOST", default="localhost")
+        or "localhost",
         description="Milvus host",
     )
     port: int = Field(
-        default_factory=lambda: int(os.getenv("MILVUS_PORT", "19530")),
+        default_factory=lambda: int(
+            resolve_env_value("MILVUS_PORT", default=str(APOLLO_PORTS.milvus_grpc))
+            or APOLLO_PORTS.milvus_grpc
+        ),
         description="Milvus gRPC port",
     )
 

@@ -34,9 +34,9 @@ APOLLO_ROOT="${APOLLO_ROOT:-$(dirname "$SCRIPT_DIR")}"
 export APOLLO_ROOT
 
 # Stack configuration
-STACK_DIR="${APOLLO_ROOT}/tests/e2e/stack/apollo"
+STACK_DIR="${APOLLO_ROOT}/containers"
 COMPOSE_FILE="${STACK_DIR}/docker-compose.test.yml"
-SOPHIA_OVERLAY="${APOLLO_ROOT}/tests/e2e/docker-compose.test.apollo.yml"
+SOPHIA_OVERLAY="${STACK_DIR}/docker-compose.test.apollo.yml"
 ENV_FILE="${STACK_DIR}/.env.test"
 
 # Load environment from .env.test if it exists
@@ -344,7 +344,7 @@ cmd_up() {
         
         # Check if Sophia is available (part of our stack)
         echo ""
-        local sophia_port="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-48001}}"
+        local sophia_port="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-47000}}"
         if curl -sf "http://localhost:${sophia_port}/health" &>/dev/null; then
             log_success "Sophia is available at http://localhost:${sophia_port}"
         else
@@ -420,7 +420,7 @@ cmd_status() {
     fi
     
     # Sophia (part of the stack via overlay)
-    local sophia_port="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-48001}}"
+    local sophia_port="${SOPHIA_PORT:-${LOGOS_SOPHIA_API_PORT:-47000}}"
     printf "  %-15s " "Sophia:"
     if curl -sf "http://localhost:${sophia_port}/health" &>/dev/null; then
         echo -e "${GREEN}healthy${NC} (http://localhost:${sophia_port})"
@@ -478,7 +478,7 @@ cmd_run() {
     export NEO4J_USER
     export NEO4J_PASSWORD
     export SOPHIA_HOST="localhost"
-    export SOPHIA_PORT="${SOPHIA_PORT:-48001}"  # Real Sophia service port (tests skip if unavailable)
+    export SOPHIA_PORT="${SOPHIA_PORT:-47000}"  # Real Sophia service port (tests skip if unavailable)
     export RUN_INTEGRATION_TESTS=1
     
     cd "$APOLLO_ROOT"
@@ -518,7 +518,7 @@ Port Configuration (Apollo uses 27xxx/29xxx range):
     Neo4j:  ${NEO4J_HTTP_PORT} (http), ${NEO4J_BOLT_PORT} (bolt)
     Milvus: ${MILVUS_PORT} (grpc), ${MILVUS_HEALTH_PORT} (health)
     MinIO:  ${MINIO_PORT}, ${MINIO_CONSOLE_PORT}
-    Sophia: 48001 (ghcr.io/c-daly/sophia:latest)
+    Sophia: 47000 (ghcr.io/c-daly/sophia:latest)
 
 Examples:
     $0 up              # Start services for manual testing

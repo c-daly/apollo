@@ -13,22 +13,15 @@ This directory contains documentation for Apollo, the UI and command layer for P
 
 - [Main README](../README.md) - Overview and quick start
 - [Contributing Guide](../CONTRIBUTING.md) - How to contribute
+- [Prototype Wiring](PROTOTYPE-WIRING.md) - CLI/Webapp wiring, SDK usage, and contract flow
+- [Testing Guide](TESTING.md) - Test tiers and script-based runners
 - [Project LOGOS Specification](https://github.com/c-daly/logos/blob/main/docs/spec/project_logos_full.md)
 
-## Epoch 3 Documentation
+## Documentation Roadmap
 
-Full documentation will be developed in Epoch 3 when the command interface (Task C4) is implemented. This will include:
-
+Planned additions:
 - CLI command reference
 - Web dashboard user guide
 - Integration guide for connecting to Sophia
 - API documentation for client libraries
 - Examples and tutorials
-
-## Current Status
-
-- ✅ Repository structure established
-- ✅ Python package configuration
-- ⏳ CLI implementation (Epoch 3)
-- ⏳ Web dashboard (Epoch 3)
-- ⏳ Full documentation (Epoch 3)

@@ -31,15 +31,15 @@ Hermes falls back to the deterministic `echo` provider if no credentials are
 present, so double-check `/health` for the active provider if responses look
 like loopbacks.
 
-## 3. Start Hermes
+## 3. Start the Stack (Recommended)
 
-From the sibling `hermes/` repository in this workspace:
+Use the Apollo launcher script to start Sophia, Hermes, the Apollo API, and the webapp together:
 
 ```bash
-cd ../hermes
-poetry install --with dev                   # one time
-poetry run hermes                           # serves on http://localhost:8080
+./scripts/run_apollo.sh
 ```
+
+Hermes will be available at `http://localhost:17000` by default. Override with `HERMES_PORT` if needed.
 
 > **Tip:** If you need the ML-heavy endpoints (Whisper, TTS, embeddings), install
 > the `ml` extras described in `hermes/README.md`. The `/llm` gateway only needs
@@ -50,13 +50,13 @@ You should see logs like:
 
 ```
 INFO:hermes.main:Hermes API startup complete
-INFO:     Uvicorn running on http://0.0.0.0:8080
+INFO:     Uvicorn running on http://0.0.0.0:17000
 ```
 
 Check health + provider:
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:17000/health
 ```
 
 ## 4. Point Apollo at Hermes
@@ -64,7 +64,7 @@ curl http://localhost:8080/health
 ### Webapp `.env`
 
 ```env
-VITE_HERMES_API_URL=http://localhost:8080
+VITE_HERMES_API_URL=http://localhost:17000
 VITE_HERMES_API_KEY=                       # optional bearer token for Hermes
 VITE_HERMES_TIMEOUT=30000
 VITE_HERMES_LLM_PROVIDER=openai
@@ -79,7 +79,7 @@ VITE_HERMES_SYSTEM_PROMPT=
 ```yaml
 hermes:
   host: localhost
-  port: 8080
+  port: 17000
   timeout: 30
   api_key: ""         # optional if Hermes itself is open
   provider: openai
@@ -115,7 +115,7 @@ When you send a chat prompt now:
 To confirm Sophia storage, open the Persona Diary tab or query via:
 
 ```bash
-curl "http://localhost:8082/api/persona/entries?limit=5" | jq
+curl "http://localhost:27000/api/persona/entries?limit=5" | jq
 ```
 
 You should see the chat turns recorded as `observation` entries with metadata

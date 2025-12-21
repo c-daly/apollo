@@ -4,7 +4,7 @@ These tests validate Apollo's HCG graph API against a running Apollo service.
 Apollo must be running with Neo4j configured.
 
 To run:
-    1. Start test stack: docker compose -f docker-compose.test.yml -f docker-compose.test.apollo.yml up -d
+    1. Start test stack: docker compose -f containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml up -d
     2. pytest tests/integration/test_hcg_integration.py -v
 """
 

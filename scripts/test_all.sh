@@ -4,7 +4,7 @@
 #
 # Convenience script that runs the complete test suite:
 # 1. Cleans up any existing test containers/ports
-# 2. Starts the test stack (Neo4j, Milvus, Mock Sophia)
+# 2. Starts the test stack (Neo4j, Milvus, Sophia)
 # 3. Runs unit tests
 # 4. Runs integration tests
 # 5. Cleans up everything
@@ -218,7 +218,7 @@ if [[ "$RUN_INTEGRATION" == "true" ]]; then
     export NEO4J_USER="neo4j"
     export NEO4J_PASSWORD="neo4jtest"
     export SOPHIA_HOST="localhost"
-    export SOPHIA_PORT="${SOPHIA_PORT:-48001}"
+    export SOPHIA_PORT="${SOPHIA_PORT:-47000}"
     
     if poetry run pytest tests/integration/ "${PYTEST_ARGS[@]}"; then
         log_success "Integration tests passed"

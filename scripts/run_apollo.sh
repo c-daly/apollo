@@ -65,7 +65,7 @@ start_sophia() {
             rm -f "${SOPHIA_PID_FILE}"
         fi
         
-        SOPHIA_PORT="${SOPHIA_PORT:-8000}"
+        SOPHIA_PORT="${SOPHIA_PORT:-47000}"
         # Token for authenticating incoming requests (matched by Hermes/Apollo)
         export SOPHIA_API_TOKEN="${SOPHIA_API_TOKEN:-sophia_dev}"
         log_info "Starting Sophia on port ${SOPHIA_PORT}..."
@@ -97,7 +97,7 @@ start_hermes() {
             rm -f "${HERMES_PID_FILE}"
         fi
         
-        HERMES_PORT="${HERMES_PORT:-8080}"
+        HERMES_PORT="${HERMES_PORT:-17000}"
         log_info "Starting Hermes on port ${HERMES_PORT}..."
         
         # Pass LLM API key to Hermes (provider-agnostic)
@@ -106,7 +106,7 @@ start_hermes() {
         export SOPHIA_API_KEY="${SOPHIA_API_KEY:-sophia_dev}"
         # Sophia connection settings
         export SOPHIA_HOST="${SOPHIA_HOST:-localhost}"
-        export SOPHIA_PORT="${SOPHIA_PORT:-8000}"
+    export SOPHIA_PORT="${SOPHIA_PORT:-47000}"
         
         cd "${HERMES_ROOT}"
         poetry install --sync >/dev/null 2>&1 || true
@@ -135,7 +135,7 @@ start_api() {
             rm -f "${APOLLO_API_PID_FILE}"
         fi
         
-        APOLLO_PORT="${APOLLO_PORT:-8082}"
+        APOLLO_PORT="${APOLLO_PORT:-27000}"
         log_info "Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
         
         # Ensure poetry env is ready
@@ -228,9 +228,9 @@ else
     echo "  • Hermes logs: tail -f /tmp/hermes.log"
     echo "  • API logs: tail -f /tmp/apollo-api.log"
     echo "  • Webapp logs: tail -f /tmp/apollo-webapp.log"
-    echo "  • Sophia: http://localhost:${SOPHIA_PORT:-8001}"
-    echo "  • Hermes: http://localhost:${HERMES_PORT:-8080}"
-    echo "  • API: http://localhost:${APOLLO_PORT:-8082}"
+    echo "  • Sophia: http://localhost:${SOPHIA_PORT:-47000}"
+    echo "  • Hermes: http://localhost:${HERMES_PORT:-17000}"
+    echo "  • API: http://localhost:${APOLLO_PORT:-27000}"
     echo "  • UI: http://localhost:${WEBAPP_PORT:-3000}"
     echo ""
     echo "Press Ctrl+C to stop all services."

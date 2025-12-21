@@ -44,9 +44,9 @@ SOPHIA_BASE_URL = _sophia_config["base_url"]
 
 # Paths
 E2E_DIR = Path(__file__).parent
-BASE_COMPOSE_FILE = E2E_DIR / "stack" / "apollo" / "docker-compose.test.yml"
-OVERLAY_COMPOSE_FILE = E2E_DIR / "docker-compose.test.apollo.yml"
-COMPOSE_ENV_FILE = E2E_DIR / "stack" / "apollo" / ".env.test"
+BASE_COMPOSE_FILE = E2E_DIR / ".." / ".." / "containers" / "docker-compose.test.yml"
+OVERLAY_COMPOSE_FILE = E2E_DIR / ".." / ".." / "containers" / "docker-compose.test.apollo.yml"
+COMPOSE_ENV_FILE = E2E_DIR / ".." / ".." / "containers" / ".env.test"
 
 
 def compose_args(*extra: str) -> list[str]:

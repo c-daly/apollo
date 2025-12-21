@@ -65,7 +65,7 @@ from apollo.data import HCGClient
 
 # Create client
 config = Neo4jConfig(
-    uri="bolt://localhost:7687",
+    uri="bolt://localhost:27687",
     user="neo4j",
     password="password"
 )
@@ -103,7 +103,7 @@ from apollo.config.settings import Neo4jConfig
 from apollo.data.websocket_server import start_websocket_server
 
 config = Neo4jConfig(
-    uri="bolt://localhost:7687",
+    uri="bolt://localhost:27687",
     user="neo4j",
     password="password"
 )
