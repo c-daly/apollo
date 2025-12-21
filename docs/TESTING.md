@@ -14,18 +14,20 @@ Apollo has a tiered testing strategy:
 
 ## Running Tests
 
+Use the scripts in `scripts/` for consistent setup:
+
 ```bash
-# Unit tests only (default, runs in CI)
-poetry run pytest tests/ -m "not integration"
+# Unit tests (default)
+./scripts/run_tests.sh
 
 # Unit tests with coverage
-poetry run pytest tests/ -m "not integration" --cov=apollo --cov-report=term --cov-report=xml
+./scripts/run_tests.sh coverage
 
-# Integration tests (requires services)
-RUN_INTEGRATION_TESTS=1 poetry run pytest tests/integration/ -v
+# Integration tests (starts stack automatically)
+./scripts/run_tests.sh integration
 
-# E2E tests (requires docker-compose stack)
-cd tests/e2e && ./run_e2e.sh
+# Full test run (unit + integration + cleanup)
+./scripts/test_all.sh
 ```
 
 ## Coverage Goals
@@ -82,10 +84,9 @@ To avoid testing mock behavior rather than real behavior:
 tests/
 ├── conftest.py              # Shared fixtures (mocked clients)
 ├── e2e/                     # Full E2E tests with docker-compose
-│   ├── docker-compose.test.apollo.yml
+│   ├── ../../containers/docker-compose.test.apollo.yml
 │   ├── mocks/sophia/        # Mock Sophia service
 │   ├── seed_data.py         # Test data setup
-│   ├── stack/               # Shared infrastructure templates
 │   └── test_e2e_flow.py     # E2E test runner
 ├── integration/             # Real service integration tests
 │   ├── conftest.py          # Integration fixtures
@@ -207,6 +208,11 @@ class TestFeatureIntegration:
 pytest tests/ -m "not integration" -v --cov=apollo --cov-report=xml
 ```
 
+Local equivalent:
+```bash
+./scripts/run_tests.sh coverage
+```
+
 ### Integration Tests (On-demand)
 
 Integration tests run in CI when Neo4j is available:
@@ -215,9 +221,19 @@ Integration tests run in CI when Neo4j is available:
 RUN_INTEGRATION_TESTS=1 pytest tests/integration/ -v
 ```
 
+Local equivalent:
+```bash
+./scripts/run_tests.sh integration
+```
+
 ### E2E Tests (Every PR)
 
 E2E tests run with docker-compose in the e2e.yml workflow.
+
+Local equivalent:
+```bash
+./scripts/run_tests.sh e2e
+```
 
 ## Debugging Tests
 
@@ -240,6 +256,24 @@ poetry run pytest tests/test_hcg_client.py --cov=apollo.data.hcg_client --cov-re
 ```
 
 ## Common Issues
+
+## Verification Checklist
+
+Use this when validating the diagnostics + graph surfaces after changes:
+
+1. Start the stack:
+   ```bash
+   ./scripts/run_apollo.sh
+   ```
+2. Create a persona entry via CLI:
+   ```bash
+   poetry run apollo-cli diary "Diagnosed a fault" --type decision --goal goal_pick_and_place
+   ```
+3. Open the webapp (`http://localhost:3000`) and confirm:
+   - Persona Diary updates in real time.
+   - Diagnostics logs + telemetry update.
+   - Graph Viewer shows entities.
+
 
 ### "Module not measured" Warning
 

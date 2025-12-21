@@ -11,7 +11,7 @@ This document explains how authentication flows between LOGOS services and the e
 │                                                                              │
 │   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐                │
 │   │   Webapp     │────▶│  Apollo API  │────▶│   Hermes     │                │
-│   │  (port 3000) │     │  (port 8082) │     │  (port 8080) │                │
+│   │  (port 3000) │     │ (port 27000) │     │ (port 17000) │                │
 │   └──────────────┘     └──────┬───────┘     └──────┬───────┘                │
 │                               │                     │                        │
 │                               │  SOPHIA_API_KEY     │  SOPHIA_API_KEY        │
@@ -19,7 +19,7 @@ This document explains how authentication flows between LOGOS services and the e
 │                               ▼                     ▼                        │
 │                        ┌─────────────────────────────┐                       │
 │                        │          Sophia             │                       │
-│                        │        (port 8000)          │                       │
+│                        │       (port 47000)          │                       │
 │                        │                             │                       │
 │                        │  Validates tokens against   │                       │
 │                        │  SOPHIA_API_TOKEN env var   │                       │
@@ -36,7 +36,7 @@ Sophia reads `SOPHIA_API_TOKEN` from its environment and validates incoming `Aut
 
 ```bash
 # Sophia startup - MUST have this set
-SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --host 0.0.0.0 --port 8000
+SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --host 0.0.0.0 --port 47000
 ```
 
 **Without this token set, Sophia will return 500 errors on any authenticated endpoint.**
@@ -49,7 +49,7 @@ Hermes reads `SOPHIA_API_KEY` or `SOPHIA_API_TOKEN` from its environment and inc
 # Hermes startup
 SOPHIA_API_KEY="sophia_dev" \
 SOPHIA_HOST="localhost" \
-SOPHIA_PORT="8000" \
+SOPHIA_PORT="47000" \
 poetry run python -m hermes.main
 ```
 
@@ -60,7 +60,7 @@ poetry run python -m hermes.main
 | `SOPHIA_API_KEY` | (none) | Token to send to Sophia (preferred) |
 | `SOPHIA_API_TOKEN` | (none) | Alternative name for the token |
 | `SOPHIA_HOST` | `localhost` | Sophia hostname |
-| `SOPHIA_PORT` | `8001` | Sophia port (**Note: default is 8001, but dev uses 8000**) |
+| `SOPHIA_PORT` | `47000` | Sophia port (LOGOS offset default) |
 
 ### 3. Apollo API (Token Forwarder)
 
@@ -70,13 +70,13 @@ Apollo API reads Sophia credentials from `config.yaml` (preferred) or `SOPHIA_AP
 ```yaml
 sophia:
   host: localhost
-  port: 8000
+  port: 47000
   timeout: 30
   api_key: "sophia_dev"  # Must match Sophia's SOPHIA_API_TOKEN
 
 hermes:
   host: localhost
-  port: 8080
+  port: 17000
   timeout: 30
 ```
 
@@ -112,7 +112,7 @@ RuntimeError: SOPHIA_API_TOKEN environment variable must be set for authenticati
 
 **Fix:** Restart Sophia with the token:
 ```bash
-SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --port 8000
+SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --port 47000
 ```
 
 ### 422 Unprocessable Entity on Media Upload
@@ -133,11 +133,11 @@ SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --port 8000
 {"detail": "Cannot connect to Sophia service: All connection attempts failed"}
 ```
 
-**Cause:** Wrong `SOPHIA_PORT` (default is 8001 but dev typically uses 8000).
+**Cause:** Wrong `SOPHIA_PORT` (LOGOS default is 47000).
 
 **Fix:** Set correct port:
 ```bash
-SOPHIA_PORT="8000" poetry run python -m hermes.main
+SOPHIA_PORT="47000" poetry run hermes
 ```
 
 ## Quick Start: Full Stack with Auth
@@ -145,11 +145,11 @@ SOPHIA_PORT="8000" poetry run python -m hermes.main
 ```bash
 # Terminal 1: Start Sophia
 cd sophia
-SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --host 0.0.0.0 --port 8000
+SOPHIA_API_TOKEN="sophia_dev" poetry run uvicorn sophia.api.app:app --host 0.0.0.0 --port 47000
 
 # Terminal 2: Start Hermes
-cd hermes/src
-SOPHIA_API_KEY="sophia_dev" SOPHIA_HOST="localhost" SOPHIA_PORT="8000" python -m hermes.main
+cd hermes
+SOPHIA_API_KEY="sophia_dev" SOPHIA_HOST="localhost" SOPHIA_PORT="47000" poetry run hermes
 
 # Terminal 3: Start Apollo (reads from config.yaml)
 cd apollo
@@ -161,25 +161,25 @@ cd apollo
 
 ```bash
 # Check Sophia is running and healthy
-curl http://localhost:8000/health
+curl http://localhost:47000/health
 # Expected: {"status":"healthy","components":{"neo4j":true,"milvus":true},...}
 
 # Check Hermes is running
-curl http://localhost:8080/health
+curl http://localhost:17000/health
 # Expected: {"status":"degraded",...} (degraded is OK without ML services)
 
 # Check Apollo API
-curl http://localhost:8082/api/diagnostics/logs
+curl http://localhost:27000/api/diagnostics/logs
 # Expected: JSON array of log entries
 
 # Test media upload (full chain)
-curl -X POST http://localhost:8082/api/media/upload \
+curl -X POST http://localhost:27000/api/media/upload \
   -F "file=@test.png" \
   -F "media_type=image"
 # Expected: {"sample_id":"ms_...","file_path":"media_storage/image/..."}
 
 # Test media library retrieval
-curl http://localhost:8082/api/media/samples
+curl http://localhost:27000/api/media/samples
 # Expected: {"samples":[...],"total":N,...}
 ```
 
@@ -190,17 +190,17 @@ curl http://localhost:8082/api/media/samples
 ```yaml
 sophia:
   host: localhost
-  port: 8000           # Default 8001, but dev uses 8000
+  port: 47000
   timeout: 30
   api_key: "sophia_dev"  # MUST match Sophia's SOPHIA_API_TOKEN
 
 hermes:
   host: localhost
-  port: 8080
+  port: 17000
   timeout: 30
 
 hcg:
-  neo4j_uri: bolt://localhost:7687
+  neo4j_uri: bolt://localhost:27687
   neo4j_user: neo4j
   neo4j_password: password
 ```
@@ -212,7 +212,7 @@ The `scripts/run_apollo.sh` script sets these for Hermes:
 ```bash
 export SOPHIA_API_KEY="${SOPHIA_API_KEY:-sophia_dev}"
 export SOPHIA_HOST="${SOPHIA_HOST:-localhost}"
-export SOPHIA_PORT="${SOPHIA_PORT:-8000}"
+export SOPHIA_PORT="${SOPHIA_PORT:-47000}"
 ```
 
 ## Token Values

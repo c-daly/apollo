@@ -1,7 +1,7 @@
 # Apollo CI/CD Pipeline Documentation
 
 > **Last Updated**: 2025-11-24  
-> **Related Issue**: [logos#315](https://github.com/c-daly/logos/issues/315) - Phase 2 CI/CD Enhancements
+> **Related Issue**: [logos#315](https://github.com/c-daly/logos/issues/315) - CI/CD Enhancements
 
 ## Overview
 

@@ -20,7 +20,7 @@ jobs:
       python_lint_paths: 'src tests'
       mypy_targets: 'src'
       # Start full test stack: Neo4j, Milvus, and Sophia (via overlay)
-      docker_compose_file: 'docker-compose.test.yml -f docker-compose.test.apollo.yml'
+      docker_compose_file: 'containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml'
       docker_compose_wait_script: |
         echo "Waiting for Neo4j..."
         timeout 60 bash -c 'until docker exec apollo-test-neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" 2>/dev/null; do sleep 2; done'
@@ -31,9 +31,11 @@ jobs:
         echo "Waiting for Milvus..."
         timeout 120 bash -c 'until curl -f http://localhost:27091/healthz 2>/dev/null; do sleep 2; done'
         echo "Waiting for Sophia..."
-        timeout 120 bash -c 'until curl -f http://localhost:48001/health 2>/dev/null; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:47000/health 2>/dev/null; do sleep 2; done'
+        echo "Waiting for Hermes..."
+        timeout 120 bash -c 'until curl -f http://localhost:17000/health 2>/dev/null; do sleep 2; done'
         echo "Waiting for Apollo..."
-        timeout 120 bash -c 'until curl -f http://localhost:28003/api/hcg/health 2>/dev/null; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:27000/api/hcg/health 2>/dev/null; do sleep 2; done'
         echo "All services ready!"
       pytest_env_script: |
         export NEO4J_URI=bolt://localhost:27687
@@ -44,9 +46,11 @@ jobs:
         export MILVUS_PORT=27530
         export MILVUS_METRICS_PORT=27091
         export SOPHIA_HOST=localhost
-        export SOPHIA_PORT=48001
+        export SOPHIA_PORT=47000
         export SOPHIA_API_KEY=test-token-for-sophia
-        export APOLLO_API_PORT=28003
+        export HERMES_HOST=localhost
+        export HERMES_PORT=17000
+        export APOLLO_API_PORT=27000
         export RUN_INTEGRATION_TESTS=1
       # Run ALL tests with full stack available
       # --cov-fail-under=50: Enforce 50% minimum coverage (per logos#416 Phase 2.5)

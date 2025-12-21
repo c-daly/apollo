@@ -76,7 +76,7 @@ export NEO4J_URI=bolt://localhost:${NEO4J_BOLT_PORT:-27687}
 export NEO4J_USER=neo4j
 export NEO4J_PASSWORD=neo4jtest
 export SOPHIA_HOST=localhost
-export SOPHIA_PORT=${LOGOS_SOPHIA_API_PORT:-48001}
+export SOPHIA_PORT=${LOGOS_SOPHIA_API_PORT:-47000}
 export MILVUS_HOST=localhost
 export MILVUS_PORT=${MILVUS_PORT:-27530}
 ```

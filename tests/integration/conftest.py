@@ -5,13 +5,13 @@ before tests execute. Tests will FAIL (not skip) if the service is unavailable.
 
 To run integration tests:
     1. Start the test stack:
-       docker compose -f docker-compose.test.yml -f docker-compose.test.apollo.yml up -d
+       docker compose -f containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml up -d
 
     2. Run tests:
        pytest tests/integration/ -v
 
 Environment Variables:
-    APOLLO_API_PORT  - Apollo API port (default: 28003 for test stack)
+    APOLLO_API_PORT  - Apollo API port (default: 27000 for test stack)
 """
 
 import os
@@ -22,7 +22,7 @@ import pytest
 
 
 # Default to test stack port
-APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "28003"))
+APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "27000"))
 APOLLO_BASE_URL = f"http://localhost:{APOLLO_API_PORT}"
 
 
@@ -57,7 +57,7 @@ def integration_client() -> Generator[httpx.Client, None, None]:
         except httpx.ConnectError:
             pytest.fail(
                 f"Cannot connect to Apollo at {APOLLO_BASE_URL}. "
-                "Start the test stack: docker compose -f docker-compose.test.yml "
-                "-f docker-compose.test.apollo.yml up -d"
+                "Start the test stack: docker compose -f containers/docker-compose.test.yml "
+                "-f containers/docker-compose.test.apollo.yml up -d"
             )
         yield client

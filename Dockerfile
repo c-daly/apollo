@@ -12,7 +12,7 @@ COPY config.example.yaml ./config.yaml
 RUN poetry install --only main --no-interaction --no-ansi
 
 # Expose port
-EXPOSE 8003
+EXPOSE 27000
 
 # Run the API server
-CMD ["uvicorn", "apollo.api.server:app", "--host", "0.0.0.0", "--port", "8003"]
+CMD ["sh", "-c", "uvicorn apollo.api.server:app --host 0.0.0.0 --port ${APOLLO_PORT:-27000}"]

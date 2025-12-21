@@ -21,14 +21,14 @@ Legend: ✅ = covered, ⚠️ = partially covered or manual, ❌ = missing.
 ### logos (meta)
 - `test.yml`: multi-version pytest + Ruff. Installs mypy but never runs it; uploads `coverage.xml` as artifact.
 - `m1-neo4j-crud.yml`, `m2-shacl-validation.yml`, `m3-planning.yml`, `m4-end-to-end.yml`: docker-compose heavy gates that prove key milestones; not consistently required for PRs.
-- `phase2-otel.yml`, `phase2-perception.yml`: perception/observability pipelines plus YAML validation.
+- `phase2-otel.yml`, `phase2-perception.yml`: perception/observability pipelines plus YAML validation (legacy file names).
 - `validate-artifacts.yml`, `sdk-regen.yml`, etc.: automation but no coverage.
 - **Gaps:** enforce mypy, standardize coverage uploads, reduce reliance on optional cron-based gates.
 
 ### apollo (this repo)
 - `ci.yml`: Uses reusable standard CI workflow with Python matrix (3.9–3.11) running Ruff, Black, mypy, pytest. Separate jobs for Python coverage (with `python` flag), JavaScript coverage (with `javascript` flag), and Playwright E2E tests. All uploads use Codecov with appropriate flags.
 - `e2e.yml`: docker-compose harness that brings up Sophia/Talos services; runs Python E2E tests. Captures artifacts on all runs: test logs, screenshots, and docker-compose logs. Tests are required (no skip option).
-- **Enhancements (Phase 2):** E2E tests now mandatory with artifact capture; Playwright added for browser testing; JavaScript coverage with 60% thresholds; TypeScript strict mode enforced; coverage reporting standardized with flags.
+- **Enhancements (recent):** E2E tests now mandatory with artifact capture; Playwright added for browser testing; JavaScript coverage with 60% thresholds; TypeScript strict mode enforced; coverage reporting standardized with flags.
 
 ### sophia
 - `ci.yml`: Poetry-based setup, Ruff/Black lint, pytest excluding integration marks, Codecov upload on Python 3.12 only.
@@ -36,7 +36,7 @@ Legend: ✅ = covered, ⚠️ = partially covered or manual, ❌ = missing.
 
 ### hermes
 - `ci.yml`: Poetry install, Ruff/Black/mypy, pytest with Codecov; optional integration job triggered on push or PR label `integration-test` to launch etcd/minio/milvus/neo4j.
-- `phase2-hermes-service.yml`: duplicates lint/type/test before running Milvus smoke tests.
+- `phase2-hermes-service.yml`: duplicates lint/type/test before running Milvus smoke tests (legacy file name).
 - **Gaps:** integration tests not enforced on all PRs; workflows duplicate logic; no cross-service E2E coverage.
 
 ### talos

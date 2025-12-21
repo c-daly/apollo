@@ -993,7 +993,9 @@ def main() -> None:
     import uvicorn
     import os
 
-    port = int(os.getenv("APOLLO_PORT", "8082"))
+    from logos_config.ports import APOLLO_PORTS
+
+    port = int(os.getenv("APOLLO_PORT", str(APOLLO_PORTS.api)))
     host = os.getenv("APOLLO_HOST", "0.0.0.0")
     uvicorn.run(app, host=host, port=port)
 

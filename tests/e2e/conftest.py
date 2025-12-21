@@ -31,7 +31,7 @@ pytestmark = pytest.mark.e2e
 # =============================================================================
 
 # Real Sophia config (from sophia repo, 4xxxx port range)
-SOPHIA_PORT = os.getenv("SOPHIA_PORT", "48001")
+SOPHIA_PORT = os.getenv("SOPHIA_PORT", "47000")
 SOPHIA_HOST = os.getenv("SOPHIA_HOST", "localhost")
 SOPHIA_URL = os.getenv("SOPHIA_URL", f"http://{SOPHIA_HOST}:{SOPHIA_PORT}")
 

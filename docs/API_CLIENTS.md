@@ -130,13 +130,13 @@ const embeddingResponse = await hermesClient.embedText({
 import { SophiaClient, HermesClient } from './lib'
 
 const sophia = new SophiaClient({
-  baseUrl: 'http://custom-sophia:8080',
+  baseUrl: 'http://custom-sophia:47000',
   apiKey: 'your-api-key',
   timeout: 60000, // 60 seconds
 })
 
 const hermes = new HermesClient({
-  baseUrl: 'http://custom-hermes:8080',
+  baseUrl: 'http://custom-hermes:17000',
   apiKey: 'your-api-key',
   timeout: 60000,
 })
@@ -150,17 +150,17 @@ Apollo uses Vite environment variables for configuration. Create a `.env` file i
 
 ```env
 # HCG API Configuration
-VITE_HCG_API_URL=http://localhost:8082
-VITE_HCG_WS_URL=ws://localhost:8082/ws/hcg
+VITE_HCG_API_URL=http://localhost:27000
+VITE_HCG_WS_URL=ws://localhost:8765
 VITE_HCG_TIMEOUT=30000                  # Optional, in milliseconds
 
 # Sophia API Configuration
-VITE_SOPHIA_API_URL=http://localhost:8080
+VITE_SOPHIA_API_URL=http://localhost:47000
 VITE_SOPHIA_API_KEY=                    # Optional
 VITE_SOPHIA_TIMEOUT=30000               # Optional, in milliseconds
 
 # Hermes API Configuration
-VITE_HERMES_API_URL=http://localhost:8080
+VITE_HERMES_API_URL=http://localhost:17000
 VITE_HERMES_API_KEY=                    # Optional
 VITE_HERMES_TIMEOUT=30000               # Optional, in milliseconds
 VITE_HERMES_LLM_PROVIDER=               # Optional provider override (e.g., openai)
@@ -192,7 +192,7 @@ import { loadConfig, validateConfig, isConfigValid } from './lib'
 
 // Load all configuration
 const config = loadConfig()
-console.log(config.sophia.baseUrl) // http://localhost:8080
+console.log(config.sophia.baseUrl) // http://localhost:47000
 
 // Validate configuration
 if (!isConfigValid()) {
@@ -401,7 +401,7 @@ telemetry, and persists persona diary entries so clients don’t need to call
 multiple endpoints.
 
 ```typescript
-const response = await fetch('http://localhost:8082/api/chat/stream', {
+const response = await fetch('http://localhost:27000/api/chat/stream', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -640,7 +640,7 @@ function executePlan(plan: PlanResponse) {
 ```typescript
 // Long-running operations need higher timeouts
 const sophia = new SophiaClient({
-  baseUrl: 'http://sophia:8080',
+  baseUrl: 'http://sophia:47000',
   timeout: 120000, // 2 minutes for plan generation
 })
 ```

@@ -3,7 +3,7 @@
 These tests validate the diagnostics websocket broadcasts against a running Apollo service.
 
 To run:
-    1. Start test stack: docker compose -f docker-compose.test.yml -f docker-compose.test.apollo.yml up -d
+    1. Start test stack: docker compose -f containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml up -d
     2. pytest tests/integration/test_diagnostics.py -v
 """
 
@@ -14,7 +14,7 @@ import httpx
 from websockets.sync.client import connect as ws_connect
 
 
-APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "28003"))
+APOLLO_API_PORT = int(os.getenv("APOLLO_API_PORT", "27000"))
 APOLLO_WS_URL = f"ws://localhost:{APOLLO_API_PORT}"
 
 

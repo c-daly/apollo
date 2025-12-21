@@ -69,7 +69,7 @@ class SophiaClient:
 
     def get_plans(self, limit: int = 10) -> SophiaResponse:
         """Fetch recent planning/state history (via CWM state)."""
-        # The Phase 2 API returns recent CWM states; we expose the same helper
+        # The current API returns recent CWM states; we expose the same helper.
         return self.get_state(limit=limit)
 
     def create_goal(
@@ -104,10 +104,13 @@ class SophiaClient:
         return self._submit_plan(request, context="invoking planner")
 
     def execute_step(self, plan_id: str, step_index: int = 0) -> SophiaResponse:
-        """Execution is not part of the Phase 2 SDK."""
+        """Execution is not part of the current SDK surface."""
         return SophiaResponse(
             success=False,
-            error="Plan execution is handled by Talos in Phase 2; no executor endpoint is exposed.",
+            error=(
+                "Plan execution is handled by Talos; no executor endpoint is "
+                "exposed on this SDK surface."
+            ),
         )
 
     def simulate_plan(

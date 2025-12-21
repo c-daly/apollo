@@ -4,7 +4,7 @@ These tests validate Apollo's integration with Hermes for LLM chat.
 Apollo must be running with Hermes configured.
 
 To run:
-    1. Start test stack with Hermes: docker compose -f docker-compose.test.yml -f docker-compose.test.apollo.yml up -d
+    1. Start test stack with Hermes: docker compose -f containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml up -d
     2. pytest tests/integration/test_hermes_integration.py -v
 """
 

@@ -41,9 +41,9 @@ REQUIRED_VARS = [
 # Optional variables with defaults (for information/validation only)
 OPTIONAL_VARS = {
     "HERMES_HOST": "0.0.0.0",
-    "HERMES_PORT": "8080",
+    "HERMES_PORT": "17000",
     "APOLLO_HOST": "0.0.0.0",
-    "APOLLO_PORT": "8082",
+    "APOLLO_PORT": "27000",
     "NEO4J_URI": "bolt://localhost:7687",
     "MILVUS_HOST": "localhost",
     "MILVUS_PORT": "19530",

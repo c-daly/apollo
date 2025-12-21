@@ -36,6 +36,14 @@ import os
 from collections.abc import Mapping
 from functools import cache
 from pathlib import Path
+from typing import cast
+
+from logos_config.env import (
+    get_env_value as resolve_env_value,
+    get_repo_root as resolve_repo_root,
+    load_env_file as resolve_env_file,
+)
+from logos_config.ports import APOLLO_PORTS, get_repo_ports
 
 
 def get_env_value(
@@ -43,52 +51,13 @@ def get_env_value(
     env: Mapping[str, str] | None = None,
     default: str | None = None,
 ) -> str | None:
-    """Resolve an env var by checking OS env, provided mapping, then default.
-
-    Args:
-        key: Environment variable name
-        env: Optional mapping to check (e.g., loaded from .env file)
-        default: Default value if not found
-
-    Returns:
-        The resolved value or default
-    """
-    if key in os.environ:
-        return os.environ[key]
-    if env and key in env:
-        return env[key]
-    return default
+    """Resolve an env var by checking OS env, provided mapping, then default."""
+    return cast(str | None, resolve_env_value(key, env, default))
 
 
 def get_repo_root(env: Mapping[str, str] | None = None) -> Path:
-    """Resolve the Apollo repo root, honoring APOLLO_REPO_ROOT if set.
-
-    Priority:
-    1. APOLLO_REPO_ROOT from OS env or provided mapping (if path exists).
-    2. GITHUB_WORKSPACE (set by GitHub Actions in CI).
-    3. Fallback to parent of this package (works when running from source).
-
-    Args:
-        env: Optional mapping to check for APOLLO_REPO_ROOT
-
-    Returns:
-        Path to the repository root
-    """
-    env_value = get_env_value("APOLLO_REPO_ROOT", env)
-    if env_value:
-        candidate = Path(env_value).expanduser().resolve()
-        if candidate.exists():
-            return candidate
-
-    # GitHub Actions sets GITHUB_WORKSPACE to the repo checkout
-    github_workspace = os.getenv("GITHUB_WORKSPACE")
-    if github_workspace:
-        candidate = Path(github_workspace).resolve()
-        if candidate.exists():
-            return candidate
-
-    # Fallback: this file is at src/apollo/env.py, so parents[2] is repo root
-    return Path(__file__).resolve().parents[2]
+    """Resolve the Apollo repo root, honoring APOLLO_REPO_ROOT if set."""
+    return cast(Path, resolve_repo_root("apollo", env))
 
 
 def _default_env_path() -> Path:
@@ -97,44 +66,14 @@ def _default_env_path() -> Path:
     if override:
         return Path(override)
     repo_root = get_repo_root()
-    return repo_root / "tests" / "e2e" / "stack" / "apollo" / ".env.test"
+    return repo_root / "containers" / ".env.test"
 
 
 @cache
 def load_stack_env(env_path: str | Path | None = None) -> dict[str, str]:
-    """Load the canonical stack environment (key/value pairs).
-
-    Values are parsed from the generated ``.env.test`` file. Callers can
-    override the location via ``env_path`` or the ``APOLLO_STACK_ENV``
-    environment variable. Missing files simply yield an empty mapping so
-    tests can still fall back to hard-coded defaults.
-
-    Args:
-        env_path: Path to .env file. If None, uses default stack location.
-
-    Returns:
-        Dictionary of environment variables
-    """
+    """Load the canonical stack environment (key/value pairs)."""
     path = Path(env_path) if env_path else _default_env_path()
-    env: dict[str, str] = {}
-
-    if not path.exists():
-        return env
-
-    for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, _, value = line.partition("=")
-        # Strip quotes from values
-        value = value.strip()
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        elif value.startswith("'") and value.endswith("'"):
-            value = value[1:-1]
-        env[key.strip()] = value
-
-    return env
+    return cast(dict[str, str], resolve_env_file(path))
 
 
 # Service connection configuration helpers
@@ -150,7 +89,11 @@ def get_neo4j_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
         Dictionary with uri, user, and password
     """
     # These all have defaults so they won't be None
-    uri = get_env_value("NEO4J_URI", env, "bolt://localhost:7687")
+    uri = get_env_value(
+        "NEO4J_URI",
+        env,
+        f"bolt://localhost:{APOLLO_PORTS.neo4j_bolt}",
+    )
     user = get_env_value("NEO4J_USER", env, "neo4j")
     password = get_env_value("NEO4J_PASSWORD", env, "neo4jtest")
     assert uri is not None
@@ -174,9 +117,11 @@ def get_milvus_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
     """
     # These all have defaults so they won't be None
     host = get_env_value("MILVUS_HOST", env, "localhost")
-    port = get_env_value("MILVUS_PORT", env, "19530")
+    port = get_env_value("MILVUS_PORT", env, str(APOLLO_PORTS.milvus_grpc))
     healthcheck = get_env_value(
-        "MILVUS_HEALTHCHECK", env, "http://localhost:9091/healthz"
+        "MILVUS_HEALTHCHECK",
+        env,
+        f"http://localhost:{APOLLO_PORTS.milvus_metrics}/healthz",
     )
     assert host is not None
     assert port is not None
@@ -197,8 +142,9 @@ def get_sophia_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
     Returns:
         Dictionary with host, port, and base_url
     """
+    sophia_ports = get_repo_ports("sophia")
     host = get_env_value("SOPHIA_HOST", env, "localhost")
-    port = get_env_value("SOPHIA_PORT", env, "8080")
+    port = get_env_value("SOPHIA_PORT", env, str(sophia_ports.api))
     assert host is not None
     assert port is not None
     return {

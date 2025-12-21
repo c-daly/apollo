@@ -6,7 +6,7 @@ This directory contains utility scripts for development and testing.
 
 ### `test_stack.sh`
 
-Manages the test infrastructure (Neo4j, Milvus, Mock Sophia) for Apollo testing.
+Manages the test infrastructure (Neo4j, Milvus, Sophia) for Apollo testing.
 
 ```bash
 # Start test services

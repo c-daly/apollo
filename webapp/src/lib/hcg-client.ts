@@ -25,7 +25,7 @@ export class HCGAPIClient {
 
   constructor(config: HCGClientConfig = {}) {
     const hcgConfig = getHCGConfig()
-    this.baseUrl = config.baseUrl || hcgConfig.apiUrl || 'http://localhost:8082'
+    this.baseUrl = config.baseUrl || hcgConfig.apiUrl || 'http://localhost:27000'
     this.timeout = config.timeout || hcgConfig.timeout || 30000
   }
 

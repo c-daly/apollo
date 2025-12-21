@@ -6,7 +6,7 @@
 - `docs/API_CLIENTS.md` captures SDK usage scenarios and helps contributors understand client expectations across CLI and web surfaces.
 
 ## Gaps & Issues
-- The main README still references `tests/phase*` directories and the legacy E2E orchestration instead of the generated `tests/e2e/stack/apollo/` assets.
+- The main README still references `tests/phase*` directories and the legacy E2E orchestration instead of the generated `containers/` assets.
 - Environment variable guidance is inconsistent: some sections rely on `NEO4J_USER` while newer stack assets expect `NEO4J_USERNAME`; similarly, references to `MILVUS_*` ports differ between sections.
 - Demo scripts such as `scripts/start_demo.sh` and `PHASE1_VERIFY/scripts/` are positioned as current tooling but represent legacy Phase 1 workflows that diverge from the shared stack flow.
 - Several documents (e.g. `PHASE2_CI_IMPLEMENTATION.md`, `PHASE1_VERIFY/scripts/README.md`) declare milestones complete with expectations that the codebase no longer meets (e.g. full diagnostics surface, browser parity).
@@ -24,7 +24,7 @@
 - Provide a concise “current vs. legacy” table so contributors know which scripts and instructions remain valid.
 
 ## Recommendations
-1. Refresh `README.md`, `tests/e2e/README.md`, and `docs/API_CLIENTS.md` to reference the generated stack (`tests/e2e/stack/apollo/`), shared `.env` schema, and the render workflow; remove or clearly label the legacy Phase directories.
+1. Refresh `README.md`, `tests/e2e/README.md`, and `docs/API_CLIENTS.md` to reference the generated stack (`containers/`), shared `.env` schema, and the render workflow; remove or clearly label the legacy Phase directories.
 2. Consolidate environment and stack startup instructions into a single up-to-date guide, then link to it from CLI/Web docs; eliminate duplicates in `PHASE1_VERIFY/`.
 3. Archive or relocate Phase-specific implementation summaries and CI write-ups to a historical section, replacing them with a changelog snippet or timeline.
 4. Ensure Hermes integration docs explain how to use the generated SDK clients and configuration values rather than bespoke scripts.
