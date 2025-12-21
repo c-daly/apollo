@@ -20,7 +20,7 @@ jobs:
       python_lint_paths: 'src tests'
       mypy_targets: 'src'
       # Start full test stack: Neo4j, Milvus, and Sophia (via overlay)
-      docker_compose_file: 'docker-compose.test.yml -f docker-compose.test.apollo.yml'
+      docker_compose_file: 'containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml'
       docker_compose_wait_script: |
         echo "Waiting for Neo4j..."
         timeout 60 bash -c 'until docker exec apollo-test-neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" 2>/dev/null; do sleep 2; done'
