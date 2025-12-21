@@ -518,7 +518,7 @@ Port Configuration (Apollo uses 27xxx/29xxx range):
     Neo4j:  ${NEO4J_HTTP_PORT} (http), ${NEO4J_BOLT_PORT} (bolt)
     Milvus: ${MILVUS_PORT} (grpc), ${MILVUS_HEALTH_PORT} (health)
     MinIO:  ${MINIO_PORT}, ${MINIO_CONSOLE_PORT}
-    Sophia: 47000 (ghcr.io/c-daly/sophia:latest)
+    Sophia: 47000 (ghcr.io/c-daly/sophia:latest, override with SOPHIA_IMAGE_TAG)
 
 Examples:
     $0 up              # Start services for manual testing
