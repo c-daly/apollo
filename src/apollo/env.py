@@ -36,6 +36,7 @@ import os
 from collections.abc import Mapping
 from functools import cache
 from pathlib import Path
+from typing import cast
 
 from logos_config.env import (
     get_env_value as resolve_env_value,
@@ -51,12 +52,12 @@ def get_env_value(
     default: str | None = None,
 ) -> str | None:
     """Resolve an env var by checking OS env, provided mapping, then default."""
-    return resolve_env_value(key, env, default)
+    return cast(str | None, resolve_env_value(key, env, default))
 
 
 def get_repo_root(env: Mapping[str, str] | None = None) -> Path:
     """Resolve the Apollo repo root, honoring APOLLO_REPO_ROOT if set."""
-    return resolve_repo_root("apollo", env)
+    return cast(Path, resolve_repo_root("apollo", env))
 
 
 def _default_env_path() -> Path:
@@ -72,7 +73,7 @@ def _default_env_path() -> Path:
 def load_stack_env(env_path: str | Path | None = None) -> dict[str, str]:
     """Load the canonical stack environment (key/value pairs)."""
     path = Path(env_path) if env_path else _default_env_path()
-    return resolve_env_file(path)
+    return cast(dict[str, str], resolve_env_file(path))
 
 
 # Service connection configuration helpers

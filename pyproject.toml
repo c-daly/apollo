@@ -64,6 +64,10 @@ ignore_errors = true
 module = ["logos_sophia_sdk", "logos_sophia_sdk.*", "logos_hermes_sdk", "logos_hermes_sdk.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["logos_config", "logos_config.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
