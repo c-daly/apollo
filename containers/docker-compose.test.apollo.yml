@@ -9,7 +9,7 @@
 services:
   sophia:
     image: ghcr.io/c-daly/sophia:${SOPHIA_IMAGE_TAG:-latest}
-    container_name: apollo-e2e-sophia
+    container_name: apollo-test-sophia
     ports:
       - "${SOPHIA_PORT:-47000}:8000"
     environment:
@@ -35,7 +35,7 @@ services:
 
   hermes:
     image: ghcr.io/c-daly/hermes:${HERMES_IMAGE_TAG:-latest}
-    container_name: apollo-e2e-hermes
+    container_name: apollo-test-hermes
     ports:
       - "${HERMES_PORT:-17000}:8080"
     environment:
@@ -59,7 +59,7 @@ services:
       - default
 
   apollo:
-    container_name: apollo-e2e-api
+    container_name: apollo-test-api
     build:
       context: ..
       dockerfile: Dockerfile
