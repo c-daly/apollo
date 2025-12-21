@@ -13,6 +13,7 @@ from logos_config.ports import APOLLO_PORTS, get_repo_ports
 SOPHIA_PORTS = get_repo_ports("sophia")
 HERMES_PORTS = get_repo_ports("hermes")
 
+
 def _get_client_host(env_var: str, default: str = "localhost") -> str:
     """Get a client-reachable host from environment variable.
 
