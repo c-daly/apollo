@@ -251,6 +251,48 @@ export class SophiaClient {
     }
   }
 
+  /**
+   * Get CWM states from Sophia's /cwm endpoint.
+   *
+   * Queries persisted CWM (Cognitive World Model) states from Neo4j.
+   */
+  async getCWMStates(
+    options?: GetCWMStatesOptions
+  ): Promise<SophiaResponse<CWMStateListResponse>> {
+    const params: Record<string, string> = {}
+    if (options?.types) params.types = options.types
+    if (options?.afterTimestamp) params.after_timestamp = options.afterTimestamp
+    if (options?.limit !== undefined) params.limit = String(options.limit)
+
+    try {
+      const url = new URL('/cwm', this.baseUrl)
+      Object.entries(params).forEach(([key, value]) => {
+        url.searchParams.set(key, value)
+      })
+
+      const response = await this.fetchWithTimeout(url.toString(), {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...this.authHeaders(),
+        },
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        return {
+          success: false,
+          error: text || `Sophia API error: ${response.statusText}`,
+        }
+      }
+
+      const data = (await response.json()) as CWMStateListResponse
+      return this.success(data)
+    } catch (error) {
+      return this.failure('retrieving CWM states', error)
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Internal helpers
   // ---------------------------------------------------------------------------
@@ -549,6 +591,45 @@ export function createSophiaClient(config?: SophiaClientConfig): SophiaClient {
 }
 
 export const sophiaClient = createSophiaClient()
+
+// ---------------------------------------------------------------------------
+// CWM State types (for /cwm endpoint)
+// ---------------------------------------------------------------------------
+
+/**
+ * Individual CWM state record from Sophia.
+ * Matches CWMStateResponse in sophia/api/models.py
+ */
+export interface CWMState {
+  state_id: string
+  model_type: 'CWM_A' | 'CWM_G' | 'CWM_E' | string
+  source: string
+  timestamp: string // ISO 8601
+  confidence: number
+  status: 'observed' | 'imagined' | 'reflected' | string
+  links: Record<string, unknown>
+  tags: string[]
+  data: Record<string, unknown>
+}
+
+/**
+ * Response from Sophia /cwm endpoint.
+ * Matches CWMStateListResponse in sophia/api/models.py
+ */
+export interface CWMStateListResponse {
+  states: CWMState[]
+  total: number
+  model_type?: string
+}
+
+export interface GetCWMStatesOptions {
+  /** Comma-separated CWM types (cwm_a, cwm_g, cwm_e) */
+  types?: string
+  /** Only return states after this ISO timestamp */
+  afterTimestamp?: string
+  /** Maximum states to return (1-100, default 20) */
+  limit?: number
+}
 
 export type {
   PlanRequest,
