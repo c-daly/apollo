@@ -45,6 +45,18 @@ from logos_config.env import (
 )
 from logos_config.ports import APOLLO_PORTS, get_repo_ports
 
+# Re-export for use by other apollo modules
+__all__ = [
+    "get_env_value",
+    "get_repo_root",
+    "load_stack_env",
+    "get_neo4j_config",
+    "get_milvus_config",
+    "get_sophia_config",
+    "APOLLO_PORTS",
+    "get_repo_ports",
+]
+
 
 def get_env_value(
     key: str,

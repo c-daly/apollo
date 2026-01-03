@@ -7,8 +7,7 @@ from typing import Optional
 import yaml
 from pydantic import BaseModel, Field
 
-from logos_config.env import get_env_value as resolve_env_value
-from logos_config.ports import APOLLO_PORTS, get_repo_ports
+from apollo.env import get_env_value as resolve_env_value, APOLLO_PORTS, get_repo_ports
 
 SOPHIA_PORTS = get_repo_ports("sophia")
 HERMES_PORTS = get_repo_ports("hermes")
