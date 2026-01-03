@@ -14,40 +14,50 @@ silently pass when infrastructure is missing.
 Based on sophia e2e test patterns.
 """
 
-import os
 from datetime import datetime, timezone
 from uuid import uuid4
 
 import pytest
 import httpx
 
+from apollo.env import (
+    APOLLO_PORTS,
+    get_env_value,
+    get_neo4j_config,
+    get_milvus_config,
+    get_sophia_config,
+    load_stack_env,
+)
+
 # E2E tests require the stack to be running
 pytestmark = pytest.mark.e2e
 
 # =============================================================================
-# Service Configuration from environment
-# Apollo uses 27xxx port range (consistent prefix) to avoid conflicts
-# Sophia uses 4xxxx ports (real Sophia, not mock)
+# Service Configuration via apollo.env (wraps logos_config)
 # =============================================================================
 
-# Real Sophia config (from sophia repo, 4xxxx port range)
-SOPHIA_PORT = os.getenv("SOPHIA_PORT", "47000")
-SOPHIA_HOST = os.getenv("SOPHIA_HOST", "localhost")
-SOPHIA_URL = os.getenv("SOPHIA_URL", f"http://{SOPHIA_HOST}:{SOPHIA_PORT}")
+# Load environment and configs at module level
+_env = load_stack_env()
+_neo4j = get_neo4j_config(_env)
+_milvus = get_milvus_config(_env)
+_sophia = get_sophia_config(_env)
 
-# Infrastructure ports (Apollo uses 27xxx port range)
-NEO4J_HTTP_PORT = os.getenv("NEO4J_HTTP_PORT", "27474")
-NEO4J_BOLT_PORT = os.getenv("NEO4J_BOLT_PORT", "27687")
-MILVUS_PORT = os.getenv("MILVUS_PORT", "27530")
-MILVUS_METRICS_PORT = os.getenv("MILVUS_METRICS_PORT", "27091")
+# Backward-compatible exports for other test files
+SOPHIA_PORT = _sophia["port"]
+SOPHIA_HOST = _sophia["host"]
+SOPHIA_URL = _sophia["base_url"]
 
-# Neo4j connection config
-NEO4J_URI = os.getenv("NEO4J_URI", f"bolt://localhost:{NEO4J_BOLT_PORT}")
-NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "neo4jtest")
+NEO4J_HTTP_PORT = get_env_value("NEO4J_HTTP_PORT", _env, str(APOLLO_PORTS.neo4j_http))
+NEO4J_BOLT_PORT = get_env_value("NEO4J_BOLT_PORT", _env, str(APOLLO_PORTS.neo4j_bolt))
+NEO4J_URI = _neo4j["uri"]
+NEO4J_USER = _neo4j["user"]
+NEO4J_PASSWORD = _neo4j["password"]
 
-# Milvus connection config
-MILVUS_HOST = os.getenv("MILVUS_HOST", "localhost")
+MILVUS_HOST = _milvus["host"]
+MILVUS_PORT = _milvus["port"]
+MILVUS_METRICS_PORT = get_env_value(
+    "MILVUS_METRICS_PORT", _env, str(APOLLO_PORTS.milvus_metrics)
+)
 
 
 # =============================================================================
