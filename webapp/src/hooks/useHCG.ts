@@ -14,6 +14,7 @@ import type {
   HCGEdge,
   HCGGraphSnapshot,
 } from '../lib/sophia-client'
+import type { Process, PlanHistory } from '../types/hcg'
 
 // Re-export types for consumers
 export type { PersonaEntryFull, HCGEntity, HCGEdge, HCGGraphSnapshot }
@@ -170,6 +171,41 @@ export function usePersonaSentiment(
     queryKey: ['persona', 'sentiment', filters],
     queryFn: async () => {
       const response = await sophiaClient.getPersonaSentiment(filters)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+  })
+}
+
+/**
+ * Hook to fetch processes from HCG
+ */
+export function useProcesses(
+  status?: string,
+  limit: number = 100,
+  offset: number = 0
+): UseQueryResult<Process[], Error> {
+  return useQuery({
+    queryKey: ['hcg', 'processes', status, limit, offset],
+    queryFn: async () => {
+      const response = await sophiaClient.getProcesses(status, limit, offset)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+  })
+}
+
+/**
+ * Hook to fetch plan history from HCG
+ */
+export function usePlanHistory(
+  goalId?: string,
+  limit: number = 10
+): UseQueryResult<PlanHistory[], Error> {
+  return useQuery({
+    queryKey: ['hcg', 'plans', goalId, limit],
+    queryFn: async () => {
+      const response = await sophiaClient.getPlanHistory(goalId, limit)
       return unwrapResponse(response)
     },
     staleTime: 5000,

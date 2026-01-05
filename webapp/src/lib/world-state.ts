@@ -1,4 +1,10 @@
-import type { Entity, GraphSnapshot } from '../types/hcg'
+import type { Entity } from '../types/hcg'
+import type { HCGEntity } from './sophia-client'
+
+/** Minimal snapshot interface for summarization */
+type SummarizableSnapshot = {
+  entities: Array<Entity | HCGEntity>
+}
 
 export interface WorldEntitySummary {
   id: string
@@ -10,7 +16,7 @@ export interface WorldEntitySummary {
     y?: number
     z?: number
   }
-  raw: Entity
+  raw: Entity | HCGEntity
 }
 
 export type WorldDeltaType = 'added' | 'removed' | 'status' | 'position'
@@ -25,7 +31,7 @@ export interface WorldDelta {
 }
 
 export function summarizeSnapshot(
-  snapshot: GraphSnapshot
+  snapshot: SummarizableSnapshot
 ): Map<string, WorldEntitySummary> {
   const map = new Map<string, WorldEntitySummary>()
   snapshot.entities.forEach(entity => {
@@ -34,7 +40,7 @@ export function summarizeSnapshot(
   return map
 }
 
-export function summarizeEntity(entity: Entity): WorldEntitySummary {
+export function summarizeEntity(entity: Entity | HCGEntity): WorldEntitySummary {
   const props = entity.properties || {}
   return {
     id: entity.id,

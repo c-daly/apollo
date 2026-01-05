@@ -71,7 +71,7 @@ vi.mock('../../lib/websocket-client', () => ({
 }))
 
 const sampleEntry: PersonaEntry = {
-  id: 'entry-1',
+  entry_id: 'entry-1',
   entry_type: 'observation',
   timestamp: '2025-01-01T00:00:00.000Z',
   content: 'test entry',

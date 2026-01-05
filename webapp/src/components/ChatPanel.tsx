@@ -354,7 +354,7 @@ function buildPersonaMetadata(
 
   return {
     persona_context_used: true,
-    persona_entry_ids: entries.map(entry => entry.id),
+    persona_entry_ids: entries.map(entry => entry.entry_id),
     persona_entry_types: countBy(entries, 'entry_type'),
     persona_sentiments: countBy(entries, 'sentiment'),
     persona_context_block: summarizePersonaEntries(entries),

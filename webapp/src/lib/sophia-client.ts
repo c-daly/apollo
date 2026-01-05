@@ -22,6 +22,7 @@ import {
   GetStateModelTypeEnum,
 } from '@logos/sophia-sdk'
 import type { HealthResponse } from '@logos/sophia-sdk'
+import type { Process, PlanHistory } from '../types/hcg'
 
 export interface SophiaClientConfig {
   baseUrl?: string
@@ -857,6 +858,51 @@ export class SophiaClient {
       return false
     }
   }
+
+
+  /**
+   * Get processes from HCG.
+   * Note: This endpoint may not be available on all backends.
+   */
+  async getProcesses(
+    status?: string,
+    limit: number = 100,
+    offset: number = 0
+  ): Promise<SophiaResponse<Process[]>> {
+    const params: Record<string, string> = {
+      limit: String(limit),
+      offset: String(offset),
+    }
+    if (status) params.status = status
+
+    return this.performRequest<Process[]>({
+      action: 'fetching processes',
+      method: 'GET',
+      path: '/hcg/processes',
+      params,
+    })
+  }
+
+  /**
+   * Get plan history from HCG.
+   * Note: This endpoint may not be available on all backends.
+   */
+  async getPlanHistory(
+    goalId?: string,
+    limit: number = 10
+  ): Promise<SophiaResponse<PlanHistory[]>> {
+    const params: Record<string, string> = {
+      limit: String(limit),
+    }
+    if (goalId) params.goal_id = goalId
+
+    return this.performRequest<PlanHistory[]>({
+      action: 'fetching plan history',
+      method: 'GET',
+      path: '/hcg/plans',
+      params,
+    })
+  }
 }
 
 export function createSophiaClient(config?: SophiaClientConfig): SophiaClient {
@@ -999,6 +1045,8 @@ export interface HCGEdge {
   target_id: string
   edge_type: string
   properties: Record<string, unknown>
+  /** Edge weight (optional for HCG edges) */
+  weight?: number
 }
 
 export interface HCGGraphSnapshot {
@@ -1006,6 +1054,10 @@ export interface HCGGraphSnapshot {
   edges: HCGEdge[]
   entity_count: number
   edge_count: number
+  /** Timestamp of snapshot (optional for HCG snapshots) */
+  timestamp?: string
+  /** Additional metadata (optional for HCG snapshots) */
+  metadata?: Record<string, unknown>
 }
 
 export type {

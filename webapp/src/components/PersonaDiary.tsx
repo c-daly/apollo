@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { usePersonaEntries, type PersonaEntryFull } from '../hooks/useHCG'
+import type { PersonaEntryType, PersonaSentiment } from '../lib/sophia-client'
+import type { PersonaEntry } from '../types/hcg'
 import {
   useDiagnosticsStream,
   type DiagnosticsConnectionStatus,
@@ -43,8 +45,8 @@ function PersonaDiary() {
     isLoading,
     error,
   } = usePersonaEntries({
-    entry_type: filterType || undefined,
-    sentiment: filterSentiment || undefined,
+    entry_type: (filterType || undefined) as PersonaEntryType | undefined,
+    sentiment: (filterSentiment || undefined) as PersonaSentiment | undefined,
     limit: MAX_ENTRIES,
   })
 
@@ -59,10 +61,11 @@ function PersonaDiary() {
     }
   }, [apiEntries])
 
-  const handlePersonaEntry = useCallback((entry: PersonaEntryFull) => {
+  const handlePersonaEntry = useCallback((entry: PersonaEntry) => {
     setEntries(prev => {
       const filtered = prev.filter(existing => existing.entry_id !== entry.entry_id)
-      return [entry, ...filtered].slice(0, MAX_ENTRIES)
+      // PersonaEntry is structurally compatible with PersonaEntryFull
+      return [entry as PersonaEntryFull, ...filtered].slice(0, MAX_ENTRIES)
     })
     setHighlightMap(prev => ({ ...prev, [entry.entry_id]: Date.now() }))
   }, [])
