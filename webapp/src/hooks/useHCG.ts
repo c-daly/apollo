@@ -1,58 +1,178 @@
 /**
- * React hooks for HCG data fetching with TanStack Query
+ * React hooks for HCG and Persona data fetching with TanStack Query.
+ *
+ * These hooks call Sophia's API endpoints via sophia-client.
  */
 
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
-import { hcgClient } from '../lib/hcg-client'
+import { sophiaClient } from '../lib/sophia-client'
 import type {
-  Entity,
-  State,
-  Process,
-  CausalEdge,
-  PlanHistory,
-  StateHistory,
-  GraphSnapshot,
-} from '../types/hcg'
+  PersonaEntryFull,
+  PersonaListFilters,
+  SentimentResponse,
+  HCGEntity,
+  HCGEdge,
+  HCGGraphSnapshot,
+} from '../lib/sophia-client'
+import type { Process, PlanHistory } from '../types/hcg'
+
+// Re-export types for consumers
+export type { PersonaEntryFull, HCGEntity, HCGEdge, HCGGraphSnapshot }
 
 /**
- * Hook to fetch entities from HCG
+ * Helper to unwrap sophia-client response and throw on error.
  */
-export function useEntities(
+function unwrapResponse<T>(response: { success: boolean; data?: T; error?: string }): T {
+  if (!response.success) {
+    throw new Error(response.error || 'Unknown API error')
+  }
+  if (response.data === undefined) {
+    throw new Error('Response data is undefined')
+  }
+  return response.data
+}
+
+// ---------------------------------------------------------------------------
+// HCG Hooks (migrated from hcg-client to sophia-client)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook to fetch HCG entities with optional type filter.
+ */
+export function useHCGEntities(
   entityType?: string,
   limit: number = 100,
   offset: number = 0
-): UseQueryResult<Entity[], Error> {
+): UseQueryResult<HCGEntity[], Error> {
   return useQuery({
     queryKey: ['hcg', 'entities', entityType, limit, offset],
-    queryFn: () => hcgClient.getEntities(entityType, limit, offset),
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGEntities(entityType, limit, offset)
+      return unwrapResponse(response)
+    },
     staleTime: 5000,
   })
 }
 
 /**
- * Hook to fetch a specific entity by ID
+ * Hook to fetch a specific HCG entity by ID.
  */
-export function useEntity(
-  entityId: string
-): UseQueryResult<Entity | null, Error> {
+export function useHCGEntity(entityId: string): UseQueryResult<HCGEntity | null, Error> {
   return useQuery({
     queryKey: ['hcg', 'entity', entityId],
-    queryFn: () => hcgClient.getEntityById(entityId),
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGEntity(entityId)
+      return unwrapResponse(response)
+    },
     staleTime: 5000,
     enabled: !!entityId,
   })
 }
 
 /**
- * Hook to fetch states from HCG
+ * Hook to fetch HCG edges with optional filters.
  */
-export function useStates(
-  limit: number = 100,
-  offset: number = 0
-): UseQueryResult<State[], Error> {
+export function useHCGEdges(
+  entityId?: string,
+  edgeType?: string,
+  limit: number = 100
+): UseQueryResult<HCGEdge[], Error> {
   return useQuery({
-    queryKey: ['hcg', 'states', limit, offset],
-    queryFn: () => hcgClient.getStates(limit, offset),
+    queryKey: ['hcg', 'edges', entityId, edgeType, limit],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGEdges(entityId, edgeType, limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+  })
+}
+
+/**
+ * Hook to fetch complete HCG graph snapshot.
+ */
+export interface GraphSnapshotOptions {
+  entityTypes?: string[]
+  limit?: number
+  refetchInterval?: number | false
+}
+
+export function useHCGSnapshot(
+  options: GraphSnapshotOptions = {}
+): UseQueryResult<HCGGraphSnapshot, Error> {
+  const { entityTypes, limit = 200, refetchInterval } = options
+  return useQuery({
+    queryKey: ['hcg', 'snapshot', entityTypes, limit],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGSnapshot(entityTypes, limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+    refetchInterval,
+  })
+}
+
+/**
+ * Hook to check HCG health status.
+ */
+export function useHCGHealth(): UseQueryResult<boolean, Error> {
+  return useQuery({
+    queryKey: ['hcg', 'health'],
+    queryFn: () => sophiaClient.hcgHealthCheck(),
+    staleTime: 10000,
+    refetchInterval: 30000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Persona Hooks (migrated from hcg-client to sophia-client)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook to fetch persona diary entries with optional filters.
+ */
+export function usePersonaEntries(
+  filters: PersonaListFilters = {}
+): UseQueryResult<PersonaEntryFull[], Error> {
+  return useQuery({
+    queryKey: ['persona', 'entries', filters],
+    queryFn: async () => {
+      const response = await sophiaClient.getPersonaEntries(filters)
+      const data = unwrapResponse(response)
+      return data.entries
+    },
+    staleTime: 5000,
+  })
+}
+
+/**
+ * Hook to fetch a specific persona entry by ID.
+ */
+export function usePersonaEntry(
+  entryId: string
+): UseQueryResult<PersonaEntryFull | null, Error> {
+  return useQuery({
+    queryKey: ['persona', 'entry', entryId],
+    queryFn: async () => {
+      const response = await sophiaClient.getPersonaEntry(entryId)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+    enabled: !!entryId,
+  })
+}
+
+/**
+ * Hook to fetch aggregated sentiment data.
+ */
+export function usePersonaSentiment(
+  filters: { limit?: number; after_timestamp?: string } = {}
+): UseQueryResult<SentimentResponse, Error> {
+  return useQuery({
+    queryKey: ['persona', 'sentiment', filters],
+    queryFn: async () => {
+      const response = await sophiaClient.getPersonaSentiment(filters)
+      return unwrapResponse(response)
+    },
     staleTime: 5000,
   })
 }
@@ -67,22 +187,10 @@ export function useProcesses(
 ): UseQueryResult<Process[], Error> {
   return useQuery({
     queryKey: ['hcg', 'processes', status, limit, offset],
-    queryFn: () => hcgClient.getProcesses(status, limit, offset),
-    staleTime: 5000,
-  })
-}
-
-/**
- * Hook to fetch causal edges from HCG
- */
-export function useCausalEdges(
-  entityId?: string,
-  edgeType?: string,
-  limit: number = 100
-): UseQueryResult<CausalEdge[], Error> {
-  return useQuery({
-    queryKey: ['hcg', 'edges', entityId, edgeType, limit],
-    queryFn: () => hcgClient.getCausalEdges(entityId, edgeType, limit),
+    queryFn: async () => {
+      const response = await sophiaClient.getProcesses(status, limit, offset)
+      return unwrapResponse(response)
+    },
     staleTime: 5000,
   })
 }
@@ -96,88 +204,34 @@ export function usePlanHistory(
 ): UseQueryResult<PlanHistory[], Error> {
   return useQuery({
     queryKey: ['hcg', 'plans', goalId, limit],
-    queryFn: () => hcgClient.getPlanHistory(goalId, limit),
+    queryFn: async () => {
+      const response = await sophiaClient.getPlanHistory(goalId, limit)
+      return unwrapResponse(response)
+    },
     staleTime: 5000,
   })
 }
 
-/**
- * Hook to fetch state history from HCG
- */
-export function useStateHistory(
-  stateId?: string,
-  limit: number = 50
-): UseQueryResult<StateHistory[], Error> {
-  return useQuery({
-    queryKey: ['hcg', 'history', stateId, limit],
-    queryFn: () => hcgClient.getStateHistory(stateId, limit),
-    staleTime: 5000,
-  })
-}
+// ---------------------------------------------------------------------------
+// Legacy hook names (deprecated - use new names above)
+// ---------------------------------------------------------------------------
 
 /**
- * Hook to fetch complete graph snapshot from HCG
+ * @deprecated Use useHCGEntities instead
  */
-export interface GraphSnapshotOptions {
-  entityTypes?: string[]
-  limit?: number
-  refetchInterval?: number | false
-}
-
-export function useGraphSnapshot(
-  options: GraphSnapshotOptions = {}
-): UseQueryResult<GraphSnapshot, Error> {
-  const { entityTypes, limit = 200, refetchInterval } = options
-  return useQuery({
-    queryKey: ['hcg', 'snapshot', entityTypes, limit],
-    queryFn: () => hcgClient.getGraphSnapshot(entityTypes, limit),
-    staleTime: 5000,
-    refetchInterval,
-  })
-}
+export const useEntities = useHCGEntities
 
 /**
- * Hook to check HCG health status
+ * @deprecated Use useHCGEntity instead
  */
-export function useHCGHealth(): UseQueryResult<boolean, Error> {
-  return useQuery({
-    queryKey: ['hcg', 'health'],
-    queryFn: () => hcgClient.healthCheck(),
-    staleTime: 10000,
-    refetchInterval: 30000,
-  })
-}
+export const useEntity = useHCGEntity
 
 /**
- * Hook to fetch persona diary entries
+ * @deprecated Use useHCGEdges instead
  */
-export function usePersonaEntries(
-  filters: {
-    entry_type?: string
-    sentiment?: string
-    related_process_id?: string
-    related_goal_id?: string
-    limit?: number
-    offset?: number
-  } = {}
-): UseQueryResult<import('../types/hcg').PersonaEntry[], Error> {
-  return useQuery({
-    queryKey: ['persona', 'entries', filters],
-    queryFn: () => hcgClient.getPersonaEntries(filters),
-    staleTime: 5000,
-  })
-}
+export const useCausalEdges = useHCGEdges
 
 /**
- * Hook to fetch a specific persona entry by ID
+ * @deprecated Use useHCGSnapshot instead
  */
-export function usePersonaEntry(
-  entryId: string
-): UseQueryResult<import('../types/hcg').PersonaEntry | null, Error> {
-  return useQuery({
-    queryKey: ['persona', 'entry', entryId],
-    queryFn: () => hcgClient.getPersonaEntry(entryId),
-    staleTime: 5000,
-    enabled: !!entryId,
-  })
-}
+export const useGraphSnapshot = useHCGSnapshot

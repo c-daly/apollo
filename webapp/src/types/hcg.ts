@@ -72,11 +72,14 @@ export interface GraphSnapshot {
 }
 
 export interface PersonaEntry {
-  id: string
+  /** @deprecated Use entry_id instead */
+  id?: string
+  entry_id: string
   timestamp: string
   entry_type: 'belief' | 'decision' | 'observation' | 'reflection'
   content: string
   summary?: string
+  trigger?: string
   sentiment?: 'positive' | 'negative' | 'neutral' | 'mixed'
   confidence?: number
   related_process_ids: string[]

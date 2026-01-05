@@ -324,7 +324,7 @@ function GraphViewer() {
     ? snapshot?.entities.find(entity => entity.id === selectedNode)
     : null
 
-  const lastUpdated = snapshot
+  const lastUpdated = snapshot?.timestamp
     ? new Date(snapshot.timestamp).toLocaleTimeString()
     : '—'
   return (

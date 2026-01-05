@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { usePersonaEntries } from '../hooks/useHCG'
+import { usePersonaEntries, type PersonaEntryFull } from '../hooks/useHCG'
+import type { PersonaEntryType, PersonaSentiment } from '../lib/sophia-client'
+import type { PersonaEntry } from '../types/hcg'
 import {
   useDiagnosticsStream,
   type DiagnosticsConnectionStatus,
 } from '../hooks/useDiagnosticsStream'
-import type { PersonaEntry } from '../types/hcg'
 import './PersonaDiary.css'
 
 const PREF_KEY = 'apollo-persona-preferences'
@@ -44,12 +45,12 @@ function PersonaDiary() {
     isLoading,
     error,
   } = usePersonaEntries({
-    entry_type: filterType || undefined,
-    sentiment: filterSentiment || undefined,
+    entry_type: (filterType || undefined) as PersonaEntryType | undefined,
+    sentiment: (filterSentiment || undefined) as PersonaSentiment | undefined,
     limit: MAX_ENTRIES,
   })
 
-  const [entries, setEntries] = useState<PersonaEntry[]>([])
+  const [entries, setEntries] = useState<PersonaEntryFull[]>([])
   const [connectionStatus, setConnectionStatus] =
     useState<DiagnosticsConnectionStatus>('connecting')
   const [highlightMap, setHighlightMap] = useState<Record<string, number>>({})
@@ -62,10 +63,11 @@ function PersonaDiary() {
 
   const handlePersonaEntry = useCallback((entry: PersonaEntry) => {
     setEntries(prev => {
-      const filtered = prev.filter(existing => existing.id !== entry.id)
-      return [entry, ...filtered].slice(0, MAX_ENTRIES)
+      const filtered = prev.filter(existing => existing.entry_id !== entry.entry_id)
+      // PersonaEntry is structurally compatible with PersonaEntryFull
+      return [entry as PersonaEntryFull, ...filtered].slice(0, MAX_ENTRIES)
     })
-    setHighlightMap(prev => ({ ...prev, [entry.id]: Date.now() }))
+    setHighlightMap(prev => ({ ...prev, [entry.entry_id]: Date.now() }))
   }, [])
 
   useDiagnosticsStream({
@@ -195,10 +197,10 @@ function PersonaDiary() {
       const responseId = entry.metadata?.hermes_response_id as
         | string
         | undefined
-      const isHighlighted = Boolean(highlightMap[entry.id])
+      const isHighlighted = Boolean(highlightMap[entry.entry_id])
       return (
         <div
-          key={entry.id}
+          key={entry.entry_id}
           className={`diary-entry ${isHighlighted ? 'recent' : ''}`}
         >
           <div
