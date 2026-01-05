@@ -5,8 +5,8 @@ import {
   getHCGConfig,
   type HermesLLMConfig,
 } from '../lib/config'
-import { hcgClient } from '../lib/hcg-client'
-import type { PersonaEntry } from '../types/hcg'
+import { sophiaClient } from '../lib/sophia-client'
+import type { PersonaEntryFull } from '../lib/sophia-client'
 import './ChatPanel.css'
 
 interface Message {
@@ -329,9 +329,14 @@ function buildChatMetadata({
   )
 }
 
-async function loadPersonaContext(limit: number): Promise<PersonaEntry[]> {
+async function loadPersonaContext(limit: number): Promise<PersonaEntryFull[]> {
   try {
-    return await hcgClient.getPersonaEntries({ limit })
+    const response = await sophiaClient.getPersonaEntries({ limit })
+    if (!response.success || !response.data) {
+      console.warn('Failed to load persona entries:', response.error)
+      return []
+    }
+    return response.data.entries
   } catch (error) {
     console.warn('Failed to load persona diary entries for context', error)
     return []
@@ -339,7 +344,7 @@ async function loadPersonaContext(limit: number): Promise<PersonaEntry[]> {
 }
 
 function buildPersonaMetadata(
-  entries: PersonaEntry[]
+  entries: PersonaEntryFull[]
 ): Record<string, unknown> {
   if (!entries.length) {
     return {
@@ -357,7 +362,7 @@ function buildPersonaMetadata(
   }
 }
 
-function summarizePersonaEntries(entries: PersonaEntry[]): string {
+function summarizePersonaEntries(entries: PersonaEntryFull[]): string {
   return entries
     .map(entry => {
       const sentiment = entry.sentiment ? ` (${entry.sentiment})` : ''
@@ -369,8 +374,8 @@ function summarizePersonaEntries(entries: PersonaEntry[]): string {
 }
 
 function countBy(
-  entries: PersonaEntry[],
-  key: keyof PersonaEntry
+  entries: PersonaEntryFull[],
+  key: keyof PersonaEntryFull
 ): Record<string, number> {
   return entries.reduce<Record<string, number>>((acc, entry) => {
     const value = entry[key]

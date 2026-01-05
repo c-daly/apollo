@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { diagnosticsWebSocket } from '../lib/websocket-client'
-import type { PersonaEntry } from '../types/hcg'
+import type { PersonaEntryFull } from '../lib/sophia-client'
 import type {
   DiagnosticLogEntry,
   TelemetrySnapshot,
@@ -11,7 +11,7 @@ interface DiagnosticsStreamOptions {
   onLog?: (entry: DiagnosticLogEntry) => void
   onTelemetry?: (snapshot: TelemetrySnapshot) => void
   onLogBatch?: (entries: DiagnosticLogEntry[]) => void
-  onPersonaEntry?: (entry: PersonaEntry) => void
+  onPersonaEntry?: (entry: PersonaEntryFull) => void
   onError?: (message: string) => void
   onConnectionChange?: (status: DiagnosticsConnectionStatus) => void
 }

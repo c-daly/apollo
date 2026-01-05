@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { usePersonaEntries } from '../hooks/useHCG'
+import { usePersonaEntries, type PersonaEntryFull } from '../hooks/useHCG'
 import {
   useDiagnosticsStream,
   type DiagnosticsConnectionStatus,
 } from '../hooks/useDiagnosticsStream'
-import type { PersonaEntry } from '../types/hcg'
 import './PersonaDiary.css'
 
 const PREF_KEY = 'apollo-persona-preferences'
@@ -49,7 +48,7 @@ function PersonaDiary() {
     limit: MAX_ENTRIES,
   })
 
-  const [entries, setEntries] = useState<PersonaEntry[]>([])
+  const [entries, setEntries] = useState<PersonaEntryFull[]>([])
   const [connectionStatus, setConnectionStatus] =
     useState<DiagnosticsConnectionStatus>('connecting')
   const [highlightMap, setHighlightMap] = useState<Record<string, number>>({})
@@ -60,12 +59,12 @@ function PersonaDiary() {
     }
   }, [apiEntries])
 
-  const handlePersonaEntry = useCallback((entry: PersonaEntry) => {
+  const handlePersonaEntry = useCallback((entry: PersonaEntryFull) => {
     setEntries(prev => {
-      const filtered = prev.filter(existing => existing.id !== entry.id)
+      const filtered = prev.filter(existing => existing.entry_id !== entry.entry_id)
       return [entry, ...filtered].slice(0, MAX_ENTRIES)
     })
-    setHighlightMap(prev => ({ ...prev, [entry.id]: Date.now() }))
+    setHighlightMap(prev => ({ ...prev, [entry.entry_id]: Date.now() }))
   }, [])
 
   useDiagnosticsStream({
@@ -195,10 +194,10 @@ function PersonaDiary() {
       const responseId = entry.metadata?.hermes_response_id as
         | string
         | undefined
-      const isHighlighted = Boolean(highlightMap[entry.id])
+      const isHighlighted = Boolean(highlightMap[entry.entry_id])
       return (
         <div
-          key={entry.id}
+          key={entry.entry_id}
           className={`diary-entry ${isHighlighted ? 'recent' : ''}`}
         >
           <div

@@ -34,6 +34,24 @@ export type {
   SimulationResponse,
   SophiaStateResponse as StateResponse,
   HealthResponse as SophiaHealthResponse,
+  // Persona types
+  PersonaEntryType,
+  PersonaSentiment,
+  PersonaEntryCreate,
+  PersonaEntryResponse,
+  PersonaEntryFull,
+  PersonaListResponse,
+  PersonaListFilters,
+  SentimentResponse,
+  SentimentFilters,
+  // HCG types
+  HCGEntity,
+  HCGEdge,
+  HCGGraphSnapshot,
+  // CWM types
+  CWMState,
+  CWMStateListResponse,
+  GetCWMStatesOptions,
 } from './sophia-client'
 
 // Hermes Client
@@ -49,10 +67,6 @@ export type {
   LLMResponse,
 } from './hermes-client'
 export type { HermesHealthResponse } from './hermes-client'
-
-// HCG Client (existing)
-export { HCGAPIClient, hcgClient } from './hcg-client'
-export type { HCGClientConfig } from './hcg-client'
 
 // WebSocket Client (existing)
 export { HCGWebSocketClient } from './websocket-client'
