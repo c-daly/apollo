@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Dashboard from './pages/Dashboard'
+import Explorer from './pages/Explorer'
 import './App.css'
 
 const queryClient = new QueryClient()
@@ -19,11 +20,15 @@ function App() {
               <Link to="/" className="nav-link">
                 Dashboard
               </Link>
+              <Link to="/explorer" className="nav-link">
+                Explorer
+              </Link>
             </div>
           </nav>
           <main className="app-main">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/explorer" element={<Explorer />} />
             </Routes>
           </main>
         </div>

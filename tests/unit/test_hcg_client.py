@@ -227,3 +227,180 @@ def test_causal_edge_model() -> None:
     assert edge.source_id == "entity_1"
     assert edge.target_id == "entity_2"
     assert edge.edge_type == "causes"
+
+
+def test_get_states(neo4j_config: Neo4jConfig, mock_driver: Mock) -> None:
+    """Test getting states."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+
+        # Mock state node
+        node_properties = {
+            "id": "state_1",
+            "description": "Test state",
+            "variables": {"x": 1},
+            "timestamp": datetime.now().isoformat(),
+        }
+        mock_node = Mock()
+        mock_node.id = 1
+        mock_node.labels = ["State"]
+        mock_node.__iter__ = lambda self: iter(node_properties.items())
+        mock_node.__getitem__ = lambda self, key: node_properties[key]
+        mock_node.keys = lambda: node_properties.keys()
+        mock_node.values = lambda: node_properties.values()
+        mock_node.items = lambda: node_properties.items()
+        mock_node.get = lambda key, default=None: node_properties.get(key, default)
+
+        session.run.return_value = [{"s": mock_node}]
+
+        client = HCGClient(neo4j_config)
+        states = client.get_states(limit=10)
+
+        assert len(states) == 1
+        assert states[0].id == "state_1"
+        assert states[0].description == "Test state"
+
+
+def test_get_processes(neo4j_config: Neo4jConfig, mock_driver: Mock) -> None:
+    """Test getting processes."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+
+        # Mock process node
+        node_properties = {
+            "id": "process_1",
+            "name": "Test Process",
+            "status": "running",
+            "created_at": datetime.now().isoformat(),
+        }
+        mock_node = Mock()
+        mock_node.id = 1
+        mock_node.labels = ["Process"]
+        mock_node.__iter__ = lambda self: iter(node_properties.items())
+        mock_node.__getitem__ = lambda self, key: node_properties[key]
+        mock_node.keys = lambda: node_properties.keys()
+        mock_node.values = lambda: node_properties.values()
+        mock_node.items = lambda: node_properties.items()
+        mock_node.get = lambda key, default=None: node_properties.get(key, default)
+
+        session.run.return_value = [{"p": mock_node}]
+
+        client = HCGClient(neo4j_config)
+        processes = client.get_processes(limit=10)
+
+        assert len(processes) == 1
+        assert processes[0].id == "process_1"
+        assert processes[0].name == "Test Process"
+        assert processes[0].status == "running"
+
+
+def test_get_processes_with_status_filter(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """Test getting processes filtered by status."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+
+        # Mock process node
+        node_properties = {
+            "id": "process_1",
+            "name": "Completed Process",
+            "status": "completed",
+            "created_at": datetime.now().isoformat(),
+        }
+        mock_node = Mock()
+        mock_node.id = 1
+        mock_node.labels = ["Process"]
+        mock_node.__iter__ = lambda self: iter(node_properties.items())
+        mock_node.__getitem__ = lambda self, key: node_properties[key]
+        mock_node.keys = lambda: node_properties.keys()
+        mock_node.values = lambda: node_properties.values()
+        mock_node.items = lambda: node_properties.items()
+        mock_node.get = lambda key, default=None: node_properties.get(key, default)
+
+        session.run.return_value = [{"p": mock_node}]
+
+        client = HCGClient(neo4j_config)
+        processes = client.get_processes(status="completed", limit=10)
+
+        assert len(processes) == 1
+        assert processes[0].status == "completed"
+        # Verify the query was called with the status parameter
+        session.run.assert_called_once()
+        call_kwargs = session.run.call_args[1]
+        assert call_kwargs.get("status") == "completed"
+
+
+def test_get_causal_edges(neo4j_config: Neo4jConfig, mock_driver: Mock) -> None:
+    """Test getting causal edges."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+
+        # Mock source and target nodes with proper dict behavior
+        source_props = {"id": "entity_1", "type": "goal"}
+        target_props = {"id": "entity_2", "type": "plan"}
+
+        source_node = Mock()
+        source_node.__getitem__ = lambda self, key: source_props[key]
+        source_node.keys = lambda: source_props.keys()
+        source_node.values = lambda: source_props.values()
+        source_node.items = lambda: source_props.items()
+
+        target_node = Mock()
+        target_node.__getitem__ = lambda self, key: target_props[key]
+        target_node.keys = lambda: target_props.keys()
+        target_node.values = lambda: target_props.values()
+        target_node.items = lambda: target_props.items()
+
+        # Mock relationship with proper dict behavior
+        rel_props = {"weight": 1.0, "created_at": datetime.now().isoformat()}
+        mock_rel = Mock()
+        mock_rel.type = "causes"
+        mock_rel.__iter__ = lambda self: iter(rel_props.items())
+        mock_rel.__getitem__ = lambda self, key: rel_props[key]
+        mock_rel.keys = lambda: rel_props.keys()
+        mock_rel.values = lambda: rel_props.values()
+        mock_rel.items = lambda: rel_props.items()
+        mock_rel.get = lambda key, default=None: rel_props.get(key, default)
+
+        session.run.return_value = [{"n": source_node, "r": mock_rel, "m": target_node}]
+
+        client = HCGClient(neo4j_config)
+        edges = client.get_causal_edges(limit=10)
+
+        assert len(edges) == 1
+        assert edges[0].source_id == "entity_1"
+        assert edges[0].target_id == "entity_2"
+        assert edges[0].edge_type == "causes"
+
+
+def test_get_causal_edges_by_entity(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """Test getting causal edges filtered by entity ID."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+        session.run.return_value = []
+
+        client = HCGClient(neo4j_config)
+        client.get_causal_edges(entity_id="entity_1", limit=10)
+
+        # Verify the query included entity_id parameter
+        session.run.assert_called_once()
+        call_kwargs = session.run.call_args[1]
+        assert call_kwargs.get("entity_id") == "entity_1"
