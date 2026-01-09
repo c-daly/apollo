@@ -416,8 +416,7 @@ const SCENARIOS: Scenario[] = [
 
 /** Add cross-scenario connections */
 function addCrossConnections(
-  entities: Entity[],
-  _edges: CausalEdge[]
+  entities: Entity[]
 ): CausalEdge[] {
   const newEdges: CausalEdge[] = []
   const goals = entities.filter(e => e.type === 'goal')
@@ -507,7 +506,7 @@ export function generateMockSnapshot(): GraphSnapshot {
   }
 
   // Add cross-connections
-  const crossEdges = addCrossConnections(allEntities, allEdges)
+  const crossEdges = addCrossConnections(allEntities)
   allEdges.push(...crossEdges)
 
   // Add some metadata nodes

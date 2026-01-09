@@ -5,7 +5,7 @@
  * with 2D and 3D rendering modes, semantic clustering, and temporal playback.
  */
 
-import { useEffect, useMemo, useCallback, useState } from 'react'
+import { useEffect, useMemo, useCallback, useState, type ChangeEvent } from 'react'
 import { useHCGSnapshot, type HCGGraphSnapshot } from '../../hooks/useHCG'
 import { HCGExplorerProvider, useHCGExplorer } from './context'
 import { ThreeRenderer } from './renderers/ThreeRenderer'
@@ -128,7 +128,8 @@ function HCGExplorerInner({
     if (defaultLayout) {
       setLayout(defaultLayout)
     }
-  }, []) // Only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only on mount - intentionally omitting deps
 
   // Track if using mock data
   const [usingMockData, setUsingMockData] = useState(false)
@@ -186,7 +187,7 @@ function HCGExplorerInner({
 
   // Handle layout change
   const handleLayoutChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
+    (e: ChangeEvent<HTMLSelectElement>) => {
       setLayout(e.target.value as LayoutType)
     },
     [setLayout]
@@ -194,7 +195,7 @@ function HCGExplorerInner({
 
   // Handle search
   const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       setFilter({ searchQuery: e.target.value })
     },
     [setFilter]
@@ -214,7 +215,7 @@ function HCGExplorerInner({
 
   // Handle timeline change
   const handleTimelineChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: ChangeEvent<HTMLInputElement>) => {
       setTimelineIndex(parseInt(e.target.value, 10))
     },
     [setTimelineIndex]

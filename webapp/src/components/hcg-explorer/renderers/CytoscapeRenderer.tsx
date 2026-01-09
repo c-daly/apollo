@@ -291,7 +291,7 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
 export function CytoscapeRenderer({
   graph,
   selectedNodeId,
-  hoveredNodeId: _hoveredNodeId,
+  // hoveredNodeId not currently used in Cytoscape renderer
   onNodeSelect,
   onNodeHover,
   layout,

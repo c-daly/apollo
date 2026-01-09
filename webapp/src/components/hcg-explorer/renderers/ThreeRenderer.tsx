@@ -121,7 +121,7 @@ interface EdgeLineProps {
   targetPos: [number, number, number]
 }
 
-function EdgeLine({ edge: _edge, sourcePos, targetPos }: EdgeLineProps) {
+function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
   // Calculate midpoint for potential label
   const midpoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
