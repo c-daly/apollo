@@ -470,7 +470,7 @@ async def health_check() -> HealthResponse:
 
     return HealthResponse(
         status="healthy" if neo4j_connected else "degraded",
-        timestamp=datetime.now().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         neo4j_connected=neo4j_connected,
     )
 
@@ -794,7 +794,7 @@ async def _persist_persona_entry_from_chat(
         return
     entry = PersonaEntry(
         id=f"persona_{uuid4().hex}",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         entry_type="observation",
         content=content,
         summary=_truncate_summary(summary),
@@ -1040,7 +1040,7 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
 
     entry = PersonaEntry(
         id=f"persona_{uuid4().hex}",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         entry_type=request.entry_type,
         content=request.content,
         summary=request.summary,
@@ -1180,15 +1180,15 @@ async def upload_media(
         if question:
             data["question"] = question
 
-        # Proxy request to Hermes with streaming
-        async with httpx.AsyncClient(timeout=config.hermes.timeout) as client:
-            response = await client.post(
-                f"{hermes_url}/ingest/media",
-                files=files,
-                data=data,
-                headers=headers,
-            )
-            response.raise_for_status()
+        # Proxy request to Hermes with streaming using shared HTTP client
+        response = await app.state.http_client.post(
+            f"{hermes_url}/ingest/media",
+            files=files,
+            data=data,
+            headers=headers,
+            timeout=config.hermes.timeout,
+        )
+        response.raise_for_status()
 
             await diagnostics_manager.record_log(
                 "info",
@@ -1257,14 +1257,14 @@ async def list_media_samples(
         if media_type:
             params["media_type"] = media_type
 
-        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
-            response = await client.get(
-                f"{sophia_url}/media/samples",
-                params=params,
-                headers={"Authorization": f"Bearer {sophia_token}"},
-            )
-            response.raise_for_status()
-            return response.json()  # type: ignore[no-any-return]
+        response = await app.state.http_client.get(
+            f"{sophia_url}/media/samples",
+            params=params,
+            headers={"Authorization": f"Bearer {sophia_token}"},
+            timeout=config.sophia.timeout,
+        )
+        response.raise_for_status()
+        return response.json()  # type: ignore[no-any-return]
 
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
@@ -1304,13 +1304,13 @@ async def get_media_sample(sample_id: str) -> dict:
         )
 
     try:
-        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
-            response = await client.get(
-                f"{sophia_url}/media/samples/{sample_id}",
-                headers={"Authorization": f"Bearer {sophia_token}"},
-            )
-            response.raise_for_status()
-            return response.json()  # type: ignore[no-any-return]
+        response = await app.state.http_client.get(
+            f"{sophia_url}/media/samples/{sample_id}",
+            headers={"Authorization": f"Bearer {sophia_token}"},
+            timeout=config.sophia.timeout,
+        )
+        response.raise_for_status()
+        return response.json()  # type: ignore[no-any-return]
 
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
