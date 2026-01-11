@@ -2,7 +2,7 @@
 
 import pytest
 from typing import Generator
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 from fastapi.testclient import TestClient
 
 from apollo.api.server import app
@@ -223,13 +223,30 @@ def test_client(
 
     Uses context manager pattern to ensure lifespan events are triggered,
     which initializes the shared HTTP client for connection pooling.
+
+    Important: We override the module globals AFTER TestClient starts because
+    the lifespan event creates real clients that would overwrite patches.
     """
-    with patch("apollo.api.server.hcg_client", mock_hcg_client):
-        with patch("apollo.api.server.persona_store", mock_persona_store):
-            with patch("apollo.api.server.hermes_client", mock_hermes_client):
-                # Use context manager to trigger lifespan events (startup/shutdown)
-                with TestClient(app) as client:
-                    yield client
+    import apollo.api.server as server_module
+
+    # Use context manager to trigger lifespan events (startup/shutdown)
+    with TestClient(app) as client:
+        # Override globals AFTER lifespan ran (lifespan creates real clients)
+        original_hcg = server_module.hcg_client
+        original_persona = server_module.persona_store
+        original_hermes = server_module.hermes_client
+
+        server_module.hcg_client = mock_hcg_client
+        server_module.persona_store = mock_persona_store
+        server_module.hermes_client = mock_hermes_client
+
+        try:
+            yield client
+        finally:
+            # Restore originals for proper cleanup
+            server_module.hcg_client = original_hcg
+            server_module.persona_store = original_persona
+            server_module.hermes_client = original_hermes
 
 
 @pytest.fixture
