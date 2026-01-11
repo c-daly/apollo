@@ -252,11 +252,10 @@ class DiagnosticsManager:
 
     async def _broadcast(self, event: dict) -> None:
         """Broadcast an event to all connected clients with queue management."""
-        self._telemetry = self._telemetry.model_copy(
-            update={"last_broadcast": datetime.now(timezone.utc)}
-        )
-
         async with self._lock:
+            self._telemetry = self._telemetry.model_copy(
+                update={"last_broadcast": datetime.now(timezone.utc)}
+            )
             connections = list(self._connections.values())
 
         for connection in connections:

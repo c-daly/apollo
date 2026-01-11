@@ -287,7 +287,7 @@ class TestUTCTimezoneHandling:
         naive_dt = datetime(2024, 1, 1, 12, 0, 0)
         entry = PersonaEntry(
             id="test",
-            persona_id="persona1",
+            
             content="test content",
             entry_type="observation",
             timestamp=naive_dt,
@@ -401,13 +401,113 @@ class TestUTCTimezoneHandling:
         utc_dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         entry = PersonaEntry(
             id="test",
-            persona_id="persona1",
+            
             content="test content",
             entry_type="observation",
             timestamp=utc_dt,
         )
 
         assert entry.timestamp == utc_dt
+
+
+
+    def test_entity_handles_none_updated_at(self):
+        """Verify Entity handles None updated_at (covers return None branch)."""
+        from apollo.data.models import Entity
+
+        entity = Entity(
+            id="test",
+            type="goal",
+            properties={},
+            labels=[],
+            created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            updated_at=None,  # Optional field set to None
+        )
+        assert entity.updated_at is None
+
+    def test_process_handles_none_completed_at(self):
+        """Verify Process handles None completed_at (covers return None branch)."""
+        from apollo.data.models import Process
+
+        process = Process(
+            id="test",
+            type="process",
+            name="test",
+            status="pending",
+            inputs=[],
+            outputs=[],
+            properties={},
+            created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            completed_at=None,  # Optional field set to None
+        )
+        assert process.completed_at is None
+
+    def test_plan_history_handles_none_optional_datetimes(self):
+        """Verify PlanHistory handles None optional datetimes."""
+        from apollo.data.models import PlanHistory
+
+        plan = PlanHistory(
+            id="test",
+            goal_id="goal1",
+            status="pending",
+            steps=[],
+            created_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            started_at=None,
+            completed_at=None,
+        )
+        assert plan.started_at is None
+        assert plan.completed_at is None
+
+    def test_state_history_handles_none_optional_fields(self):
+        """Verify StateHistory handles optional None fields."""
+        from apollo.data.models import StateHistory
+
+        history = StateHistory(
+            id="test",
+            state_id="state1",
+            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            changes={},
+            previous_values=None,
+            trigger=None,
+        )
+        assert history.previous_values is None
+
+
+class TestNeo4jInputValidationEdgeCases:
+    """Edge case tests for injection pattern detection (line 69 coverage).
+    
+    These inputs PASS the character regex but contain injection KEYWORDS,
+    so they reach line 69 (the injection pattern check).
+    """
+
+    def test_entity_id_rejects_match_keyword_alone(self):
+        """Verify MATCH keyword alone is blocked (covers line 69)."""
+        from apollo.data.hcg_client import validate_entity_id
+
+        # "MATCH" passes char regex but should hit injection pattern check
+        with pytest.raises(ValueError, match="suspicious pattern"):
+            validate_entity_id("MATCH")
+
+    def test_entity_id_rejects_delete_keyword_alone(self):
+        """Verify DELETE keyword alone is blocked."""
+        from apollo.data.hcg_client import validate_entity_id
+
+        with pytest.raises(ValueError, match="suspicious pattern"):
+            validate_entity_id("DELETE")
+
+    def test_entity_id_rejects_return_keyword(self):
+        """Verify RETURN keyword is blocked."""
+        from apollo.data.hcg_client import validate_entity_id
+
+        with pytest.raises(ValueError, match="suspicious pattern"):
+            validate_entity_id("RETURN")
+
+    def test_entity_id_rejects_mixed_case_keywords(self):
+        """Verify case-insensitive keyword detection."""
+        from apollo.data.hcg_client import validate_entity_id
+
+        with pytest.raises(ValueError, match="suspicious pattern"):
+            validate_entity_id("match")  # lowercase
 
 
 class TestWebSocketBroadcastLock:
