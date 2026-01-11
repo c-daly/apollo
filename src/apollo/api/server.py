@@ -10,7 +10,7 @@ import json
 import os
 from collections import deque
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import httpx
 from typing import (
@@ -105,8 +105,8 @@ class WebSocketConnection:
         self.connection_id = connection_id
         self.websocket = websocket
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=100)  # Limit queue size
-        self.connected_at = datetime.utcnow()
-        self.last_heartbeat = datetime.utcnow()
+        self.connected_at = datetime.now(timezone.utc)
+        self.last_heartbeat = datetime.now(timezone.utc)
         self.messages_sent = 0
         self.messages_dropped = 0
 
@@ -121,7 +121,7 @@ class DiagnosticsManager:
             request_count=0,
             success_rate=100.0,
             active_plans=0,
-            last_update=datetime.utcnow(),
+            last_update=datetime.now(timezone.utc),
             active_websockets=0,
             last_broadcast=None,
         )
@@ -136,8 +136,8 @@ class DiagnosticsManager:
 
     async def record_log(self, level: str, message: str) -> None:
         entry = DiagnosticLogEntry(
-            id=f"log-{int(datetime.utcnow().timestamp() * 1000)}",
-            timestamp=datetime.utcnow(),
+            id=f"log-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+            timestamp=datetime.now(timezone.utc),
             level=level,
             message=message,
         )
@@ -162,7 +162,7 @@ class DiagnosticsManager:
                 "request_count": self._telemetry.request_count + request_increment,
                 "success_rate": round(success_rate, 2),
                 "active_plans": active_plans,
-                "last_update": datetime.utcnow(),
+                "last_update": datetime.now(timezone.utc),
                 "active_websockets": len(self._connections),
             }
         )
@@ -191,7 +191,7 @@ class DiagnosticsManager:
                 "llm_total_tokens": total_tokens,
                 "persona_sentiment": persona_sentiment,
                 "persona_confidence": persona_confidence,
-                "last_llm_update": datetime.utcnow(),
+                "last_llm_update": datetime.now(timezone.utc),
                 "last_llm_session": session_id,
             }
         )
@@ -253,7 +253,7 @@ class DiagnosticsManager:
     async def _broadcast(self, event: dict) -> None:
         """Broadcast an event to all connected clients with queue management."""
         self._telemetry = self._telemetry.model_copy(
-            update={"last_broadcast": datetime.utcnow()}
+            update={"last_broadcast": datetime.now(timezone.utc)}
         )
 
         async with self._lock:
@@ -317,9 +317,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 continue
 
             try:
-                start = datetime.utcnow()
+                start = datetime.now(timezone.utc)
                 health = await asyncio.to_thread(hcg_client.health_check)
-                latency_ms = (datetime.utcnow() - start).total_seconds() * 1000.0
+                latency_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000.0
 
                 processes = await asyncio.to_thread(
                     hcg_client.get_processes, "running", 10, 0
@@ -364,7 +364,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     diagnostics_task = asyncio.create_task(telemetry_poller())
 
-    yield
+    # Initialize shared HTTP client with connection pooling
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0),
+        limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+    ) as http_client:
+        app.state.http_client = http_client
+        await diagnostics_manager.record_log("info", "HTTP connection pool initialized")
+
+        yield  # Application runs here
 
     # Shutdown: Close HCG client and persona store
     if diagnostics_task:
@@ -459,7 +467,7 @@ async def health_check() -> HealthResponse:
     """Health check endpoint."""
     neo4j_connected = False
     if hcg_client:
-        neo4j_connected = hcg_client.health_check()
+        neo4j_connected = await asyncio.to_thread(hcg_client.health_check)
 
     return HealthResponse(
         status="healthy" if neo4j_connected else "degraded",
@@ -479,7 +487,8 @@ async def get_entities(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        entities = hcg_client.get_entities(
+        entities = await asyncio.to_thread(
+            hcg_client.get_entities,
             entity_type=type,
             limit=limit,
             offset=offset,
@@ -498,12 +507,15 @@ async def get_entity(entity_id: str) -> Entity:
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        entity = hcg_client.get_entity_by_id(entity_id)
+        entity = await asyncio.to_thread(hcg_client.get_entity_by_id, entity_id)
         if not entity:
             raise HTTPException(status_code=404, detail="Entity not found")
         return entity
     except HTTPException:
         raise
+    except ValueError as e:
+        # Input validation error from validate_entity_id
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch entity: {str(e)}")
 
@@ -518,7 +530,7 @@ async def get_states(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        states = hcg_client.get_states(limit=limit, offset=offset)
+        states = await asyncio.to_thread(hcg_client.get_states, limit=limit, offset=offset)
         return states
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch states: {str(e)}")
@@ -535,7 +547,8 @@ async def get_processes(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        processes = hcg_client.get_processes(
+        processes = await asyncio.to_thread(
+            hcg_client.get_processes,
             status=status,
             limit=limit,
             offset=offset,
@@ -560,7 +573,8 @@ async def get_causal_edges(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        edges = hcg_client.get_causal_edges(
+        edges = await asyncio.to_thread(
+            hcg_client.get_causal_edges,
             entity_id=entity_id,
             edge_type=edge_type,
             limit=limit,
@@ -580,7 +594,7 @@ async def get_plan_history(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        plans = hcg_client.get_plan_history(goal_id=goal_id, limit=limit)
+        plans = await asyncio.to_thread(hcg_client.get_plan_history, goal_id=goal_id, limit=limit)
         return plans
     except Exception as e:
         raise HTTPException(
@@ -600,7 +614,7 @@ async def get_state_history(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        history = hcg_client.get_state_history(state_id=state_id, limit=limit)
+        history = await asyncio.to_thread(hcg_client.get_state_history, state_id=state_id, limit=limit)
         return history
     except Exception as e:
         raise HTTPException(
@@ -621,7 +635,8 @@ async def get_graph_snapshot(
 
     try:
         types_list = entity_types.split(",") if entity_types else None
-        snapshot = hcg_client.get_graph_snapshot(
+        snapshot = await asyncio.to_thread(
+            hcg_client.get_graph_snapshot,
             entity_types=types_list,
             limit=limit,
         )
@@ -792,7 +807,7 @@ async def _persist_persona_entry_from_chat(
         metadata=metadata,
     )
     try:
-        stored_entry = persona_store.create_entry(entry)
+        stored_entry = await asyncio.to_thread(persona_store.create_entry, entry)
         await diagnostics_manager.broadcast_persona_entry(stored_entry)
     except Exception as exc:  # noqa: BLE001
         await diagnostics_manager.record_log(
@@ -897,11 +912,11 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
                     try:
                         message = json.loads(data)
                         if message.get("type") == "ping":
-                            connection.last_heartbeat = datetime.utcnow()
+                            connection.last_heartbeat = datetime.now(timezone.utc)
                             await websocket.send_json(
                                 {
                                     "type": "pong",
-                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
                                     "connection_id": connection.connection_id,
                                 }
                             )
@@ -1039,7 +1054,7 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
     )
 
     try:
-        stored_entry = persona_store.create_entry(entry)
+        stored_entry = await asyncio.to_thread(persona_store.create_entry, entry)
         await diagnostics_manager.record_log(
             "info", f"Persona entry created ({request.entry_type})"
         )
@@ -1069,7 +1084,8 @@ async def get_persona_entries(
         raise HTTPException(status_code=503, detail="Persona store not available")
 
     try:
-        return persona_store.list_entries(
+        return await asyncio.to_thread(
+            persona_store.list_entries,
             entry_type=entry_type,
             sentiment=sentiment,
             related_process_id=related_process_id,
@@ -1090,7 +1106,7 @@ async def get_persona_entry(entry_id: str) -> PersonaEntry:
         raise HTTPException(status_code=503, detail="Persona store not available")
 
     try:
-        entry = persona_store.get_entry(entry_id)
+        entry = await asyncio.to_thread(persona_store.get_entry, entry_id)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch persona entry: {exc}"

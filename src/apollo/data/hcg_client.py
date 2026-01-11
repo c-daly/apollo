@@ -1,6 +1,7 @@
 """Neo4j client for read-only HCG graph queries."""
 
 import json
+import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -16,6 +17,58 @@ from apollo.data.models import (
     StateHistory,
     GraphSnapshot,
 )
+
+
+def validate_entity_id(entity_id: str) -> str:
+    """Validate and sanitize entity ID to prevent injection attacks.
+
+    Args:
+        entity_id: The entity identifier to validate
+
+    Returns:
+        Sanitized entity ID
+
+    Raises:
+        ValueError: If entity_id is invalid
+    """
+    if not entity_id or not isinstance(entity_id, str):
+        raise ValueError("Invalid entity ID: must be a non-empty string")
+
+    # Strip whitespace
+    entity_id = entity_id.strip()
+
+    if not entity_id:
+        raise ValueError("Invalid entity ID: cannot be empty or whitespace")
+
+    # Length limit (256 chars is reasonable for IDs)
+    if len(entity_id) > 256:
+        raise ValueError("Invalid entity ID: exceeds maximum length of 256 characters")
+
+    # Check for suspicious patterns that could indicate injection
+    # Allow: alphanumeric, hyphens, underscores, dots, colons (for UUIDs and namespaced IDs)
+    if not re.match(r'^[\w\-.:]+$', entity_id):
+        raise ValueError("Invalid entity ID: contains invalid characters")
+
+    # Block common injection patterns
+    injection_patterns = [
+        r"['\"]",           # Quotes
+        r"--",              # SQL/Cypher comments
+        r"//",              # Comments
+        r"\x00",            # Null bytes
+        r"\\",              # Backslashes
+        r"\bOR\b",          # OR keyword (case insensitive handled by pattern)
+        r"\bAND\b",         # AND keyword
+        r"\bDROP\b",        # DROP keyword
+        r"\bDELETE\b",      # DELETE keyword
+        r"\bRETURN\b",      # RETURN keyword
+        r"\bMATCH\b",       # MATCH keyword
+    ]
+
+    for pattern in injection_patterns:
+        if re.search(pattern, entity_id, re.IGNORECASE):
+            raise ValueError("Invalid entity ID: contains suspicious pattern")
+
+    return entity_id
 
 
 class HCGClient:
@@ -190,6 +243,8 @@ class HCGClient:
         Returns:
             Entity or None if not found
         """
+        entity_id = validate_entity_id(entity_id)
+
         if not self._driver:
             self.connect()
 

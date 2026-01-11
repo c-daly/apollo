@@ -219,11 +219,17 @@ def mock_hermes_client() -> Mock:
 def test_client(
     mock_hcg_client: Mock, mock_persona_store: Mock, mock_hermes_client: Mock
 ) -> Generator[TestClient, None, None]:
-    """Create FastAPI TestClient with mocked dependencies."""
+    """Create FastAPI TestClient with mocked dependencies.
+    
+    Uses context manager pattern to ensure lifespan events are triggered,
+    which initializes the shared HTTP client for connection pooling.
+    """
     with patch("apollo.api.server.hcg_client", mock_hcg_client):
         with patch("apollo.api.server.persona_store", mock_persona_store):
             with patch("apollo.api.server.hermes_client", mock_hermes_client):
-                yield TestClient(app)
+                # Use context manager to trigger lifespan events (startup/shutdown)
+                with TestClient(app) as client:
+                    yield client
 
 
 @pytest.fixture
