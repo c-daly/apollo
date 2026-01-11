@@ -104,13 +104,13 @@ class PersonaDiaryStore:
 
         # Validate string parameters to prevent injection
         if entry_type:
-            validate_entity_id(entry_type)
+            entry_type = validate_entity_id(entry_type)
         if sentiment:
-            validate_entity_id(sentiment)
+            sentiment = validate_entity_id(sentiment)
         if related_process_id:
-            validate_entity_id(related_process_id)
+            related_process_id = validate_entity_id(related_process_id)
         if related_goal_id:
-            validate_entity_id(related_goal_id)
+            related_goal_id = validate_entity_id(related_goal_id)
 
         query = """
         MATCH (entry:PersonaEntry)
@@ -147,7 +147,7 @@ class PersonaDiaryStore:
         self._ensure_driver()
 
         # Validate string parameter to prevent injection
-        validate_entity_id(entry_id)
+        entry_id = validate_entity_id(entry_id)
 
         query = """
         MATCH (entry:PersonaEntry {id: $entry_id})

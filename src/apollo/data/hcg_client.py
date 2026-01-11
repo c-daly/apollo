@@ -364,9 +364,9 @@ class HCGClient:
 
         # Validate string parameters to prevent injection
         if entity_id:
-            validate_entity_id(entity_id)
+            entity_id = validate_entity_id(entity_id)
         if edge_type:
-            validate_entity_id(edge_type)
+            edge_type = validate_entity_id(edge_type)
 
         if entity_id:
             query = """
@@ -430,7 +430,7 @@ class HCGClient:
 
         # Validate string parameters to prevent injection
         if goal_id:
-            validate_entity_id(goal_id)
+            goal_id = validate_entity_id(goal_id)
 
         query = """
         MATCH (p:Plan)
@@ -494,7 +494,7 @@ class HCGClient:
 
         # Validate string parameters to prevent injection
         if state_id:
-            validate_entity_id(state_id)
+            state_id = validate_entity_id(state_id)
 
         query = """
         MATCH (h:StateHistory)
@@ -557,8 +557,9 @@ class HCGClient:
 
         # Validate string parameters to prevent injection
         if entity_types:
-            for entity_type in entity_types:
-                validate_entity_id(entity_type)
+            entity_types = [
+                validate_entity_id(entity_type) for entity_type in entity_types
+            ]
 
         # Get entities
         if entity_types:
