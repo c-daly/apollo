@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from neo4j import GraphDatabase, Driver
@@ -176,7 +176,7 @@ class HCGClient:
             properties=self._sanitize_props(properties),
             weight=properties.get("weight", 1.0),
             created_at=self._convert_value(properties.get("created_at"))
-            or datetime.now(),
+            or datetime.now(timezone.utc),
         )
 
     def get_entities(
@@ -282,7 +282,7 @@ class HCGClient:
                         description=props.get("description", ""),
                         variables=self._parse_json_field(props.get("variables"), {}),
                         timestamp=self._convert_value(props.get("timestamp"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         properties=self._sanitize_props(props),
                     )
                 )
@@ -337,7 +337,7 @@ class HCGClient:
                         outputs=self._parse_json_field(props.get("outputs"), []),
                         properties=self._sanitize_props(props),
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         completed_at=self._convert_value(props.get("completed_at")),
                     )
                 )
@@ -406,7 +406,7 @@ class HCGClient:
                         properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                     )
                 )
             return edges
@@ -467,7 +467,7 @@ class HCGClient:
                         status=props.get("status", "pending"),
                         steps=steps,
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         started_at=self._convert_value(props.get("started_at")),
                         completed_at=self._convert_value(props.get("completed_at")),
                         result=plan_result,
@@ -530,7 +530,7 @@ class HCGClient:
                         id=props.get("id", str(node.id)),
                         state_id=props.get("state_id", ""),
                         timestamp=self._convert_value(props.get("timestamp"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         changes=changes,
                         previous_values=previous_values,
                         trigger=props.get("trigger"),
@@ -613,14 +613,14 @@ class HCGClient:
                         properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                     )
                 )
 
             return GraphSnapshot(
                 entities=entities,
                 edges=edges,
-                timestamp=datetime.now(),
+                timestamp=datetime.now(timezone.utc),
                 metadata={
                     "entity_count": len(entities),
                     "edge_count": len(edges),
