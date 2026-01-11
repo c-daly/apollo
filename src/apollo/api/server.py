@@ -375,17 +375,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         yield  # Application runs here
 
-    # Shutdown: Close HCG client and persona store
-    if diagnostics_task:
-        diagnostics_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await diagnostics_task
-    if persona_store:
-        persona_store.close()
-        await diagnostics_manager.record_log("info", "Persona diary store disconnected")
-    if hcg_client:
-        hcg_client.close()
-        print("HCG client disconnected")
+        # Shutdown: Close HCG client and persona store
+        # NOTE: This cleanup code MUST be inside the async with block
+        # so it runs BEFORE the HTTP client is closed
+        if diagnostics_task:
+            diagnostics_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await diagnostics_task
+        if persona_store:
+            persona_store.close()
+            await diagnostics_manager.record_log(
+                "info", "Persona diary store disconnected"
+            )
+        if hcg_client:
+            hcg_client.close()
+            print("HCG client disconnected")
 
 
 app = FastAPI(
