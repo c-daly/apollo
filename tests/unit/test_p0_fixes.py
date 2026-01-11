@@ -300,12 +300,6 @@ class TestUTCTimezoneHandling:
             "PersonaEntry.timestamp must be in UTC timezone"
         )
 
-
-# =============================================================================
-# P0.4: Test WebSocket broadcast lock contention fix
-# =============================================================================
-
-
     def test_entity_preserves_existing_utc_timezone(self):
         """Verify Entity preserves datetime that already has UTC timezone."""
         from apollo.data.models import Entity
