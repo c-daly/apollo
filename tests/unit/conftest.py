@@ -220,7 +220,7 @@ def test_client(
     mock_hcg_client: Mock, mock_persona_store: Mock, mock_hermes_client: Mock
 ) -> Generator[TestClient, None, None]:
     """Create FastAPI TestClient with mocked dependencies.
-    
+
     Uses context manager pattern to ensure lifespan events are triggered,
     which initializes the shared HTTP client for connection pooling.
     """

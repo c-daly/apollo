@@ -318,7 +318,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             try:
                 start = datetime.now(timezone.utc)
                 health = await asyncio.to_thread(hcg_client.health_check)
-                latency_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000.0
+                latency_ms = (
+                    datetime.now(timezone.utc) - start
+                ).total_seconds() * 1000.0
 
                 processes = await asyncio.to_thread(
                     hcg_client.get_processes, "running", 10, 0
@@ -529,7 +531,9 @@ async def get_states(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        states = await asyncio.to_thread(hcg_client.get_states, limit=limit, offset=offset)
+        states = await asyncio.to_thread(
+            hcg_client.get_states, limit=limit, offset=offset
+        )
         return states
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch states: {str(e)}")
@@ -593,7 +597,9 @@ async def get_plan_history(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        plans = await asyncio.to_thread(hcg_client.get_plan_history, goal_id=goal_id, limit=limit)
+        plans = await asyncio.to_thread(
+            hcg_client.get_plan_history, goal_id=goal_id, limit=limit
+        )
         return plans
     except Exception as e:
         raise HTTPException(
@@ -613,7 +619,9 @@ async def get_state_history(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        history = await asyncio.to_thread(hcg_client.get_state_history, state_id=state_id, limit=limit)
+        history = await asyncio.to_thread(
+            hcg_client.get_state_history, state_id=state_id, limit=limit
+        )
         return history
     except Exception as e:
         raise HTTPException(

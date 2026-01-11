@@ -42,6 +42,7 @@ class TestAsyncNeo4jExecution:
         """Verify get_entity_by_id endpoint wraps blocking call in asyncio.to_thread."""
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             from apollo.data.models import Entity
+
             mock_to_thread.return_value = Entity(
                 id="test", type="goal", properties={}, labels=[]
             )
@@ -126,7 +127,7 @@ class TestHTTPConnectionPooling:
 
     def test_http_client_has_connection_limits(self, test_client):
         """Verify HTTP client is an httpx.AsyncClient with connection pooling.
-        
+
         Note: httpx stores limits internally on the transport, not accessible via
         public attributes. We verify the client type and trust that the limits
         were configured in the lifespan (verified by code inspection).
@@ -134,31 +135,31 @@ class TestHTTPConnectionPooling:
         import httpx
         from apollo.api.server import app
 
-        assert hasattr(app.state, "http_client"), (
-            "HTTP client must be initialized in lifespan"
-        )
+        assert hasattr(
+            app.state, "http_client"
+        ), "HTTP client must be initialized in lifespan"
         client = app.state.http_client
         # Verify it's an httpx.AsyncClient (which supports connection pooling)
-        assert isinstance(client, httpx.AsyncClient), (
-            "HTTP client must be an httpx.AsyncClient for connection pooling"
-        )
+        assert isinstance(
+            client, httpx.AsyncClient
+        ), "HTTP client must be an httpx.AsyncClient for connection pooling"
 
     def test_sophia_client_uses_pooled_connection(self, test_client):
         """Verify Sophia client requests use the pooled HTTP client."""
         from apollo.api.server import app
 
         # The Sophia client should use app.state.http_client, not create new connections
-        assert hasattr(app.state, "http_client"), (
-            "Sophia client must use pooled connection from app.state.http_client"
-        )
+        assert hasattr(
+            app.state, "http_client"
+        ), "Sophia client must use pooled connection from app.state.http_client"
 
     def test_hermes_client_uses_pooled_connection(self, test_client):
         """Verify Hermes client requests use the pooled HTTP client."""
         from apollo.api.server import app
 
-        assert hasattr(app.state, "http_client"), (
-            "Hermes client must use pooled connection from app.state.http_client"
-        )
+        assert hasattr(
+            app.state, "http_client"
+        ), "Hermes client must use pooled connection from app.state.http_client"
 
 
 # =============================================================================
@@ -184,12 +185,12 @@ class TestUTCTimezoneHandling:
         )
 
         assert entity.created_at is not None
-        assert entity.created_at.tzinfo is not None, (
-            "Entity.created_at must have timezone info (should be UTC)"
-        )
-        assert entity.created_at.tzinfo == timezone.utc, (
-            "Entity.created_at must be in UTC timezone"
-        )
+        assert (
+            entity.created_at.tzinfo is not None
+        ), "Entity.created_at must have timezone info (should be UTC)"
+        assert (
+            entity.created_at.tzinfo == timezone.utc
+        ), "Entity.created_at must be in UTC timezone"
 
     def test_entity_updated_at_enforces_utc(self):
         """Verify Entity.updated_at enforces UTC timezone."""
@@ -205,12 +206,12 @@ class TestUTCTimezoneHandling:
         )
 
         assert entity.updated_at is not None
-        assert entity.updated_at.tzinfo is not None, (
-            "Entity.updated_at must have timezone info (should be UTC)"
-        )
-        assert entity.updated_at.tzinfo == timezone.utc, (
-            "Entity.updated_at must be in UTC timezone"
-        )
+        assert (
+            entity.updated_at.tzinfo is not None
+        ), "Entity.updated_at must have timezone info (should be UTC)"
+        assert (
+            entity.updated_at.tzinfo == timezone.utc
+        ), "Entity.updated_at must be in UTC timezone"
 
     def test_state_timestamp_enforces_utc(self):
         """Verify State.timestamp enforces UTC timezone."""
@@ -226,12 +227,12 @@ class TestUTCTimezoneHandling:
             properties={},
         )
 
-        assert state.timestamp.tzinfo is not None, (
-            "State.timestamp must have timezone info (should be UTC)"
-        )
-        assert state.timestamp.tzinfo == timezone.utc, (
-            "State.timestamp must be in UTC timezone"
-        )
+        assert (
+            state.timestamp.tzinfo is not None
+        ), "State.timestamp must have timezone info (should be UTC)"
+        assert (
+            state.timestamp.tzinfo == timezone.utc
+        ), "State.timestamp must be in UTC timezone"
 
     def test_process_created_at_enforces_utc(self):
         """Verify Process.created_at enforces UTC timezone."""
@@ -249,12 +250,12 @@ class TestUTCTimezoneHandling:
             created_at=naive_dt,
         )
 
-        assert process.created_at.tzinfo is not None, (
-            "Process.created_at must have timezone info (should be UTC)"
-        )
-        assert process.created_at.tzinfo == timezone.utc, (
-            "Process.created_at must be in UTC timezone"
-        )
+        assert (
+            process.created_at.tzinfo is not None
+        ), "Process.created_at must have timezone info (should be UTC)"
+        assert (
+            process.created_at.tzinfo == timezone.utc
+        ), "Process.created_at must be in UTC timezone"
 
     def test_causal_edge_created_at_enforces_utc(self):
         """Verify CausalEdge.created_at enforces UTC timezone."""
@@ -271,12 +272,12 @@ class TestUTCTimezoneHandling:
         )
 
         assert edge.created_at is not None
-        assert edge.created_at.tzinfo is not None, (
-            "CausalEdge.created_at must have timezone info (should be UTC)"
-        )
-        assert edge.created_at.tzinfo == timezone.utc, (
-            "CausalEdge.created_at must be in UTC timezone"
-        )
+        assert (
+            edge.created_at.tzinfo is not None
+        ), "CausalEdge.created_at must have timezone info (should be UTC)"
+        assert (
+            edge.created_at.tzinfo == timezone.utc
+        ), "CausalEdge.created_at must be in UTC timezone"
 
     def test_persona_entry_timestamp_enforces_utc(self):
         """Verify PersonaEntry.timestamp enforces UTC timezone."""
@@ -285,18 +286,17 @@ class TestUTCTimezoneHandling:
         naive_dt = datetime(2024, 1, 1, 12, 0, 0)
         entry = PersonaEntry(
             id="test",
-            
             content="test content",
             entry_type="observation",
             timestamp=naive_dt,
         )
 
-        assert entry.timestamp.tzinfo is not None, (
-            "PersonaEntry.timestamp must have timezone info (should be UTC)"
-        )
-        assert entry.timestamp.tzinfo == timezone.utc, (
-            "PersonaEntry.timestamp must be in UTC timezone"
-        )
+        assert (
+            entry.timestamp.tzinfo is not None
+        ), "PersonaEntry.timestamp must have timezone info (should be UTC)"
+        assert (
+            entry.timestamp.tzinfo == timezone.utc
+        ), "PersonaEntry.timestamp must be in UTC timezone"
 
     def test_entity_preserves_existing_utc_timezone(self):
         """Verify Entity preserves datetime that already has UTC timezone."""
@@ -393,15 +393,12 @@ class TestUTCTimezoneHandling:
         utc_dt = datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         entry = PersonaEntry(
             id="test",
-            
             content="test content",
             entry_type="observation",
             timestamp=utc_dt,
         )
 
         assert entry.timestamp == utc_dt
-
-
 
     def test_entity_handles_none_updated_at(self):
         """Verify Entity handles None updated_at (covers return None branch)."""
@@ -521,7 +518,6 @@ class TestWebSocketBroadcastLock:
         # We need to verify that the connections dict is copied under lock
         # This prevents race conditions when connections are added/removed during broadcast
 
-
         class TrackingLock:
             def __init__(self, real_lock):
                 self._real_lock = real_lock
@@ -572,7 +568,9 @@ class TestNeo4jInputValidation:
         ]
 
         for malicious_input in malicious_inputs:
-            with pytest.raises((ValueError, ValidationError), match="Invalid entity ID"):
+            with pytest.raises(
+                (ValueError, ValidationError), match="Invalid entity ID"
+            ):
                 validate_entity_id(malicious_input)
 
     def test_entity_id_accepts_valid_formats(self):
@@ -664,22 +662,22 @@ class TestP0Integration:
     @pytest.mark.asyncio
     async def test_async_endpoint_pattern_verified(self, test_client):
         """Verify all HCG endpoints use asyncio.to_thread for blocking calls.
-        
+
         Note: True concurrency testing requires an actual async HTTP client (like
         httpx.AsyncClient) against a running server. TestClient is synchronous
-        and doesn't demonstrate actual async behavior. Instead, we verify the 
+        and doesn't demonstrate actual async behavior. Instead, we verify the
         pattern is in place by checking asyncio.to_thread is called.
         """
         # Test that the core async pattern is working
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = []
-            
+
             # Make several requests - they should all use to_thread
             test_client.get("/api/hcg/entities")
             test_client.get("/api/hcg/states")
             test_client.get("/api/hcg/processes")
-            
+
             # asyncio.to_thread should be called for each endpoint
-            assert mock_to_thread.call_count >= 3, (
-                "Each endpoint should use asyncio.to_thread() for blocking Neo4j calls"
-            )
+            assert (
+                mock_to_thread.call_count >= 3
+            ), "Each endpoint should use asyncio.to_thread() for blocking Neo4j calls"

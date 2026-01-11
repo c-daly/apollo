@@ -47,7 +47,7 @@ def validate_entity_id(entity_id: str) -> str:
     # Whitelist approach: only allow safe characters
     # Allow: alphanumeric, hyphens, underscores, dots, colons (for UUIDs and namespaced IDs)
     # This blocks quotes, slashes, backslashes, null bytes, and other injection vectors
-    if not re.match(r'^[\w\-.:]+$', entity_id):
+    if not re.match(r"^[\w\-.:]+$", entity_id):
         raise ValueError("Invalid entity ID: contains invalid characters")
 
     return entity_id
