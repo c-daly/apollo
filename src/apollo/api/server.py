@@ -1190,12 +1190,12 @@ async def upload_media(
         )
         response.raise_for_status()
 
-            await diagnostics_manager.record_log(
-                "info",
-                f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
-            )
+        await diagnostics_manager.record_log(
+            "info",
+            f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
+        )
 
-            return response.json()  # type: ignore[no-any-return]
+        return response.json()  # type: ignore[no-any-return]
 
     except httpx.HTTPStatusError as exc:
         await diagnostics_manager.record_log(

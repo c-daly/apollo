@@ -44,29 +44,11 @@ def validate_entity_id(entity_id: str) -> str:
     if len(entity_id) > 256:
         raise ValueError("Invalid entity ID: exceeds maximum length of 256 characters")
 
-    # Check for suspicious patterns that could indicate injection
+    # Whitelist approach: only allow safe characters
     # Allow: alphanumeric, hyphens, underscores, dots, colons (for UUIDs and namespaced IDs)
+    # This blocks quotes, slashes, backslashes, null bytes, and other injection vectors
     if not re.match(r'^[\w\-.:]+$', entity_id):
         raise ValueError("Invalid entity ID: contains invalid characters")
-
-    # Block common injection patterns
-    injection_patterns = [
-        r"['\"]",           # Quotes
-        r"--",              # SQL/Cypher comments
-        r"//",              # Comments
-        r"\x00",            # Null bytes
-        r"\\",              # Backslashes
-        r"\bOR\b",          # OR keyword (case insensitive handled by pattern)
-        r"\bAND\b",         # AND keyword
-        r"\bDROP\b",        # DROP keyword
-        r"\bDELETE\b",      # DELETE keyword
-        r"\bRETURN\b",      # RETURN keyword
-        r"\bMATCH\b",       # MATCH keyword
-    ]
-
-    for pattern in injection_patterns:
-        if re.search(pattern, entity_id, re.IGNORECASE):
-            raise ValueError("Invalid entity ID: contains suspicious pattern")
 
     return entity_id
 
@@ -380,6 +362,12 @@ class HCGClient:
         if not self._driver:
             self.connect()
 
+        # Validate string parameters to prevent injection
+        if entity_id:
+            validate_entity_id(entity_id)
+        if edge_type:
+            validate_entity_id(edge_type)
+
         if entity_id:
             query = """
             MATCH (n)-[r]->(m)
@@ -439,6 +427,10 @@ class HCGClient:
         """
         if not self._driver:
             self.connect()
+
+        # Validate string parameters to prevent injection
+        if goal_id:
+            validate_entity_id(goal_id)
 
         query = """
         MATCH (p:Plan)
@@ -500,6 +492,10 @@ class HCGClient:
         if not self._driver:
             self.connect()
 
+        # Validate string parameters to prevent injection
+        if state_id:
+            validate_entity_id(state_id)
+
         query = """
         MATCH (h:StateHistory)
         WHERE $state_id IS NULL OR h.state_id = $state_id
@@ -558,6 +554,11 @@ class HCGClient:
         """
         if not self._driver:
             self.connect()
+
+        # Validate string parameters to prevent injection
+        if entity_types:
+            for entity_type in entity_types:
+                validate_entity_id(entity_type)
 
         # Get entities
         if entity_types:

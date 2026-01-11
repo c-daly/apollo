@@ -8,10 +8,8 @@ These tests verify the fixes for critical issues identified in CODE_REVIEW.md:
 - P0.5: Input validation for Neo4j queries
 """
 
-import asyncio
 from datetime import datetime, timezone
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import ValidationError
@@ -31,7 +29,7 @@ class TestAsyncNeo4jExecution:
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = []
 
-            response = test_client.get("/api/hcg/entities")
+            test_client.get("/api/hcg/entities")
 
             # The endpoint should use asyncio.to_thread for the blocking call
             assert mock_to_thread.called, (
@@ -48,7 +46,7 @@ class TestAsyncNeo4jExecution:
                 id="test", type="goal", properties={}, labels=[]
             )
 
-            response = test_client.get("/api/hcg/entities/test")
+            test_client.get("/api/hcg/entities/test")
 
             assert mock_to_thread.called, (
                 "get_entity_by_id endpoint must use asyncio.to_thread() "
@@ -61,7 +59,7 @@ class TestAsyncNeo4jExecution:
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = []
 
-            response = test_client.get("/api/hcg/states")
+            test_client.get("/api/hcg/states")
 
             assert mock_to_thread.called, (
                 "get_states endpoint must use asyncio.to_thread() "
@@ -74,7 +72,7 @@ class TestAsyncNeo4jExecution:
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = []
 
-            response = test_client.get("/api/hcg/processes")
+            test_client.get("/api/hcg/processes")
 
             assert mock_to_thread.called, (
                 "get_processes endpoint must use asyncio.to_thread() "
@@ -87,7 +85,7 @@ class TestAsyncNeo4jExecution:
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = []
 
-            response = test_client.get("/api/hcg/edges")
+            test_client.get("/api/hcg/edges")
 
             assert mock_to_thread.called, (
                 "get_edges endpoint must use asyncio.to_thread() "
@@ -100,7 +98,7 @@ class TestAsyncNeo4jExecution:
         with patch("apollo.api.server.asyncio.to_thread") as mock_to_thread:
             mock_to_thread.return_value = True
 
-            response = test_client.get("/api/hcg/health")
+            test_client.get("/api/hcg/health")
 
             assert mock_to_thread.called, (
                 "health endpoint must use asyncio.to_thread() "
@@ -467,43 +465,6 @@ class TestUTCTimezoneHandling:
         assert history.previous_values is None
 
 
-class TestNeo4jInputValidationEdgeCases:
-    """Edge case tests for injection pattern detection (line 69 coverage).
-    
-    These inputs PASS the character regex but contain injection KEYWORDS,
-    so they reach line 69 (the injection pattern check).
-    """
-
-    def test_entity_id_rejects_match_keyword_alone(self):
-        """Verify MATCH keyword alone is blocked (covers line 69)."""
-        from apollo.data.hcg_client import validate_entity_id
-
-        # "MATCH" passes char regex but should hit injection pattern check
-        with pytest.raises(ValueError, match="suspicious pattern"):
-            validate_entity_id("MATCH")
-
-    def test_entity_id_rejects_delete_keyword_alone(self):
-        """Verify DELETE keyword alone is blocked."""
-        from apollo.data.hcg_client import validate_entity_id
-
-        with pytest.raises(ValueError, match="suspicious pattern"):
-            validate_entity_id("DELETE")
-
-    def test_entity_id_rejects_return_keyword(self):
-        """Verify RETURN keyword is blocked."""
-        from apollo.data.hcg_client import validate_entity_id
-
-        with pytest.raises(ValueError, match="suspicious pattern"):
-            validate_entity_id("RETURN")
-
-    def test_entity_id_rejects_mixed_case_keywords(self):
-        """Verify case-insensitive keyword detection."""
-        from apollo.data.hcg_client import validate_entity_id
-
-        with pytest.raises(ValueError, match="suspicious pattern"):
-            validate_entity_id("match")  # lowercase
-
-
 class TestWebSocketBroadcastLock:
     """Tests that WebSocket broadcast doesn't hold lock during sends."""
 
@@ -555,13 +516,11 @@ class TestWebSocketBroadcastLock:
         """Verify _broadcast copies connection list under lock before iterating."""
         from apollo.api.server import DiagnosticsManager
 
-        manager = DiagnosticsManager()
+        DiagnosticsManager()
 
         # We need to verify that the connections dict is copied under lock
         # This prevents race conditions when connections are added/removed during broadcast
 
-        original_lock = manager._lock
-        lock_was_held_for_copy = False
 
         class TrackingLock:
             def __init__(self, real_lock):
@@ -600,7 +559,7 @@ class TestNeo4jInputValidation:
 
     def test_entity_id_rejects_cypher_injection(self):
         """Verify entity_id rejects potential Cypher injection attempts."""
-        from apollo.data.hcg_client import HCGClient, validate_entity_id
+        from apollo.data.hcg_client import validate_entity_id
 
         # These patterns could be used for Cypher injection
         malicious_inputs = [
