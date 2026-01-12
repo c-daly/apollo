@@ -230,13 +230,19 @@ def test_client(
     # Create mock config that disables external connections
     mock_config = MagicMock()
     mock_config.hcg = None  # Prevents Neo4j connection in lifespan
-    mock_config.hermes = None  # Prevents Hermes connection
+    mock_config.hermes = MagicMock()  # Mock hermes config for endpoints that use it
+    mock_config.hermes.host = "localhost"
+    mock_config.hermes.port = 18000
     mock_config.sophia = MagicMock()  # Some endpoints need this
     mock_config.sophia.timeout = 30.0
 
-    # Patch config BEFORE TestClient triggers lifespan
-    with patch("apollo.api.server.ApolloConfig") as MockConfig:
+    # Patch BOTH the server module import AND the config module
+    # to ensure lifespan gets the mocked config regardless of import path
+    with patch("apollo.api.server.ApolloConfig") as MockConfig, patch(
+        "apollo.config.settings.ApolloConfig"
+    ) as MockConfigSettings:
         MockConfig.load.return_value = mock_config
+        MockConfigSettings.load.return_value = mock_config
 
         with TestClient(app) as client:
             # Inject our mocks for endpoints that use them
