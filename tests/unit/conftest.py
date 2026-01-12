@@ -2,7 +2,7 @@
 
 import pytest
 from typing import Generator
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 from fastapi.testclient import TestClient
 
 from apollo.api.server import app
@@ -221,41 +221,30 @@ def test_client(
 ) -> Generator[TestClient, None, None]:
     """Create FastAPI TestClient with mocked dependencies.
 
-    Patches config BEFORE TestClient starts to prevent lifespan from
-    connecting to real Neo4j.
+    Patches ApolloConfig.load() to return a config that skips Neo4j connection,
+    then injects mocks after the lifespan runs.
     """
+    from unittest.mock import MagicMock
     import apollo.api.server as server_module
-    from unittest.mock import patch, MagicMock
 
-    # Create mock config that disables external connections
+    # Mock config that disables Neo4j but allows http_client creation
     mock_config = MagicMock()
     mock_config.hcg = None  # Prevents Neo4j connection in lifespan
-    mock_config.hermes = MagicMock()  # Mock hermes config for endpoints that use it
+    # Mock hermes config with required attributes for endpoints that use it
+    mock_config.hermes = MagicMock()
     mock_config.hermes.host = "localhost"
     mock_config.hermes.port = 18000
-    mock_config.sophia = MagicMock()  # Some endpoints need this
-    mock_config.sophia.timeout = 30.0
 
-    # Patch BOTH the server module import AND the config module
-    # to ensure lifespan gets the mocked config regardless of import path
-    with patch("apollo.api.server.ApolloConfig") as MockConfig, patch(
-        "apollo.config.settings.ApolloConfig"
-    ) as MockConfigSettings:
+    with patch("apollo.api.server.ApolloConfig") as MockConfig:
         MockConfig.load.return_value = mock_config
-        MockConfigSettings.load.return_value = mock_config
 
         with TestClient(app) as client:
-            # Inject our mocks for endpoints that use them
+            # Inject mocks after lifespan (which skipped Neo4j due to config.hcg=None)
             server_module.hcg_client = mock_hcg_client
             server_module.persona_store = mock_persona_store
             server_module.hermes_client = mock_hermes_client
 
-            try:
-                yield client
-            finally:
-                server_module.hcg_client = None
-                server_module.persona_store = None
-                server_module.hermes_client = None
+            yield client
 
 
 @pytest.fixture
