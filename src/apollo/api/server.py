@@ -41,7 +41,7 @@ from pydantic import BaseModel, Field
 
 from apollo.client.hermes_client import HermesClient
 from apollo.config.settings import ApolloConfig
-from apollo.data.hcg_client import HCGClient
+from apollo.data.hcg_client import HCGClient, validate_entity_id
 from apollo.data.persona_store import PersonaDiaryStore
 from apollo.data.models import (
     Entity,
@@ -508,6 +508,12 @@ async def get_entities(
 @app.get("/api/hcg/entities/{entity_id}", response_model=Entity)
 async def get_entity(entity_id: str) -> Entity:
     """Get a specific entity by ID."""
+    # Validate at API boundary before calling (potentially mocked) client
+    try:
+        entity_id = validate_entity_id(entity_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
 
