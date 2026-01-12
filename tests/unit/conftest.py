@@ -221,32 +221,35 @@ def test_client(
 ) -> Generator[TestClient, None, None]:
     """Create FastAPI TestClient with mocked dependencies.
 
-    Uses context manager pattern to ensure lifespan events are triggered,
-    which initializes the shared HTTP client for connection pooling.
-
-    Important: We override the module globals AFTER TestClient starts because
-    the lifespan event creates real clients that would overwrite patches.
+    Patches config BEFORE TestClient starts to prevent lifespan from
+    connecting to real Neo4j.
     """
     import apollo.api.server as server_module
+    from unittest.mock import patch, MagicMock
 
-    # Use context manager to trigger lifespan events (startup/shutdown)
-    with TestClient(app) as client:
-        # Override globals AFTER lifespan ran (lifespan creates real clients)
-        original_hcg = server_module.hcg_client
-        original_persona = server_module.persona_store
-        original_hermes = server_module.hermes_client
+    # Create mock config that disables external connections
+    mock_config = MagicMock()
+    mock_config.hcg = None  # Prevents Neo4j connection in lifespan
+    mock_config.hermes = None  # Prevents Hermes connection
+    mock_config.sophia = MagicMock()  # Some endpoints need this
+    mock_config.sophia.timeout = 30.0
 
-        server_module.hcg_client = mock_hcg_client
-        server_module.persona_store = mock_persona_store
-        server_module.hermes_client = mock_hermes_client
+    # Patch config BEFORE TestClient triggers lifespan
+    with patch("apollo.api.server.ApolloConfig") as MockConfig:
+        MockConfig.load.return_value = mock_config
 
-        try:
-            yield client
-        finally:
-            # Restore originals for proper cleanup
-            server_module.hcg_client = original_hcg
-            server_module.persona_store = original_persona
-            server_module.hermes_client = original_hermes
+        with TestClient(app) as client:
+            # Inject our mocks for endpoints that use them
+            server_module.hcg_client = mock_hcg_client
+            server_module.persona_store = mock_persona_store
+            server_module.hermes_client = mock_hermes_client
+
+            try:
+                yield client
+            finally:
+                server_module.hcg_client = None
+                server_module.persona_store = None
+                server_module.hermes_client = None
 
 
 @pytest.fixture
