@@ -219,11 +219,32 @@ def mock_hermes_client() -> Mock:
 def test_client(
     mock_hcg_client: Mock, mock_persona_store: Mock, mock_hermes_client: Mock
 ) -> Generator[TestClient, None, None]:
-    """Create FastAPI TestClient with mocked dependencies."""
-    with patch("apollo.api.server.hcg_client", mock_hcg_client):
-        with patch("apollo.api.server.persona_store", mock_persona_store):
-            with patch("apollo.api.server.hermes_client", mock_hermes_client):
-                yield TestClient(app)
+    """Create FastAPI TestClient with mocked dependencies.
+
+    Patches ApolloConfig.load() to return a config that skips Neo4j connection,
+    then injects mocks after the lifespan runs.
+    """
+    from unittest.mock import MagicMock
+    import apollo.api.server as server_module
+
+    # Mock config that disables Neo4j but allows http_client creation
+    mock_config = MagicMock()
+    mock_config.hcg = None  # Prevents Neo4j connection in lifespan
+    # Mock hermes config with required attributes for endpoints that use it
+    mock_config.hermes = MagicMock()
+    mock_config.hermes.host = "localhost"
+    mock_config.hermes.port = 18000
+
+    with patch("apollo.api.server.ApolloConfig") as MockConfig:
+        MockConfig.load.return_value = mock_config
+
+        with TestClient(app) as client:
+            # Inject mocks after lifespan (which skipped Neo4j due to config.hcg=None)
+            server_module.hcg_client = mock_hcg_client
+            server_module.persona_store = mock_persona_store
+            server_module.hermes_client = mock_hermes_client
+
+            yield client
 
 
 @pytest.fixture

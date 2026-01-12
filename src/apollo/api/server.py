@@ -10,7 +10,7 @@ import json
 import os
 from collections import deque
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import httpx
 from typing import (
@@ -41,7 +41,7 @@ from pydantic import BaseModel, Field
 
 from apollo.client.hermes_client import HermesClient
 from apollo.config.settings import ApolloConfig
-from apollo.data.hcg_client import HCGClient
+from apollo.data.hcg_client import HCGClient, validate_entity_id
 from apollo.data.persona_store import PersonaDiaryStore
 from apollo.data.models import (
     Entity,
@@ -105,8 +105,8 @@ class WebSocketConnection:
         self.connection_id = connection_id
         self.websocket = websocket
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=100)  # Limit queue size
-        self.connected_at = datetime.utcnow()
-        self.last_heartbeat = datetime.utcnow()
+        self.connected_at = datetime.now(timezone.utc)
+        self.last_heartbeat = datetime.now(timezone.utc)
         self.messages_sent = 0
         self.messages_dropped = 0
 
@@ -121,7 +121,7 @@ class DiagnosticsManager:
             request_count=0,
             success_rate=100.0,
             active_plans=0,
-            last_update=datetime.utcnow(),
+            last_update=datetime.now(timezone.utc),
             active_websockets=0,
             last_broadcast=None,
         )
@@ -136,8 +136,8 @@ class DiagnosticsManager:
 
     async def record_log(self, level: str, message: str) -> None:
         entry = DiagnosticLogEntry(
-            id=f"log-{int(datetime.utcnow().timestamp() * 1000)}",
-            timestamp=datetime.utcnow(),
+            id=f"log-{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+            timestamp=datetime.now(timezone.utc),
             level=level,
             message=message,
         )
@@ -162,7 +162,7 @@ class DiagnosticsManager:
                 "request_count": self._telemetry.request_count + request_increment,
                 "success_rate": round(success_rate, 2),
                 "active_plans": active_plans,
-                "last_update": datetime.utcnow(),
+                "last_update": datetime.now(timezone.utc),
                 "active_websockets": len(self._connections),
             }
         )
@@ -191,7 +191,7 @@ class DiagnosticsManager:
                 "llm_total_tokens": total_tokens,
                 "persona_sentiment": persona_sentiment,
                 "persona_confidence": persona_confidence,
-                "last_llm_update": datetime.utcnow(),
+                "last_llm_update": datetime.now(timezone.utc),
                 "last_llm_session": session_id,
             }
         )
@@ -252,11 +252,10 @@ class DiagnosticsManager:
 
     async def _broadcast(self, event: dict) -> None:
         """Broadcast an event to all connected clients with queue management."""
-        self._telemetry = self._telemetry.model_copy(
-            update={"last_broadcast": datetime.utcnow()}
-        )
-
         async with self._lock:
+            self._telemetry = self._telemetry.model_copy(
+                update={"last_broadcast": datetime.now(timezone.utc)}
+            )
             connections = list(self._connections.values())
 
         for connection in connections:
@@ -317,9 +316,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 continue
 
             try:
-                start = datetime.utcnow()
+                start = datetime.now(timezone.utc)
                 health = await asyncio.to_thread(hcg_client.health_check)
-                latency_ms = (datetime.utcnow() - start).total_seconds() * 1000.0
+                latency_ms = (
+                    datetime.now(timezone.utc) - start
+                ).total_seconds() * 1000.0
 
                 processes = await asyncio.to_thread(
                     hcg_client.get_processes, "running", 10, 0
@@ -364,19 +365,31 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     diagnostics_task = asyncio.create_task(telemetry_poller())
 
-    yield
+    # Initialize shared HTTP client with connection pooling
+    async with httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0),
+        limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+    ) as http_client:
+        app.state.http_client = http_client
+        await diagnostics_manager.record_log("info", "HTTP connection pool initialized")
 
-    # Shutdown: Close HCG client and persona store
-    if diagnostics_task:
-        diagnostics_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await diagnostics_task
-    if persona_store:
-        persona_store.close()
-        await diagnostics_manager.record_log("info", "Persona diary store disconnected")
-    if hcg_client:
-        hcg_client.close()
-        print("HCG client disconnected")
+        yield  # Application runs here
+
+        # Shutdown: Close HCG client and persona store
+        # NOTE: This cleanup code MUST be inside the async with block
+        # so it runs BEFORE the HTTP client is closed
+        if diagnostics_task:
+            diagnostics_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await diagnostics_task
+        if persona_store:
+            persona_store.close()
+            await diagnostics_manager.record_log(
+                "info", "Persona diary store disconnected"
+            )
+        if hcg_client:
+            hcg_client.close()
+            print("HCG client disconnected")
 
 
 app = FastAPI(
@@ -459,11 +472,11 @@ async def health_check() -> HealthResponse:
     """Health check endpoint."""
     neo4j_connected = False
     if hcg_client:
-        neo4j_connected = hcg_client.health_check()
+        neo4j_connected = await asyncio.to_thread(hcg_client.health_check)
 
     return HealthResponse(
         status="healthy" if neo4j_connected else "degraded",
-        timestamp=datetime.now().isoformat(),
+        timestamp=datetime.now(timezone.utc).isoformat(),
         neo4j_connected=neo4j_connected,
     )
 
@@ -479,7 +492,8 @@ async def get_entities(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        entities = hcg_client.get_entities(
+        entities = await asyncio.to_thread(
+            hcg_client.get_entities,
             entity_type=type,
             limit=limit,
             offset=offset,
@@ -494,16 +508,25 @@ async def get_entities(
 @app.get("/api/hcg/entities/{entity_id}", response_model=Entity)
 async def get_entity(entity_id: str) -> Entity:
     """Get a specific entity by ID."""
+    # Validate at API boundary before calling (potentially mocked) client
+    try:
+        entity_id = validate_entity_id(entity_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     if not hcg_client:
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        entity = hcg_client.get_entity_by_id(entity_id)
+        entity = await asyncio.to_thread(hcg_client.get_entity_by_id, entity_id)
         if not entity:
             raise HTTPException(status_code=404, detail="Entity not found")
         return entity
     except HTTPException:
         raise
+    except ValueError as e:
+        # Input validation error from validate_entity_id
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch entity: {str(e)}")
 
@@ -518,7 +541,9 @@ async def get_states(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        states = hcg_client.get_states(limit=limit, offset=offset)
+        states = await asyncio.to_thread(
+            hcg_client.get_states, limit=limit, offset=offset
+        )
         return states
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch states: {str(e)}")
@@ -535,7 +560,8 @@ async def get_processes(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        processes = hcg_client.get_processes(
+        processes = await asyncio.to_thread(
+            hcg_client.get_processes,
             status=status,
             limit=limit,
             offset=offset,
@@ -560,7 +586,8 @@ async def get_causal_edges(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        edges = hcg_client.get_causal_edges(
+        edges = await asyncio.to_thread(
+            hcg_client.get_causal_edges,
             entity_id=entity_id,
             edge_type=edge_type,
             limit=limit,
@@ -580,7 +607,9 @@ async def get_plan_history(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        plans = hcg_client.get_plan_history(goal_id=goal_id, limit=limit)
+        plans = await asyncio.to_thread(
+            hcg_client.get_plan_history, goal_id=goal_id, limit=limit
+        )
         return plans
     except Exception as e:
         raise HTTPException(
@@ -600,7 +629,9 @@ async def get_state_history(
         raise HTTPException(status_code=503, detail="HCG client not available")
 
     try:
-        history = hcg_client.get_state_history(state_id=state_id, limit=limit)
+        history = await asyncio.to_thread(
+            hcg_client.get_state_history, state_id=state_id, limit=limit
+        )
         return history
     except Exception as e:
         raise HTTPException(
@@ -621,7 +652,8 @@ async def get_graph_snapshot(
 
     try:
         types_list = entity_types.split(",") if entity_types else None
-        snapshot = hcg_client.get_graph_snapshot(
+        snapshot = await asyncio.to_thread(
+            hcg_client.get_graph_snapshot,
             entity_types=types_list,
             limit=limit,
         )
@@ -780,7 +812,7 @@ async def _persist_persona_entry_from_chat(
         return
     entry = PersonaEntry(
         id=f"persona_{uuid4().hex}",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         entry_type="observation",
         content=content,
         summary=_truncate_summary(summary),
@@ -792,7 +824,7 @@ async def _persist_persona_entry_from_chat(
         metadata=metadata,
     )
     try:
-        stored_entry = persona_store.create_entry(entry)
+        stored_entry = await asyncio.to_thread(persona_store.create_entry, entry)
         await diagnostics_manager.broadcast_persona_entry(stored_entry)
     except Exception as exc:  # noqa: BLE001
         await diagnostics_manager.record_log(
@@ -897,11 +929,11 @@ async def diagnostics_websocket(websocket: WebSocket) -> None:
                     try:
                         message = json.loads(data)
                         if message.get("type") == "ping":
-                            connection.last_heartbeat = datetime.utcnow()
+                            connection.last_heartbeat = datetime.now(timezone.utc)
                             await websocket.send_json(
                                 {
                                     "type": "pong",
-                                    "timestamp": datetime.utcnow().isoformat(),
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
                                     "connection_id": connection.connection_id,
                                 }
                             )
@@ -1026,7 +1058,7 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
 
     entry = PersonaEntry(
         id=f"persona_{uuid4().hex}",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(timezone.utc),
         entry_type=request.entry_type,
         content=request.content,
         summary=request.summary,
@@ -1039,7 +1071,7 @@ async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEnt
     )
 
     try:
-        stored_entry = persona_store.create_entry(entry)
+        stored_entry = await asyncio.to_thread(persona_store.create_entry, entry)
         await diagnostics_manager.record_log(
             "info", f"Persona entry created ({request.entry_type})"
         )
@@ -1069,7 +1101,8 @@ async def get_persona_entries(
         raise HTTPException(status_code=503, detail="Persona store not available")
 
     try:
-        return persona_store.list_entries(
+        return await asyncio.to_thread(
+            persona_store.list_entries,
             entry_type=entry_type,
             sentiment=sentiment,
             related_process_id=related_process_id,
@@ -1090,7 +1123,7 @@ async def get_persona_entry(entry_id: str) -> PersonaEntry:
         raise HTTPException(status_code=503, detail="Persona store not available")
 
     try:
-        entry = persona_store.get_entry(entry_id)
+        entry = await asyncio.to_thread(persona_store.get_entry, entry_id)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(
             status_code=500, detail=f"Failed to fetch persona entry: {exc}"
@@ -1165,22 +1198,22 @@ async def upload_media(
         if question:
             data["question"] = question
 
-        # Proxy request to Hermes with streaming
-        async with httpx.AsyncClient(timeout=config.hermes.timeout) as client:
-            response = await client.post(
-                f"{hermes_url}/ingest/media",
-                files=files,
-                data=data,
-                headers=headers,
-            )
-            response.raise_for_status()
+        # Proxy request to Hermes with streaming using shared HTTP client
+        response = await app.state.http_client.post(
+            f"{hermes_url}/ingest/media",
+            files=files,
+            data=data,
+            headers=headers,
+            timeout=config.hermes.timeout,
+        )
+        response.raise_for_status()
 
-            await diagnostics_manager.record_log(
-                "info",
-                f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
-            )
+        await diagnostics_manager.record_log(
+            "info",
+            f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
+        )
 
-            return response.json()  # type: ignore[no-any-return]
+        return response.json()  # type: ignore[no-any-return]
 
     except httpx.HTTPStatusError as exc:
         await diagnostics_manager.record_log(
@@ -1242,14 +1275,14 @@ async def list_media_samples(
         if media_type:
             params["media_type"] = media_type
 
-        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
-            response = await client.get(
-                f"{sophia_url}/media/samples",
-                params=params,
-                headers={"Authorization": f"Bearer {sophia_token}"},
-            )
-            response.raise_for_status()
-            return response.json()  # type: ignore[no-any-return]
+        response = await app.state.http_client.get(
+            f"{sophia_url}/media/samples",
+            params=params,
+            headers={"Authorization": f"Bearer {sophia_token}"},
+            timeout=config.sophia.timeout,
+        )
+        response.raise_for_status()
+        return response.json()  # type: ignore[no-any-return]
 
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
@@ -1289,13 +1322,13 @@ async def get_media_sample(sample_id: str) -> dict:
         )
 
     try:
-        async with httpx.AsyncClient(timeout=config.sophia.timeout) as client:
-            response = await client.get(
-                f"{sophia_url}/media/samples/{sample_id}",
-                headers={"Authorization": f"Bearer {sophia_token}"},
-            )
-            response.raise_for_status()
-            return response.json()  # type: ignore[no-any-return]
+        response = await app.state.http_client.get(
+            f"{sophia_url}/media/samples/{sample_id}",
+            headers={"Authorization": f"Bearer {sophia_token}"},
+            timeout=config.sophia.timeout,
+        )
+        response.raise_for_status()
+        return response.json()  # type: ignore[no-any-return]
 
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:

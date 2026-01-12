@@ -1,7 +1,8 @@
 """Neo4j client for read-only HCG graph queries."""
 
 import json
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from neo4j import GraphDatabase, Driver
@@ -16,6 +17,40 @@ from apollo.data.models import (
     StateHistory,
     GraphSnapshot,
 )
+
+
+def validate_entity_id(entity_id: str) -> str:
+    """Validate and sanitize entity ID to prevent injection attacks.
+
+    Args:
+        entity_id: The entity identifier to validate
+
+    Returns:
+        Sanitized entity ID
+
+    Raises:
+        ValueError: If entity_id is invalid
+    """
+    if not entity_id or not isinstance(entity_id, str):
+        raise ValueError("Invalid entity ID: must be a non-empty string")
+
+    # Strip whitespace
+    entity_id = entity_id.strip()
+
+    if not entity_id:
+        raise ValueError("Invalid entity ID: cannot be empty or whitespace")
+
+    # Length limit (256 chars is reasonable for IDs)
+    if len(entity_id) > 256:
+        raise ValueError("Invalid entity ID: exceeds maximum length of 256 characters")
+
+    # Whitelist approach: only allow safe characters
+    # Allow: alphanumeric, hyphens, underscores, dots, colons (for UUIDs and namespaced IDs)
+    # This blocks quotes, slashes, backslashes, null bytes, and other injection vectors
+    if not re.match(r"^[\w\-.:]+$", entity_id):
+        raise ValueError("Invalid entity ID: contains invalid characters")
+
+    return entity_id
 
 
 class HCGClient:
@@ -141,7 +176,7 @@ class HCGClient:
             properties=self._sanitize_props(properties),
             weight=properties.get("weight", 1.0),
             created_at=self._convert_value(properties.get("created_at"))
-            or datetime.now(),
+            or datetime.now(timezone.utc),
         )
 
     def get_entities(
@@ -190,6 +225,8 @@ class HCGClient:
         Returns:
             Entity or None if not found
         """
+        entity_id = validate_entity_id(entity_id)
+
         if not self._driver:
             self.connect()
 
@@ -245,7 +282,7 @@ class HCGClient:
                         description=props.get("description", ""),
                         variables=self._parse_json_field(props.get("variables"), {}),
                         timestamp=self._convert_value(props.get("timestamp"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         properties=self._sanitize_props(props),
                     )
                 )
@@ -300,7 +337,7 @@ class HCGClient:
                         outputs=self._parse_json_field(props.get("outputs"), []),
                         properties=self._sanitize_props(props),
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         completed_at=self._convert_value(props.get("completed_at")),
                     )
                 )
@@ -324,6 +361,12 @@ class HCGClient:
         """
         if not self._driver:
             self.connect()
+
+        # Validate string parameters to prevent injection
+        if entity_id:
+            entity_id = validate_entity_id(entity_id)
+        if edge_type:
+            edge_type = validate_entity_id(edge_type)
 
         if entity_id:
             query = """
@@ -363,7 +406,7 @@ class HCGClient:
                         properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                     )
                 )
             return edges
@@ -384,6 +427,10 @@ class HCGClient:
         """
         if not self._driver:
             self.connect()
+
+        # Validate string parameters to prevent injection
+        if goal_id:
+            goal_id = validate_entity_id(goal_id)
 
         query = """
         MATCH (p:Plan)
@@ -420,7 +467,7 @@ class HCGClient:
                         status=props.get("status", "pending"),
                         steps=steps,
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         started_at=self._convert_value(props.get("started_at")),
                         completed_at=self._convert_value(props.get("completed_at")),
                         result=plan_result,
@@ -444,6 +491,10 @@ class HCGClient:
         """
         if not self._driver:
             self.connect()
+
+        # Validate string parameters to prevent injection
+        if state_id:
+            state_id = validate_entity_id(state_id)
 
         query = """
         MATCH (h:StateHistory)
@@ -479,7 +530,7 @@ class HCGClient:
                         id=props.get("id", str(node.id)),
                         state_id=props.get("state_id", ""),
                         timestamp=self._convert_value(props.get("timestamp"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                         changes=changes,
                         previous_values=previous_values,
                         trigger=props.get("trigger"),
@@ -503,6 +554,12 @@ class HCGClient:
         """
         if not self._driver:
             self.connect()
+
+        # Validate string parameters to prevent injection
+        if entity_types:
+            entity_types = [
+                validate_entity_id(entity_type) for entity_type in entity_types
+            ]
 
         # Get entities
         if entity_types:
@@ -557,14 +614,14 @@ class HCGClient:
                         properties=self._sanitize_props(props),
                         weight=props.get("weight", 1.0),
                         created_at=self._convert_value(props.get("created_at"))
-                        or datetime.now(),
+                        or datetime.now(timezone.utc),
                     )
                 )
 
             return GraphSnapshot(
                 entities=entities,
                 edges=edges,
-                timestamp=datetime.now(),
+                timestamp=datetime.now(timezone.utc),
                 metadata={
                     "entity_count": len(entities),
                     "edge_count": len(edges),

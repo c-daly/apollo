@@ -11,6 +11,7 @@ from neo4j import Driver, GraphDatabase
 from neo4j.graph import Node
 
 from apollo.config.settings import Neo4jConfig
+from apollo.data.hcg_client import validate_entity_id
 from apollo.data.models import PersonaEntry
 
 
@@ -100,6 +101,17 @@ class PersonaDiaryStore:
     ) -> List[PersonaEntry]:
         """Fetch persona diary entries using the provided filters."""
         self._ensure_driver()
+
+        # Validate string parameters to prevent injection
+        if entry_type:
+            entry_type = validate_entity_id(entry_type)
+        if sentiment:
+            sentiment = validate_entity_id(sentiment)
+        if related_process_id:
+            related_process_id = validate_entity_id(related_process_id)
+        if related_goal_id:
+            related_goal_id = validate_entity_id(related_goal_id)
+
         query = """
         MATCH (entry:PersonaEntry)
         WHERE ($entry_type IS NULL OR entry.entry_type = $entry_type)
@@ -133,6 +145,10 @@ class PersonaDiaryStore:
     def get_entry(self, entry_id: str) -> Optional[PersonaEntry]:
         """Fetch a single persona entry by ID."""
         self._ensure_driver()
+
+        # Validate string parameter to prevent injection
+        entry_id = validate_entity_id(entry_id)
+
         query = """
         MATCH (entry:PersonaEntry {id: $entry_id})
         RETURN entry

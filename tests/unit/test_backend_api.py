@@ -175,10 +175,9 @@ class TestMediaEndpoints:
 
         mock_client = Mock()
         mock_client.post = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: mock_client)
+        # Set mock on app.state.http_client (P0.2 connection pooling)
+        test_client.app.state.http_client = mock_client
 
         response = test_client.post(
             "/api/media/upload",
@@ -272,10 +271,9 @@ class TestMediaEndpoints:
 
         mock_client = Mock()
         mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: mock_client)
+        # Set mock on app.state.http_client (P0.2 connection pooling)
+        test_client.app.state.http_client = mock_client
 
         response = test_client.get("/api/media/samples?limit=20&offset=0")
         assert response.status_code == status.HTTP_200_OK
@@ -301,10 +299,9 @@ class TestMediaEndpoints:
 
         mock_client = Mock()
         mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
 
-        monkeypatch.setattr("httpx.AsyncClient", lambda **kwargs: mock_client)
+        # Set mock on app.state.http_client (P0.2 connection pooling)
+        test_client.app.state.http_client = mock_client
 
         response = test_client.get("/api/media/samples/test-123")
         assert response.status_code == status.HTTP_200_OK

@@ -1,9 +1,9 @@
 """Data models for HCG ontology entities following Section 4.1 specification."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Entity(BaseModel):
@@ -23,6 +23,15 @@ class Entity(BaseModel):
     created_at: Optional[datetime] = Field(None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(None, description="Last update timestamp")
 
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
+
 
 class State(BaseModel):
     """State entity representing agent or world state in HCG.
@@ -40,6 +49,15 @@ class State(BaseModel):
     properties: Dict[str, Any] = Field(
         default_factory=dict, description="Additional properties"
     )
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 
 class Process(BaseModel):
@@ -63,6 +81,15 @@ class Process(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     completed_at: Optional[datetime] = Field(None, description="Completion timestamp")
 
+    @field_validator("created_at", "completed_at", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
+
 
 class CausalEdge(BaseModel):
     """Causal edge representing relationships between entities in HCG.
@@ -82,6 +109,15 @@ class CausalEdge(BaseModel):
     weight: float = Field(default=1.0, description="Edge weight or strength")
     created_at: datetime = Field(..., description="Creation timestamp")
 
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
+
 
 class PlanHistory(BaseModel):
     """Historical record of a plan in HCG.
@@ -100,6 +136,15 @@ class PlanHistory(BaseModel):
     completed_at: Optional[datetime] = Field(None, description="Completion time")
     result: Optional[Dict[str, Any]] = Field(None, description="Execution result")
 
+    @field_validator("created_at", "started_at", "completed_at", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
+
 
 class StateHistory(BaseModel):
     """Historical record of state changes in HCG.
@@ -115,6 +160,15 @@ class StateHistory(BaseModel):
         None, description="Previous state values"
     )
     trigger: Optional[str] = Field(None, description="What triggered the state change")
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 
 class GraphSnapshot(BaseModel):
@@ -133,6 +187,15 @@ class GraphSnapshot(BaseModel):
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Snapshot metadata"
     )
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 
 class PersonaEntry(BaseModel):
@@ -170,3 +233,12 @@ class PersonaEntry(BaseModel):
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
+
+    @field_validator("timestamp", mode="before")
+    @classmethod
+    def ensure_utc(cls, v: datetime | None) -> datetime | None:
+        if v is None:
+            return None
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
