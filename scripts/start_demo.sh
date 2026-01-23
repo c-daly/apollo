@@ -31,7 +31,7 @@ check_dependencies() {
     check_command docker || exit 1
     check_command poetry || exit 1
     check_command npm || exit 1
-    
+
     # Validate environment variables
     if ! python3 "${PROJECT_ROOT}/scripts/check_env.py"; then
         log_error "Environment validation failed."
@@ -63,7 +63,8 @@ start_hermes() {
             log_warn "Removing stale Hermes PID file."
             rm -f "${HERMES_PID_FILE}"
         fi
-        log_info "Launching Hermes on port 8080..."
+        HERMES_PORT="${HERMES_PORT:-17000}"
+        log_info "Launching Hermes on port ${HERMES_PORT}..."
         (
             cd "${HERMES_ROOT}"
             poetry install >/dev/null
@@ -81,7 +82,7 @@ start_apollo() {
 
 show_status() {
     echo "=== LOGOS Demo Status ==="
-    
+
     echo -n "Infra (Docker): "
     if docker compose -f "${DOCKER_COMPOSE_FILE}" ps --format '{{.State}}' | grep -q "running"; then
         echo -e "${GREEN}Running${NC}"
@@ -126,7 +127,7 @@ show_status() {
 
 stop_all() {
     log_info "Stopping all services..."
-    
+
     if [[ -f "${HERMES_PID_FILE}" ]]; then
         local pid=$(cat "${HERMES_PID_FILE}")
         if ps -p "$pid" > /dev/null 2>&1; then
@@ -153,7 +154,7 @@ stop_all() {
         fi
         rm -f "${APOLLO_WEB_PID_FILE}"
     fi
-    
+
     # Cleanup orphans on ports
     local web_port="${WEBAPP_PORT:-3000}"
     if lsof -Pi :$web_port -sTCP:LISTEN -t >/dev/null ; then
@@ -166,7 +167,7 @@ stop_all() {
         log_warn "Port $api_port still in use (orphan process?). Killing..."
         lsof -Pi :$api_port -sTCP:LISTEN -t | xargs kill
     fi
-    
+
     log_info "Stopping Docker infra..."
     docker compose -f "${DOCKER_COMPOSE_FILE}" stop
 }
