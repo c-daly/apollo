@@ -64,12 +64,12 @@ start_sophia() {
             log_warn "Removing stale Sophia PID file."
             rm -f "${SOPHIA_PID_FILE}"
         fi
-        
+
         SOPHIA_PORT="${SOPHIA_PORT:-47000}"
         # Token for authenticating incoming requests (matched by Hermes/Apollo)
         export SOPHIA_API_TOKEN="${SOPHIA_API_TOKEN:-sophia_dev}"
         log_info "Starting Sophia on port ${SOPHIA_PORT}..."
-        
+
         cd "${SOPHIA_ROOT}"
         poetry install --sync >/dev/null 2>&1 || true
 
@@ -96,10 +96,10 @@ start_hermes() {
             log_warn "Removing stale Hermes PID file."
             rm -f "${HERMES_PID_FILE}"
         fi
-        
+
         HERMES_PORT="${HERMES_PORT:-17000}"
         log_info "Starting Hermes on port ${HERMES_PORT}..."
-        
+
         # Pass LLM API key to Hermes (provider-agnostic)
         export HERMES_LLM_API_KEY="${HERMES_LLM_API_KEY:-${OPENAI_API_KEY:-}}"
         # Token for Hermes→Sophia authentication (just needs to be present)
@@ -107,7 +107,7 @@ start_hermes() {
         # Sophia connection settings
         export SOPHIA_HOST="${SOPHIA_HOST:-localhost}"
     export SOPHIA_PORT="${SOPHIA_PORT:-47000}"
-        
+
         cd "${HERMES_ROOT}"
         poetry install --sync >/dev/null 2>&1 || true
 
@@ -134,10 +134,10 @@ start_api() {
             log_warn "Removing stale Apollo API PID file."
             rm -f "${APOLLO_API_PID_FILE}"
         fi
-        
+
         APOLLO_PORT="${APOLLO_PORT:-27000}"
         log_info "Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
-        
+
         # Ensure poetry env is ready
         poetry install --sync >/dev/null
 
@@ -166,7 +166,7 @@ start_webapp() {
 
         WEBAPP_PORT="${WEBAPP_PORT:-3000}"
         log_info "Starting Vite dev server on port ${WEBAPP_PORT}..."
-        
+
         cd "${PROJECT_ROOT}/webapp"
         if [[ ! -d node_modules ]]; then
             log_info "Installing webapp dependencies..."
@@ -192,7 +192,7 @@ cd "${PROJECT_ROOT}"
 # Check infra (redundant if called from start_demo but good for standalone)
 if [[ -f "${DOCKER_COMPOSE_FILE}" ]]; then
     log_info "Ensuring infra containers are up..."
-    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d neo4j milvus-standalone >/dev/null 2>&1 || true
+    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d --wait neo4j milvus-standalone >/dev/null 2>&1 || true
 fi
 
 # Start in dependency order: Sophia → Hermes → Apollo
@@ -221,7 +221,7 @@ if [ "$DETACH" = true ]; then
     log_info "Web logs: /tmp/apollo-webapp.log"
 else
     trap cleanup EXIT INT TERM
-    
+
     echo ""
     log_success "Apollo stack is up:"
     echo "  • Sophia logs: tail -f /tmp/sophia.log"
@@ -234,6 +234,6 @@ else
     echo "  • UI: http://localhost:${WEBAPP_PORT:-3000}"
     echo ""
     echo "Press Ctrl+C to stop all services."
-    
+
     wait $SOPHIA_PID $HERMES_PID $API_PID $WEB_PID
 fi
