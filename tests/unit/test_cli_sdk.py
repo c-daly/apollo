@@ -224,10 +224,10 @@ class TestCLIErrorHandling:
 class TestCLIConfigLoading:
     """Test CLI configuration loading."""
 
-    def test_cli_loads_default_config(
+    def test_cli_loads_config_from_env(
         self, cli_runner, mock_sophia_client, mock_hermes_client, mock_persona_client
     ):
-        """Test CLI loads default config when no file specified."""
+        """Test CLI loads config from environment and logos_config."""
         with (
             patch("apollo.cli.main.ApolloConfig.load") as mock_load,
             patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
@@ -242,50 +242,8 @@ class TestCLIConfigLoading:
 
             _result = cli_runner.invoke(cli, ["status"])
 
-            # Should call load with None (default config path)
-            mock_load.assert_called_once_with(None)
-
-    def test_cli_loads_custom_config_file(
-        self,
-        cli_runner,
-        mock_sophia_client,
-        mock_hermes_client,
-        mock_persona_client,
-        tmp_path,
-    ):
-        """Test CLI loads custom config file when specified."""
-        config_file = tmp_path / "test_config.yaml"
-        config_file.write_text(
-            """
-sophia:
-  host: custom-host
-  port: 9000
-hermes:
-  host: localhost
-  port: 8002
-persona_api:
-  base_url: http://localhost:8001/api
-"""
-        )
-
-        with (
-            patch("apollo.cli.main.ApolloConfig.load") as mock_load,
-            patch("apollo.cli.main.SophiaClient", return_value=mock_sophia_client),
-            patch("apollo.cli.main.HermesClient", return_value=mock_hermes_client),
-            patch("apollo.cli.main.PersonaClient", return_value=mock_persona_client),
-        ):
-            mock_load.return_value = Mock(
-                sophia=Mock(host="custom-host", port=9000, timeout=30.0),
-                hermes=Mock(host="localhost", port=8002, timeout=30.0),
-                persona_api=Mock(base_url="http://localhost:8001/api"),
-            )
-
-            _result = cli_runner.invoke(cli, ["--config", str(config_file), "status"])
-
-            # Should call load with the config file path
-            mock_load.assert_called_once()
-            call_args = mock_load.call_args[0]
-            assert call_args[0] == config_file
+            # Config is loaded from env/logos_config (no path argument)
+            mock_load.assert_called_once_with()
 
 
 class TestCLIOutputFormatting:
