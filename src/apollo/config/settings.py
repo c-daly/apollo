@@ -1,10 +1,15 @@
-"""Configuration management for Apollo."""
+"""Configuration management for Apollo.
+
+Configuration is resolved from:
+1. Environment variables (highest priority)
+2. logos_config defaults (port allocation, etc.)
+
+This follows the same pattern as other LOGOS repos - no config files needed.
+"""
 
 import os
-from pathlib import Path
 from typing import Optional
 
-import yaml
 from pydantic import BaseModel, Field
 
 from apollo.env import get_env_value as resolve_env_value, APOLLO_PORTS, get_repo_ports
@@ -173,59 +178,12 @@ class ApolloConfig(BaseModel):
                 self.hcg.neo4j.password = env_password
 
     @classmethod
-    def from_yaml(cls, path: Path) -> "ApolloConfig":
-        """Load configuration from YAML file.
-
-        Args:
-            path: Path to YAML configuration file
+    def load(cls) -> "ApolloConfig":
+        """Load configuration from environment and logos_config defaults.
 
         Returns:
-            ApolloConfig instance
+            ApolloConfig instance with env overrides applied
         """
-        with open(path, "r") as f:
-            data = yaml.safe_load(f)
-        return cls(**data)
-
-    def to_yaml(self, path: Path) -> None:
-        """Save configuration to YAML file.
-
-        Args:
-            path: Path to save YAML configuration
-        """
-        with open(path, "w") as f:
-            yaml.dump(self.model_dump(), f, default_flow_style=False)
-
-    @classmethod
-    def load(cls, config_path: Optional[Path] = None) -> "ApolloConfig":
-        """Load configuration from default or specified path.
-
-        Args:
-            config_path: Optional path to configuration file
-
-        Returns:
-            ApolloConfig instance
-        """
-        config: ApolloConfig
-
-        if config_path and config_path.exists():
-            config = cls.from_yaml(config_path)
-            config.apply_env_overrides()
-            return config
-
-        # Try default locations
-        default_paths = [
-            Path("config.yaml"),
-            Path("config.yml"),
-            Path.home() / ".apollo" / "config.yaml",
-        ]
-
-        for path in default_paths:
-            if path.exists():
-                config = cls.from_yaml(path)
-                config.apply_env_overrides()
-                return config
-
-        # Return default config if no file found
         config = cls()
         config.apply_env_overrides()
         return config

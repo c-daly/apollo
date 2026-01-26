@@ -23,17 +23,8 @@ Dependencies:
 
 ## Configuration
 
-Configure Neo4j connection in `config.yaml`:
+Configure Neo4j connection using environment variables:
 
-```yaml
-hcg:
-  neo4j:
-    uri: bolt://localhost:27687
-    user: neo4j
-    password: password
-```
-
-Or use environment variables:
 ```bash
 export NEO4J_URI=bolt://localhost:27687
 export NEO4J_USER=neo4j
@@ -371,7 +362,7 @@ neo4j_connected: false
 
 **Solutions:**
 1. Check Neo4j is running: `neo4j status`
-2. Verify connection URI in config.yaml
+2. Verify NEO4J_URI environment variable
 3. Check credentials (user/password)
 4. Test connection: `neo4j-admin ping`
 

@@ -123,8 +123,7 @@ def execute_sophia_call(
         details = exc.body or exc.reason or str(exc)
         if exc.status == 401:
             details = (
-                "Unauthorized response from Sophia. "
-                "Set sophia.api_key in config.yaml or SOPHIA_API_KEY env var."
+                "Unauthorized response from Sophia. " "Set SOPHIA_API_KEY env var."
             )
         return False, None, f"Sophia API error while {action}: {details}"
     except Exception as exc:  # noqa: BLE001
@@ -148,8 +147,7 @@ def execute_hermes_call(
         details = exc.body or exc.reason or str(exc)
         if exc.status == 401:
             details = (
-                "Unauthorized response from Hermes. "
-                "Set hermes.api_key in config.yaml or HERMES_API_KEY env var."
+                "Unauthorized response from Hermes. " "Set HERMES_API_KEY env var."
             )
         return False, None, f"Hermes API error while {action}: {details}"
     except Exception as exc:  # noqa: BLE001

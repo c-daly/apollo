@@ -1,7 +1,6 @@
 """Apollo CLI - Command-line interface for Project LOGOS."""
 
 from collections import Counter
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import time
 
@@ -31,13 +30,8 @@ DEFAULT_CHAT_SYSTEM_PROMPT = (
 
 @click.group()
 @click.version_option(version="0.1.0", prog_name="apollo-cli")
-@click.option(
-    "--config",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to config file (default: config.yaml or defaults)",
-)
 @click.pass_context
-def cli(ctx: click.Context, config: Optional[Path]) -> None:
+def cli(ctx: click.Context) -> None:
     """Apollo CLI - Command interface for Project LOGOS.
 
     Apollo provides a command-line interface for interacting with
@@ -46,7 +40,7 @@ def cli(ctx: click.Context, config: Optional[Path]) -> None:
     """
     # Load configuration and store in context
     ctx.ensure_object(dict)
-    ctx.obj["config"] = ApolloConfig.load(config)
+    ctx.obj["config"] = ApolloConfig.load()
     ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
     ctx.obj["hermes"] = HermesClient(ctx.obj["config"].hermes)
     ctx.obj["persona"] = PersonaClient(ctx.obj["config"].persona_api)
