@@ -74,5 +74,4 @@ examples/
 # Tests
 tests/
 
-# Poetry lock (we're using pyproject.toml only)
-poetry.lock
+# Note: poetry.lock is NOT excluded - Dockerfile needs it
