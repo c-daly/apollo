@@ -5,7 +5,6 @@ WORKDIR /app/apollo
 # Copy source code and configuration
 COPY src ./src
 COPY pyproject.toml poetry.lock README.md ./
-COPY config.example.yaml ./config.yaml
 
 # Install Apollo's specific dependencies (SDKs, etc.) and Apollo itself
 # logos utilities are already available from foundry base
