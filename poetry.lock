@@ -538,8 +538,8 @@ uvicorn = {version = "^0.32.0", extras = ["standard"]}
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "main"
-resolved_reference = "78a160dd30589d0fd3544cb2adc183fa0d113c8e"
+reference = "v0.2.0"
+resolved_reference = "849ddb4ed47c3911da305e175e4cec9c01ab5a0f"
 
 [[package]]
 name = "logos-hermes-sdk"
@@ -560,8 +560,8 @@ urllib3 = ">=2.1.0,<3.0.0"
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "main"
-resolved_reference = "ed7cf4839014fdc768a89b9206d4d8328039ef62"
+reference = "v0.2.0"
+resolved_reference = "849ddb4ed47c3911da305e175e4cec9c01ab5a0f"
 subdirectory = "sdk/python/hermes"
 
 [[package]]
@@ -583,8 +583,8 @@ urllib3 = ">=2.1.0,<3.0.0"
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "main"
-resolved_reference = "ed7cf4839014fdc768a89b9206d4d8328039ef62"
+reference = "v0.2.0"
+resolved_reference = "849ddb4ed47c3911da305e175e4cec9c01ab5a0f"
 subdirectory = "sdk/python/sophia"
 
 [[package]]
@@ -1647,4 +1647,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "e3da293fab3288bf6abe70b5c8f0542197cd4b6192b474f309d3f7fb99551a44"
+content-hash = "df22a7328ab86c245dbd7e049ea8d33c5dad1e7ff2336983d24e1b41bdc20b91"
