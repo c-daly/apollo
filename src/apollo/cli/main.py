@@ -1,7 +1,6 @@
 """Apollo CLI - Command-line interface for Project LOGOS."""
 
 from collections import Counter
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import time
 
@@ -27,17 +26,10 @@ DEFAULT_CHAT_SYSTEM_PROMPT = (
     "Provide concise guidance, reference Hybrid Causal Graph facts when useful, "
     "and assume Sophia + Talos will handle execution."
 )
-
-
 @click.group()
 @click.version_option(version="0.1.0", prog_name="apollo-cli")
-@click.option(
-    "--config",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to config file (default: config.yaml or defaults)",
-)
 @click.pass_context
-def cli(ctx: click.Context, config: Optional[Path]) -> None:
+def cli(ctx: click.Context) -> None:
     """Apollo CLI - Command interface for Project LOGOS.
 
     Apollo provides a command-line interface for interacting with
@@ -46,12 +38,10 @@ def cli(ctx: click.Context, config: Optional[Path]) -> None:
     """
     # Load configuration and store in context
     ctx.ensure_object(dict)
-    ctx.obj["config"] = ApolloConfig.load(config)
+    ctx.obj["config"] = ApolloConfig.load()
     ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
     ctx.obj["hermes"] = HermesClient(ctx.obj["config"].hermes)
     ctx.obj["persona"] = PersonaClient(ctx.obj["config"].persona_api)
-
-
 @cli.command()
 @click.pass_context
 def status(ctx: click.Context) -> None:
@@ -75,8 +65,6 @@ def status(ctx: click.Context) -> None:
         console.print(
             "\n[dim]Tip: Make sure Sophia service is running or check your config[/dim]"
         )
-
-
 @cli.command()
 @click.pass_context
 def state(ctx: click.Context) -> None:
@@ -104,8 +92,6 @@ def state(ctx: click.Context) -> None:
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
         )
-
-
 @cli.command()
 @click.argument("command", required=False)
 @click.pass_context
@@ -145,8 +131,6 @@ def send(ctx: click.Context, command: Optional[str]) -> None:
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
         )
-
-
 @cli.command()
 @click.option("--recent", default=10, help="Number of recent plans to show")
 @click.pass_context
@@ -199,8 +183,6 @@ def plans(ctx: click.Context, recent: int) -> None:
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
         )
-
-
 @cli.command()
 @click.argument("description", required=False)
 @click.option("--priority", default="normal", help="Goal priority (high, normal, low)")
@@ -248,8 +230,6 @@ def goal(ctx: click.Context, description: Optional[str], priority: str) -> None:
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and accessible[/dim]"
         )
-
-
 @cli.command()
 @click.argument("goal", required=False)
 @click.pass_context
@@ -290,8 +270,6 @@ def plan(ctx: click.Context, goal: Optional[str]) -> None:
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and the goal exists[/dim]"
         )
-
-
 @cli.command()
 @click.argument("plan_id", required=False)
 @click.option("--step", default=0, help="Step index to execute (default: 0)")
@@ -335,8 +313,6 @@ def execute(ctx: click.Context, plan_id: Optional[str], step: int) -> None:
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and the plan exists[/dim]"
         )
-
-
 @cli.command()
 def history() -> None:
     """Display command history."""
@@ -344,8 +320,6 @@ def history() -> None:
     console.print(
         "\n[dim]Command history tracking will be implemented in a future iteration[/dim]"
     )
-
-
 @cli.command()
 @click.argument("plan_id", required=False)
 @click.option(
@@ -393,8 +367,6 @@ def simulate(
         console.print(
             "\n[dim]Tip: Ensure Sophia service is running and the plan exists[/dim]"
         )
-
-
 @cli.command()
 @click.argument("text", required=False)
 @click.option(
@@ -455,8 +427,6 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
         console.print(
             "\n[dim]Tip: Ensure Hermes service is running and accessible[/dim]"
         )
-
-
 @cli.command()
 @click.argument("prompt", required=False)
 @click.option("--provider", help="Override Hermes provider for this request")
@@ -597,8 +567,6 @@ def chat(
             response.error
             or "Hermes did not return a completion response. Check the service logs."
         )
-
-
 @cli.command()
 @click.argument("content", required=False)
 @click.option(
@@ -683,8 +651,6 @@ def diary(
         console.print(
             "\n[dim]Tip: Ensure apollo-api server is running (apollo-api command)[/dim]"
         )
-
-
 def _log_persona_entry(
     *,
     persona_client: PersonaClient,
@@ -717,8 +683,6 @@ def _log_persona_entry(
         console.log(
             f"[yellow]Warning:[/yellow] Failed to log persona entry: {entry_response.error}"
         )
-
-
 def _fetch_persona_entries(
     persona_client: PersonaClient, limit: int
 ) -> List[Dict[str, Any]]:
@@ -737,8 +701,6 @@ def _fetch_persona_entries(
             f"[yellow]Warning:[/yellow] Unable to fetch persona context: {response.error}"
         )
     return []
-
-
 def _format_persona_summary(entries: Sequence[Dict[str, Any]]) -> str:
     lines: List[str] = []
     for entry in entries:
@@ -752,8 +714,6 @@ def _format_persona_summary(entries: Sequence[Dict[str, Any]]) -> str:
         sentiment_note = f" ({sentiment})" if sentiment else ""
         lines.append(f"- {entry_type}{sentiment_note} @ {timestamp}: {snippet}")
     return "\n".join(lines)
-
-
 def _build_persona_metadata(entries: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     metadata: Dict[str, Any] = {"persona_context_used": bool(entries)}
     if not entries:
@@ -781,8 +741,6 @@ def _build_persona_metadata(entries: Sequence[Dict[str, Any]]) -> Dict[str, Any]
     metadata["persona_context_block"] = _format_persona_summary(entries)
     metadata["persona_context_count"] = len(entries)
     return metadata
-
-
 def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
     sanitized: Dict[str, Any] = {}
     for key, value in metadata.items():
@@ -801,15 +759,11 @@ def _sanitize_metadata(metadata: Dict[str, Any]) -> Dict[str, Any]:
         elif isinstance(value, (str, int, float, bool)):
             sanitized[key] = value
     return sanitized
-
-
 def _truncate_summary(text: str, max_length: int = 160) -> str:
     text = text.strip()
     if len(text) <= max_length:
         return text
     return f"{text[:max_length].rstrip()}…"
-
-
 def _build_llm_request(
     *,
     prompt: str,
@@ -838,8 +792,6 @@ def _build_llm_request(
         kwargs["max_tokens"] = overrides["max_tokens"]
 
     return LLMRequest(**kwargs)
-
-
 def _extract_completion_text(response_data: Dict[str, Any]) -> str:
     choices = response_data.get("choices") or []
     for choice in choices:
@@ -849,8 +801,6 @@ def _extract_completion_text(response_data: Dict[str, Any]) -> str:
             return str(content)
     raw_text = response_data.get("text")
     return str(raw_text) if raw_text else ""
-
-
 def _format_usage(usage: Optional[Dict[str, Any]]) -> str:
     if not isinstance(usage, dict):
         return ""
@@ -866,8 +816,6 @@ def _format_usage(usage: Optional[Dict[str, Any]]) -> str:
     if total_tokens is not None:
         parts.append(f"total {total_tokens}")
     return f"Usage: {', '.join(parts)}" if parts else ""
-
-
 def _extract_persona_signal(
     response_data: Dict[str, Any],
 ) -> Tuple[Optional[str], Optional[float]]:
@@ -888,8 +836,6 @@ def _extract_persona_signal(
                     float(confidence) if isinstance(confidence, (int, float)) else None
                 )
     return None, None
-
-
 def _emit_llm_telemetry(
     persona_config: PersonaApiConfig,
     response_data: Dict[str, Any],
@@ -932,18 +878,12 @@ def _emit_llm_telemetry(
         )
     except requests.RequestException as exc:
         console.log(f"[yellow]Warning:[/yellow] Unable to emit Hermes telemetry: {exc}")
-
-
 def _persona_api_base_url(config: PersonaApiConfig) -> str:
     if config.host.startswith(("http://", "https://")):
         return config.host.rstrip("/")
     return f"http://{config.host}:{config.port}"
-
-
 def main() -> None:
     """Entry point for the CLI."""
     cli()
-
-
 if __name__ == "__main__":
     main()

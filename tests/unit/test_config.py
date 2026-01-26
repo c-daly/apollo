@@ -1,7 +1,6 @@
 """Tests for configuration management."""
 
 import os
-from pathlib import Path
 from unittest.mock import patch
 
 from apollo.config.settings import (
@@ -96,8 +95,8 @@ def test_apollo_config_loads() -> None:
     assert isinstance(config.hcg, HCGConfig)
 
 
-def test_apollo_config_load_missing_file() -> None:
-    """Test loading config when no file exists returns valid config."""
-    config = ApolloConfig.load(Path("/nonexistent/config.yaml"))
+def test_apollo_config_load() -> None:
+    """Test ApolloConfig.load() returns valid config from env and logos_config."""
+    config = ApolloConfig.load()
     assert isinstance(config, ApolloConfig)
     assert isinstance(config.sophia, SophiaConfig)
