@@ -244,14 +244,14 @@ function GraphViewer() {
     if (!containerRef.current || !snapshot) return
 
     const nodes = snapshot.entities.map(entity => {
-      const props = entity.properties || {}
+      const { source, target, ...safeProps } = (entity.properties || {}) as Record<string, unknown>
       const label =
-        (props.name as string) ||
-        (props.description as string) ||
+        (safeProps.name as string) ||
+        (safeProps.description as string) ||
         (entity.id as string)
       const status =
-        typeof props.status === 'string'
-          ? props.status.toLowerCase()
+        typeof safeProps.status === 'string'
+          ? safeProps.status.toLowerCase()
           : undefined
       const highlight = highlightMap[entity.id]
       return {
@@ -261,7 +261,9 @@ function GraphViewer() {
           type: entity.type,
           status,
           recent: highlight ? highlight.type : undefined,
-          ...props,
+          provenance_source: source,
+          provenance_target: target,
+          ...safeProps,
         },
       }
     })

@@ -22,7 +22,7 @@ import {
   GetStateModelTypeEnum,
 } from '@logos/sophia-sdk'
 import type { HealthResponse } from '@logos/sophia-sdk'
-import type { Process, PlanHistory } from '../types/hcg'
+import type { Entity, Process, PlanHistory } from '../types/hcg'
 
 export interface SophiaClientConfig {
   baseUrl?: string
@@ -896,12 +896,43 @@ export class SophiaClient {
     }
     if (goalId) params.goal_id = goalId
 
-    return this.performRequest<PlanHistory[]>({
+    const response = await this.performRequest<Entity[]>({
       action: 'fetching plan history',
       method: 'GET',
       path: '/hcg/plans',
       params,
     })
+
+    // Map HCG Entity response to PlanHistory shape, filtering out malformed entries
+    const validStatuses: PlanHistory['status'][] = ['pending', 'executing', 'completed', 'failed']
+
+    return {
+      ...response,
+      data: (response.data ?? []).reduce<PlanHistory[]>((acc, entity) => {
+        const props = entity.properties
+        const goalId = props?.goal_id as string | undefined
+        const createdAt = entity.created_at ?? (props?.created as string | undefined)
+
+        if (!entity.id || !goalId || !createdAt) return acc
+
+        const rawStatus = props?.status as string | undefined
+        acc.push({
+          id: entity.id,
+          goal_id: goalId,
+          status: validStatuses.includes(rawStatus as PlanHistory['status'])
+            ? (rawStatus as PlanHistory['status'])
+            : 'pending',
+          steps: Array.isArray(props?.steps)
+            ? (props.steps as Array<Record<string, unknown>>)
+            : [],
+          created_at: createdAt,
+          started_at: props?.started_at as string | undefined,
+          completed_at: props?.completed_at as string | undefined,
+          result: props?.result as Record<string, unknown> | undefined,
+        })
+        return acc
+      }, []),
+    }
   }
 }
 
