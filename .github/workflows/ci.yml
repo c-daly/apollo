@@ -39,7 +39,7 @@ jobs:
         echo "All services ready!"
       pytest_env_script: |
         export NEO4J_URI=bolt://localhost:27687
-        export NEO4J_HTTP_PORT=27474
+        export NEO4J_HTTP_PORT=7474
         export NEO4J_USER=neo4j
         export NEO4J_PASSWORD=logosdev
         export MILVUS_HOST=localhost
