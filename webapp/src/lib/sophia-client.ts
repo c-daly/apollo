@@ -22,7 +22,7 @@ import {
   GetStateModelTypeEnum,
 } from '@logos/sophia-sdk'
 import type { HealthResponse } from '@logos/sophia-sdk'
-import type { Process, PlanHistory } from '../types/hcg'
+import type { Entity, Process, PlanHistory } from '../types/hcg'
 
 export interface SophiaClientConfig {
   baseUrl?: string
@@ -896,12 +896,27 @@ export class SophiaClient {
     }
     if (goalId) params.goal_id = goalId
 
-    return this.performRequest<PlanHistory[]>({
+    const response = await this.performRequest<Entity[]>({
       action: 'fetching plan history',
       method: 'GET',
       path: '/hcg/plans',
       params,
     })
+
+    // Map HCG Entity response to PlanHistory shape
+    return {
+      ...response,
+      data: response.data?.map(entity => ({
+        id: entity.id,
+        goal_id: (entity.properties?.goal_id as string) ?? '',
+        status: (entity.properties?.status as PlanHistory['status']) ?? 'pending',
+        steps: (entity.properties?.steps as Array<Record<string, unknown>>) ?? [],
+        created_at: entity.created_at ?? (entity.properties?.created as string) ?? '',
+        started_at: entity.properties?.started_at as string | undefined,
+        completed_at: entity.properties?.completed_at as string | undefined,
+        result: entity.properties?.result as Record<string, unknown> | undefined,
+      })) ?? [],
+    }
   }
 }
 
