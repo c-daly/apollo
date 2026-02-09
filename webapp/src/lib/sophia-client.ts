@@ -903,19 +903,35 @@ export class SophiaClient {
       params,
     })
 
-    // Map HCG Entity response to PlanHistory shape
+    // Map HCG Entity response to PlanHistory shape, filtering out malformed entries
+    const validStatuses: PlanHistory['status'][] = ['pending', 'executing', 'completed', 'failed']
+
     return {
       ...response,
-      data: response.data?.map(entity => ({
-        id: entity.id,
-        goal_id: (entity.properties?.goal_id as string) ?? '',
-        status: (entity.properties?.status as PlanHistory['status']) ?? 'pending',
-        steps: (entity.properties?.steps as Array<Record<string, unknown>>) ?? [],
-        created_at: entity.created_at ?? (entity.properties?.created as string) ?? '',
-        started_at: entity.properties?.started_at as string | undefined,
-        completed_at: entity.properties?.completed_at as string | undefined,
-        result: entity.properties?.result as Record<string, unknown> | undefined,
-      })) ?? [],
+      data: (response.data ?? []).reduce<PlanHistory[]>((acc, entity) => {
+        const props = entity.properties
+        const goalId = props?.goal_id as string | undefined
+        const createdAt = entity.created_at ?? (props?.created as string | undefined)
+
+        if (!entity.id || !goalId || !createdAt) return acc
+
+        const rawStatus = props?.status as string | undefined
+        acc.push({
+          id: entity.id,
+          goal_id: goalId,
+          status: validStatuses.includes(rawStatus as PlanHistory['status'])
+            ? (rawStatus as PlanHistory['status'])
+            : 'pending',
+          steps: Array.isArray(props?.steps)
+            ? (props.steps as Array<Record<string, unknown>>)
+            : [],
+          created_at: createdAt,
+          started_at: props?.started_at as string | undefined,
+          completed_at: props?.completed_at as string | undefined,
+          result: props?.result as Record<string, unknown> | undefined,
+        })
+        return acc
+      }, []),
     }
   }
 }

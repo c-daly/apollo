@@ -244,7 +244,6 @@ function GraphViewer() {
     if (!containerRef.current || !snapshot) return
 
     const nodes = snapshot.entities.map(entity => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { source, target, ...safeProps } = (entity.properties || {}) as Record<string, unknown>
       const label =
         (safeProps.name as string) ||
@@ -263,6 +262,7 @@ function GraphViewer() {
           status,
           recent: highlight ? highlight.type : undefined,
           provenance_source: source,
+          provenance_target: target,
           ...safeProps,
         },
       }
