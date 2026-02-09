@@ -9,12 +9,11 @@ This script populates Neo4j with initial state for testing:
 
 import sys
 import time
-import logging
 from neo4j import GraphDatabase
+from logos_test_utils import setup_logging
 from apollo.env import get_neo4j_config
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = setup_logging("apollo-seed", structured=False)
 
 # Load Neo4j configuration - use defaults for host access (localhost with mapped ports)
 _neo4j_config = get_neo4j_config()
