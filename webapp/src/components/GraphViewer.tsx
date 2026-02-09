@@ -244,7 +244,7 @@ function GraphViewer() {
     if (!containerRef.current || !snapshot) return
 
     const nodes = snapshot.entities.map(entity => {
-      const { source, target, ...safeProps } = (entity.properties || {}) as Record<string, unknown>
+      const { source, target: _target, ...safeProps } = (entity.properties || {}) as Record<string, unknown>
       const label =
         (safeProps.name as string) ||
         (safeProps.description as string) ||
