@@ -10,8 +10,8 @@ It is used by start_demo.sh to fail fast if the environment is not configured.
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 import logging
+from typing import Optional
 
 # Try to import the env module for repo root resolution
 try:
@@ -29,9 +29,14 @@ try:
 except ImportError:
     HAS_DOTENV = False
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="[check_env] %(message)s")
-logger = logging.getLogger("check_env")
+# Configure logging - use logos_test_utils if available, fallback to basicConfig
+try:
+    from logos_test_utils import setup_logging
+
+    logger = setup_logging("check_env", structured=False)
+except ImportError:
+    logging.basicConfig(level=logging.INFO, format="[check_env] %(message)s")
+    logger = logging.getLogger("check_env")
 
 # Required variables that must be present
 REQUIRED_VARS = [
