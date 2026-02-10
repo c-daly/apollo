@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 echo "=== Apollo Dev Services ==="
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

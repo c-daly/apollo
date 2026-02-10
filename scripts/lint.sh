@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 echo "=== Apollo Lint ==="
-ruff check .
-black --check .
+poetry run ruff check .
+poetry run black --check .
