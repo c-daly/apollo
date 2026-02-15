@@ -18,8 +18,19 @@ from apollo.client.sophia_client import SophiaClient
 from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.client.persona_client import PersonaClient
 from apollo.config.settings import ApolloConfig, PersonaApiConfig
+from logos_observability import setup_telemetry, get_tracer
+import os
 
 console = Console()
+
+# Initialize OTel for CLI
+otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+setup_telemetry(
+    service_name="apollo-cli",
+    export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true",
+    otlp_endpoint=otlp_endpoint,
+)
+cli_tracer = get_tracer("apollo.cli")
 
 DEFAULT_CHAT_SYSTEM_PROMPT = (
     "You are the Hermes gateway assisting Apollo operators. "
@@ -206,6 +217,9 @@ def goal(ctx: click.Context, description: Optional[str], priority: str) -> None:
         description: Goal description
         priority: Priority level for the goal
     """
+    with cli_tracer.start_as_current_span("apollo.cli.goal") as span:
+        span.set_attribute("goal.description_length", len(description or ""))
+
     if not description:
         console.print("[yellow]Usage:[/yellow] apollo-cli goal '<goal description>'")
         console.print("\n[dim]Example:[/dim] apollo-cli goal 'Navigate to the kitchen'")
@@ -249,6 +263,8 @@ def goal(ctx: click.Context, description: Optional[str], priority: str) -> None:
 @click.pass_context
 def plan(ctx: click.Context, goal: Optional[str]) -> None:
     """Invoke the Sophia planner with a goal description."""
+    with cli_tracer.start_as_current_span("apollo.cli.plan") as span:
+        span.set_attribute("plan.goal", (goal or "")[:200])
 
     if not goal:
         console.print("[yellow]Usage:[/yellow] apollo-cli plan '<goal description>'")
@@ -297,6 +313,11 @@ def execute(ctx: click.Context, plan_id: Optional[str], step: int) -> None:
         plan_id: ID of the plan to execute
         step: Index of the step to execute
     """
+    with cli_tracer.start_as_current_span("apollo.cli.execute") as span:
+        if plan_id:
+            span.set_attribute("execute.plan_id", plan_id)
+        span.set_attribute("execute.step", step)
+
     if not plan_id:
         console.print("[yellow]Usage:[/yellow] apollo-cli execute '<plan_id>'")
         console.print("\n[dim]Example:[/dim] apollo-cli execute 'plan_12345'")
@@ -404,6 +425,9 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
         text: Text to embed
         model: Embedding model to use
     """
+    with cli_tracer.start_as_current_span("apollo.cli.embed") as span:
+        span.set_attribute("embed.text_length", len(text or ""))
+
     if not text:
         console.print("[yellow]Usage:[/yellow] apollo-cli embed '<text>'")
         console.print(
@@ -499,6 +523,8 @@ def chat(
     no_persona: bool,
 ) -> None:
     """Send a conversational query through Hermes' LLM gateway."""
+    with cli_tracer.start_as_current_span("apollo.cli.chat") as span:
+        span.set_attribute("chat.prompt_length", len(prompt or ""))
 
     if not prompt:
         prompt = click.prompt("Enter your prompt")

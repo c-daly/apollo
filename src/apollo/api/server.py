@@ -55,8 +55,11 @@ from apollo.data.models import (
 )
 from logos_hermes_sdk.models.llm_message import LLMMessage
 from logos_hermes_sdk.models.llm_request import LLMRequest
-from logos_observability import setup_telemetry
+from logos_observability import setup_telemetry, get_tracer
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.trace import StatusCode
+
+tracer = get_tracer("apollo.api")
 
 
 # Global HCG client instance
@@ -500,21 +503,25 @@ async def get_entities(
     offset: int = Query(0, ge=0, description="Number of entities to skip"),
 ) -> List[Entity]:
     """Get entities from HCG graph."""
-    if not hcg_client:
-        raise HTTPException(status_code=503, detail="HCG client not available")
+    with tracer.start_as_current_span("apollo.api.hcg.entities") as span:
+        if not hcg_client:
+            raise HTTPException(status_code=503, detail="HCG client not available")
 
-    try:
-        entities = await asyncio.to_thread(
-            hcg_client.get_entities,
-            entity_type=type,
-            limit=limit,
-            offset=offset,
-        )
-        return entities
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch entities: {str(e)}"
-        )
+        try:
+            entities = await asyncio.to_thread(
+                hcg_client.get_entities,
+                entity_type=type,
+                limit=limit,
+                offset=offset,
+            )
+            span.set_attribute("hcg.count", len(entities))
+            return entities
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to fetch entities: {str(e)}"
+            )
 
 
 @app.get("/api/hcg/entities/{entity_id}", response_model=Entity)
@@ -659,29 +666,40 @@ async def get_graph_snapshot(
     limit: int = Query(200, ge=1, le=1000, description="Maximum number of entities"),
 ) -> GraphSnapshot:
     """Get a snapshot of the HCG graph."""
-    if not hcg_client:
-        raise HTTPException(status_code=503, detail="HCG client not available")
+    with tracer.start_as_current_span("apollo.api.hcg.snapshot") as span:
+        span.set_attribute("hcg.limit", limit)
+        if not hcg_client:
+            raise HTTPException(status_code=503, detail="HCG client not available")
 
-    try:
-        types_list = entity_types.split(",") if entity_types else None
-        snapshot = await asyncio.to_thread(
-            hcg_client.get_graph_snapshot,
-            entity_types=types_list,
-            limit=limit,
-        )
-        return snapshot
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to fetch graph snapshot: {str(e)}"
-        )
+        try:
+            types_list = entity_types.split(",") if entity_types else None
+            snapshot = await asyncio.to_thread(
+                hcg_client.get_graph_snapshot,
+                entity_types=types_list,
+                limit=limit,
+            )
+            return snapshot
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to fetch graph snapshot: {str(e)}"
+            )
 
 
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
     """Stream Hermes completions back to the client while logging telemetry/persona."""
+    with tracer.start_as_current_span("apollo.api.chat") as span:
+        prompt_text = request.messages[-1].content if request.messages else ""
+        span.set_attribute("chat.prompt_length", len(prompt_text))
+        if request.provider:
+            span.set_attribute("chat.provider", request.provider)
+        if request.model:
+            span.set_attribute("chat.model", request.model)
 
-    if not hermes_client:
-        raise HTTPException(status_code=503, detail="Hermes client not configured")
+        if not hermes_client:
+            raise HTTPException(status_code=503, detail="Hermes client not configured")
 
     async def event_stream() -> AsyncGenerator[str, None]:
         metadata = _sanitize_metadata(dict(request.metadata or {}))
@@ -1065,34 +1083,38 @@ class CreatePersonaEntryRequest(BaseModel):
 @app.post("/api/persona/entries", response_model=PersonaEntry, status_code=201)
 async def create_persona_entry(request: CreatePersonaEntryRequest) -> PersonaEntry:
     """Create a new persona diary entry."""
-    if not persona_store:
-        raise HTTPException(status_code=503, detail="Persona store not available")
+    with tracer.start_as_current_span("apollo.api.persona.create") as span:
+        span.set_attribute("persona.entry_type", request.entry_type)
+        if not persona_store:
+            raise HTTPException(status_code=503, detail="Persona store not available")
 
-    entry = PersonaEntry(
-        id=f"persona_{uuid4().hex}",
-        timestamp=datetime.now(timezone.utc),
-        entry_type=request.entry_type,
-        content=request.content,
-        summary=request.summary,
-        sentiment=request.sentiment,
-        confidence=request.confidence,
-        related_process_ids=request.related_process_ids,
-        related_goal_ids=request.related_goal_ids,
-        emotion_tags=request.emotion_tags,
-        metadata=request.metadata,
-    )
-
-    try:
-        stored_entry = await asyncio.to_thread(persona_store.create_entry, entry)
-        await diagnostics_manager.record_log(
-            "info", f"Persona entry created ({request.entry_type})"
+        entry = PersonaEntry(
+            id=f"persona_{uuid4().hex}",
+            timestamp=datetime.now(timezone.utc),
+            entry_type=request.entry_type,
+            content=request.content,
+            summary=request.summary,
+            sentiment=request.sentiment,
+            confidence=request.confidence,
+            related_process_ids=request.related_process_ids,
+            related_goal_ids=request.related_goal_ids,
+            emotion_tags=request.emotion_tags,
+            metadata=request.metadata,
         )
-        await diagnostics_manager.broadcast_persona_entry(stored_entry)
-        return stored_entry
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=500, detail=f"Failed to create persona entry: {exc}"
-        ) from exc
+
+        try:
+            stored_entry = await asyncio.to_thread(persona_store.create_entry, entry)
+            await diagnostics_manager.record_log(
+                "info", f"Persona entry created ({request.entry_type})"
+            )
+            await diagnostics_manager.broadcast_persona_entry(stored_entry)
+            return stored_entry
+        except Exception as exc:  # noqa: BLE001
+            span.set_status(StatusCode.ERROR, str(exc))
+            span.record_exception(exc)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to create persona entry: {exc}"
+            ) from exc
 
 
 @app.get("/api/persona/entries", response_model=List[PersonaEntry])
@@ -1175,85 +1197,87 @@ async def upload_media(
         HTTPException: 413 if file exceeds 100 MB limit
         HTTPException: 503 if Hermes service unavailable
     """
-    # Server-side size validation - enforce 100 MB limit
-    MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
+    with tracer.start_as_current_span("apollo.api.media.upload") as span:
+        span.set_attribute("media.content_type", media_type)
+        # Server-side size validation - enforce 100 MB limit
+        MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
 
-    config = ApolloConfig.load()
-    hermes_url = f"http://{config.hermes.host}:{config.hermes.port}"
-    hermes_token = config.hermes.api_key or os.getenv("HERMES_API_KEY")
+        config = ApolloConfig.load()
+        hermes_url = f"http://{config.hermes.host}:{config.hermes.port}"
+        hermes_token = config.hermes.api_key or os.getenv("HERMES_API_KEY")
 
-    # Hermes token is optional for media ingestion
-    headers = {}
-    if hermes_token:
-        headers["Authorization"] = f"Bearer {hermes_token}"
+        # Hermes token is optional for media ingestion
+        headers = {}
+        if hermes_token:
+            headers["Authorization"] = f"Bearer {hermes_token}"
 
-    try:
-        # Validate file size without loading entire file into memory
-        file.file.seek(0, 2)  # Seek to end
-        file_size = file.file.tell()
-        file.file.seek(0)  # Reset to beginning
+        try:
+            # Validate file size without loading entire file into memory
+            file.file.seek(0, 2)  # Seek to end
+            file_size = file.file.tell()
+            file.file.seek(0)  # Reset to beginning
 
-        if file_size > MAX_FILE_SIZE:
+            if file_size > MAX_FILE_SIZE:
+                await diagnostics_manager.record_log(
+                    "warning",
+                    f"Media upload rejected: {file.filename} exceeds 100 MB limit ({file_size / (1024 * 1024):.2f} MB)",
+                )
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds 100 MB limit",
+                )
+
+            # Stream file to Hermes without loading into memory
+            # Hermes will process and forward to Sophia
+            files = {"file": (file.filename, file.file, file.content_type)}
+            data = {"media_type": media_type}
+            if question:
+                data["question"] = question
+
+            # Proxy request to Hermes with streaming using shared HTTP client
+            response = await app.state.http_client.post(
+                f"{hermes_url}/ingest/media",
+                files=files,
+                data=data,
+                headers=headers,
+                timeout=config.hermes.timeout,
+            )
+            response.raise_for_status()
+
             await diagnostics_manager.record_log(
-                "warning",
-                f"Media upload rejected: {file.filename} exceeds 100 MB limit ({file_size / (1024 * 1024):.2f} MB)",
+                "info",
+                f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
+            )
+
+            return response.json()  # type: ignore[no-any-return]
+
+        except httpx.HTTPStatusError as exc:
+            await diagnostics_manager.record_log(
+                "error",
+                f"Media upload failed: HTTP {exc.response.status_code} - {exc.response.text}",
             )
             raise HTTPException(
-                status_code=413,
-                detail=f"File size ({file_size / (1024 * 1024):.2f} MB) exceeds 100 MB limit",
+                status_code=exc.response.status_code,
+                detail=f"Hermes upload failed: {exc.response.text}",
+            ) from exc
+        except httpx.RequestError as exc:
+            await diagnostics_manager.record_log(
+                "error",
+                f"Media upload connection error: {str(exc)}",
             )
-
-        # Stream file to Hermes without loading into memory
-        # Hermes will process and forward to Sophia
-        files = {"file": (file.filename, file.file, file.content_type)}
-        data = {"media_type": media_type}
-        if question:
-            data["question"] = question
-
-        # Proxy request to Hermes with streaming using shared HTTP client
-        response = await app.state.http_client.post(
-            f"{hermes_url}/ingest/media",
-            files=files,
-            data=data,
-            headers=headers,
-            timeout=config.hermes.timeout,
-        )
-        response.raise_for_status()
-
-        await diagnostics_manager.record_log(
-            "info",
-            f"Media uploaded via Hermes: {file.filename} ({media_type}, {file_size / (1024 * 1024):.2f} MB)",
-        )
-
-        return response.json()  # type: ignore[no-any-return]
-
-    except httpx.HTTPStatusError as exc:
-        await diagnostics_manager.record_log(
-            "error",
-            f"Media upload failed: HTTP {exc.response.status_code} - {exc.response.text}",
-        )
-        raise HTTPException(
-            status_code=exc.response.status_code,
-            detail=f"Hermes upload failed: {exc.response.text}",
-        ) from exc
-    except httpx.RequestError as exc:
-        await diagnostics_manager.record_log(
-            "error",
-            f"Media upload connection error: {str(exc)}",
-        )
-        raise HTTPException(
-            status_code=503,
-            detail=f"Cannot connect to Hermes service: {str(exc)}",
-        ) from exc
-    except Exception as exc:  # noqa: BLE001
-        await diagnostics_manager.record_log(
-            "error",
-            f"Media upload failed: {str(exc)}",
-        )
-        raise HTTPException(
-            status_code=500,
-            detail=f"Media upload failed: {str(exc)}",
-        ) from exc
+            raise HTTPException(
+                status_code=503,
+                detail=f"Cannot connect to Hermes service: {str(exc)}",
+            ) from exc
+        except Exception as exc:  # noqa: BLE001
+            await diagnostics_manager.record_log(
+                "error",
+                f"Media upload failed: {str(exc)}",
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Media upload failed: {str(exc)}",
+            ) from exc
 
 
 @app.get("/api/media/samples")
