@@ -32,24 +32,24 @@ Apollo consists of two main components:
 
 - **Node.js 18+** (for web dashboard) - [Download](https://nodejs.org/)
 - **npm 9+** (comes with Node.js)
-- **Python 3.9+** (for CLI tool)
+- **Python 3.11+** (for CLI tool)
 - **Docker** (for connecting to LOGOS infrastructure)
 
 Verify your installation:
 ```bash
 node --version  # Should be v18.x or higher
 npm --version   # Should be 9.x or higher
-python --version  # Should be 3.9 or higher
+python --version  # Should be 3.11 or higher
 ```
 
 ### Install CLI Tool
 
 ```bash
-# Install from source
-pip install -e .
+# Install with Poetry
+poetry install
 
 # Or install with development dependencies
-pip install -e ".[dev]"
+poetry install --with dev
 ```
 
 ### Install Web Dashboard Dependencies
@@ -224,12 +224,12 @@ Apollo CLI now depends exclusively on the generated Python SDKs that live in the
 
 The thin wrappers in `src/apollo/client/*` all subclass the shared `ServiceResponse` base from `src/apollo/sdk/__init__.py`, so every CLI and API surface gets the same `success / data / error` contract and consistent auth + timeout handling. `ApolloConfig` wires host/port/API-key values into the SDK `Configuration` objects at start up.
 
-Running `pip install -e .` (or `pip install -e ".[dev]"`) will automatically pull both SDKs from GitHub. To regenerate them after OpenAPI changes:
+Running `poetry install` will automatically pull both SDKs from GitHub. To regenerate them after OpenAPI changes:
 
 1. `git clone https://github.com/c-daly/logos.git` (or reuse the existing checkout).
 2. Run `./scripts/generate-sdks.sh` from the repo root to rebuild the Python and TypeScript clients from `contracts/*.openapi.yaml`.
 3. Commit the regenerated SDKs inside `logos`, then bump the `git+https://...` commit hashes in `pyproject.toml` here so Poetry picks up the new artifacts.
-4. `poetry lock --no-update && poetry install` (or `pip install -e .`) to refresh your virtualenv.
+4. `poetry lock --no-update && poetry install` to refresh your virtualenv.
 
 ### Running the Web Dashboard
 
@@ -403,9 +403,9 @@ VITE_APP_VERSION=dev
 Apollo uses two dependency management systems:
 
 #### Python Dependencies (CLI)
-- **Manager**: pip with pyproject.toml
-- **Lock file**: Not used (standard Python practice)
-- **Install**: `pip install -e ".[dev]"`
+- **Manager**: Poetry with pyproject.toml
+- **Lock file**: `poetry.lock` (committed to repository)
+- **Install**: `poetry install --with dev`
 - **Configuration**: `pyproject.toml`
 
 #### JavaScript/TypeScript Dependencies (Web Dashboard)
@@ -420,7 +420,20 @@ Apollo has comprehensive test coverage with both unit and integration tests.
 
 #### Backend Tests (Python)
 
-Use the scripts in `scripts/` for consistent setup:
+Standard developer scripts (consistent across all LOGOS repos):
+
+```bash
+# Quick test run (standard entry point)
+./scripts/test.sh
+
+# Lint check (ruff + black)
+./scripts/lint.sh
+
+# Start dev services
+./scripts/dev.sh
+```
+
+For more control, use `run_tests.sh` directly:
 
 ```bash
 # Unit tests (default)
@@ -497,13 +510,6 @@ Current test coverage (backend):
 - **SDK**: 82%
 
 Frontend: 88 tests passing covering all major components.
-
-#### Running Verification E2E Test
-
-```bash
-# Run verification test
-./PHASE1_VERIFY/scripts/m4_test.py
-```
 
 See [E2E Test Documentation](tests/e2e/README.md) for detailed information on end-to-end testing.
 
@@ -616,21 +622,12 @@ apollo/
 ├── docs/              # Documentation
 │   ├── API_CLIENTS.md # API client usage guide
 │   └── ...
-├── examples/          # Example usage and scripts
-└── PHASE1_VERIFY/     # Verification scripts (legacy naming)
-    └── scripts/       # E2E test scripts and documentation
+└── examples/          # Example usage and scripts
 ```
 
 ## Verification & E2E Testing
 
-Apollo includes end-to-end verification scripts in `PHASE1_VERIFY/scripts/`:
-
-- **M4 Test**: Verifies the complete goal→plan→execute→state loop
-- Tests the full workflow: create goal → invoke planner → execute step → fetch state
-- Demonstrates proper architecture (CLI → API → Sophia → Neo4j)
-- Replaces direct database operations with proper API calls
-
-See [PHASE1_VERIFY/scripts/README.md](PHASE1_VERIFY/scripts/README.md) for detailed documentation on verification scripts and commands.
+Apollo includes end-to-end tests in `tests/e2e/` that verify the complete goal→plan→execute→state loop, demonstrating proper architecture (CLI → API → Sophia → Neo4j).
 
 ## Development Status
 

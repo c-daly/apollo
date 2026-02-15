@@ -681,7 +681,7 @@ files = [
 
 [[package]]
 name = "logos-foundry"
-version = "0.3.0"
+version = "0.4.0"
 description = "LOGOS Foundry - Canonical source of truth for Project LOGOS specifications, ontology, and infrastructure"
 optional = false
 python-versions = "^3.11"
@@ -691,11 +691,6 @@ develop = false
 
 [package.dependencies]
 fastapi = "^0.115.0"
-opentelemetry-api = "^1.20.0"
-opentelemetry-exporter-otlp-proto-grpc = "^1.20.0"
-opentelemetry-instrumentation-fastapi = "^0.41b0"
-opentelemetry-instrumentation-httpx = "^0.41b0"
-opentelemetry-sdk = "^1.20.0"
 pydantic = "^2.0.0"
 pydantic-settings = "^2.0.0"
 uvicorn = {version = "^0.32.0", extras = ["standard"]}
@@ -703,8 +698,8 @@ uvicorn = {version = "^0.32.0", extras = ["standard"]}
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "v0.3.0"
-resolved_reference = "66ee63525a5d98930e52f361007ee5913793a8b7"
+reference = "v0.4.0"
+resolved_reference = "916d6424e3659ab8a5542567cf1317d4a2832317"
 
 [[package]]
 name = "logos-hermes-sdk"
@@ -725,8 +720,8 @@ urllib3 = ">=2.1.0,<3.0.0"
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "v0.3.0"
-resolved_reference = "66ee63525a5d98930e52f361007ee5913793a8b7"
+reference = "v0.4.0"
+resolved_reference = "916d6424e3659ab8a5542567cf1317d4a2832317"
 subdirectory = "sdk/python/hermes"
 
 [[package]]
@@ -748,8 +743,8 @@ urllib3 = ">=2.1.0,<3.0.0"
 [package.source]
 type = "git"
 url = "https://github.com/c-daly/logos.git"
-reference = "v0.3.0"
-resolved_reference = "66ee63525a5d98930e52f361007ee5913793a8b7"
+reference = "v0.4.0"
+resolved_reference = "916d6424e3659ab8a5542567cf1317d4a2832317"
 subdirectory = "sdk/python/sophia"
 
 [[package]]
@@ -1041,27 +1036,6 @@ opentelemetry-util-http = "0.41b0"
 [package.extras]
 instruments = ["fastapi (>=0.58,<1.0)"]
 test = ["httpx (>=0.22,<1.0)", "opentelemetry-instrumentation-fastapi[instruments]", "opentelemetry-test-utils (==0.41b0)", "requests (>=2.23,<3.0)"]
-
-[[package]]
-name = "opentelemetry-instrumentation-httpx"
-version = "0.41b0"
-description = "OpenTelemetry HTTPX Instrumentation"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "opentelemetry_instrumentation_httpx-0.41b0-py3-none-any.whl", hash = "sha256:6ada84b7caa95a2889b2d883c089a977546b0102c815658b88f1c2dae713e9b2"},
-    {file = "opentelemetry_instrumentation_httpx-0.41b0.tar.gz", hash = "sha256:96ebc54f3f41bfcd2fc043349c8cee4b11737602512383d437e24c39a1e4adff"},
-]
-
-[package.dependencies]
-opentelemetry-api = ">=1.12,<2.0"
-opentelemetry-instrumentation = "0.41b0"
-opentelemetry-semantic-conventions = "0.41b0"
-
-[package.extras]
-instruments = ["httpx (>=0.18.0)"]
-test = ["opentelemetry-instrumentation-httpx[instruments]", "opentelemetry-sdk (>=1.12,<2.0)", "opentelemetry-test-utils (==0.41b0)"]
 
 [[package]]
 name = "opentelemetry-proto"
@@ -2203,4 +2177,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "6c2eb60132192d76fd4bc7da336da61d9cfd201cb3cbca0abf6e9f841ecb9c60"
+content-hash = "c0feb3d8ed3c8283947b0039bda00f30a698135aedbd289193d1b467c4b15d31"
