@@ -64,10 +64,39 @@ try:
     tracer = get_tracer("apollo.api")
     _OTEL_AVAILABLE = True
 except ImportError:
+    from types import SimpleNamespace
+
+    class _NoopSpan:
+        """No-op span stub when OTel is not installed."""
+
+        def set_attribute(self, *a: Any) -> None:
+            pass
+
+        def set_status(self, *a: Any) -> None:
+            pass
+
+        def record_exception(self, *a: Any) -> None:
+            pass
+
+        def update_name(self, *a: Any) -> None:
+            pass
+
+        def __enter__(self) -> "_NoopSpan":
+            return self
+
+        def __exit__(self, *a: Any) -> None:
+            pass
+
+    class _NoopTracer:
+        """No-op tracer stub when OTel is not installed."""
+
+        def start_as_current_span(self, name: str, **kw: Any) -> _NoopSpan:
+            return _NoopSpan()
+
     setup_telemetry = None  # type: ignore[assignment]
     FastAPIInstrumentor = None  # type: ignore[assignment,misc]
-    StatusCode = None  # type: ignore[assignment,misc]
-    tracer = None  # type: ignore[assignment]
+    StatusCode = SimpleNamespace(ERROR=None, OK=None)  # type: ignore[assignment,misc]
+    tracer = _NoopTracer()  # type: ignore[assignment]
     _OTEL_AVAILABLE = False
 
 
@@ -291,12 +320,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global hcg_client, diagnostics_task, persona_store, hermes_client
 
     # Initialize OpenTelemetry
-    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-    setup_telemetry(
-        service_name=os.getenv("OTEL_SERVICE_NAME", "apollo"),
-        export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true",
-        otlp_endpoint=otlp_endpoint,
-    )
+    if _OTEL_AVAILABLE:
+        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        setup_telemetry(
+            service_name=os.getenv("OTEL_SERVICE_NAME", "apollo"),
+            export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower()
+            == "true",
+            otlp_endpoint=otlp_endpoint,
+        )
 
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
@@ -420,7 +451,8 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-FastAPIInstrumentor.instrument_app(app)
+if _OTEL_AVAILABLE:
+    FastAPIInstrumentor.instrument_app(app)
 
 # Configure CORS
 origins = [
