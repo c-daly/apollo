@@ -52,6 +52,13 @@ check_dependencies() {
 start_infra() {
     log_info "Ensuring Neo4j/Milvus/SHACL containers are running..."
     docker compose -f "${DOCKER_COMPOSE_FILE}" up -d neo4j milvus-standalone shacl-validation
+
+    # Start OTel observability stack
+    local otel_compose="${LOGOS_ROOT}/infra/docker-compose.otel.yml"
+    if [[ -f "${otel_compose}" ]]; then
+        log_info "Starting OTel observability stack..."
+        docker compose -f "${otel_compose}" up -d 2>/dev/null &&             log_success "OTel stack started (Collector, Tempo, Grafana)" ||             log_warn "OTel stack failed to start (traces will not be collected)"
+    fi
 }
 
 start_hermes() {
@@ -166,6 +173,13 @@ stop_all() {
     if lsof -Pi :$api_port -sTCP:LISTEN -t >/dev/null ; then
         log_warn "Port $api_port still in use (orphan process?). Killing..."
         lsof -Pi :$api_port -sTCP:LISTEN -t | xargs kill
+    fi
+
+    # Stop OTel observability stack
+    local otel_compose="${LOGOS_ROOT}/infra/docker-compose.otel.yml"
+    if [[ -f "${otel_compose}" ]]; then
+        log_info "Stopping OTel observability stack..."
+        docker compose -f "${otel_compose}" down 2>/dev/null || true
     fi
 
     log_info "Stopping Docker infra..."
