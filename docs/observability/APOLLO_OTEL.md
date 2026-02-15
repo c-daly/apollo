@@ -7,11 +7,11 @@ traces from the REST API and CLI.
 
 | Endpoint | Span Name | Key Attributes |
 |---|---|---|
-| `GET /api/hcg/entities` | `apollo.api.hcg.entities` | `hcg.entity_type`, `hcg.limit` |
-| `GET /api/hcg/snapshot` | `apollo.api.hcg.snapshot` | `hcg.limit` |
+| `GET /api/hcg/entities` | `apollo.api.hcg.entities` | `hcg.count` |
+| `GET /api/hcg/snapshot` | `apollo.api.hcg.snapshot` | `hcg.entity_type`, `hcg.limit` |
 | `POST /api/chat/stream` | `apollo.api.chat` | `chat.prompt_length`, `chat.provider`, `chat.model` |
 | `POST /api/persona/entries` | `apollo.api.persona.create` | `persona.entry_type` |
-| `POST /api/media/upload` | `apollo.api.media.upload` | `media.filename`, `media.size_bytes` |
+| `POST /api/media/upload` | `apollo.api.media.upload` | `media.content_type`, `media.filename`, `media.size_bytes` |
 
 FastAPI auto-instrumentation (`opentelemetry-instrumentation-fastapi`) also
 creates HTTP-level spans for every request.
@@ -20,11 +20,11 @@ creates HTTP-level spans for every request.
 
 | Command | Span Name | Key Attributes |
 |---|---|---|
-| `apollo-cli goal` | `apollo.cli.goal` | `goal.description` |
+| `apollo-cli goal` | `apollo.cli.goal` | `goal.description_length` |
 | `apollo-cli plan` | `apollo.cli.plan` | `plan.goal` |
 | `apollo-cli execute` | `apollo.cli.execute` | `execute.plan_id`, `execute.step` |
-| `apollo-cli embed` | `apollo.cli.embed` | `embed.text_length`, `embed.provider` |
-| `apollo-cli chat` | `apollo.cli.chat` | `chat.prompt_length`, `chat.provider` |
+| `apollo-cli embed` | `apollo.cli.embed` | `embed.text_length` |
+| `apollo-cli chat` | `apollo.cli.chat` | `chat.prompt_length` |
 
 ## Environment Variables
 

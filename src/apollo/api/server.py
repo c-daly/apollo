@@ -284,11 +284,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize OpenTelemetry
     otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
     setup_telemetry(
-        service_name="apollo",
+        service_name=os.getenv("OTEL_SERVICE_NAME", "apollo"),
         export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true",
         otlp_endpoint=otlp_endpoint,
     )
-    print(f"OpenTelemetry initialized (otlp_endpoint={otlp_endpoint or "none"})")
 
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
@@ -668,6 +667,7 @@ async def get_graph_snapshot(
     """Get a snapshot of the HCG graph."""
     with tracer.start_as_current_span("apollo.api.hcg.snapshot") as span:
         span.set_attribute("hcg.limit", limit)
+        span.set_attribute("hcg.entity_type", entity_types or "all")
         if not hcg_client:
             raise HTTPException(status_code=503, detail="HCG client not available")
 
@@ -701,81 +701,84 @@ async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
         if not hermes_client:
             raise HTTPException(status_code=503, detail="Hermes client not configured")
 
-    async def event_stream() -> AsyncGenerator[str, None]:
-        metadata = _sanitize_metadata(dict(request.metadata or {}))
-        start_time = time.perf_counter()
-        try:
-            llm_request = _build_llm_request(request, metadata)
-            hermes_response = await asyncio.to_thread(
-                hermes_client.llm_generate, llm_request
-            )
-            if not hermes_response.success or not hermes_response.data:
-                message = (
-                    hermes_response.error
-                    or "Hermes did not return a completion response."
+        async def event_stream() -> AsyncGenerator[str, None]:
+            metadata = _sanitize_metadata(dict(request.metadata or {}))
+            start_time = time.perf_counter()
+            try:
+                llm_request = _build_llm_request(request, metadata)
+                hermes_response = await asyncio.to_thread(
+                    hermes_client.llm_generate, llm_request
                 )
-                yield _sse_event({"type": "error", "message": message})
-                return
+                if not hermes_response.success or not hermes_response.data:
+                    message = (
+                        hermes_response.error
+                        or "Hermes did not return a completion response."
+                    )
+                    yield _sse_event({"type": "error", "message": message})
+                    return
 
-            llm_payload = hermes_response.data
-            content = _extract_completion_text(llm_payload)
-            accumulated = ""
-            for chunk in _chunk_text(content):
-                accumulated += chunk
-                yield _sse_event({"type": "chunk", "content": chunk})
+                llm_payload = hermes_response.data
+                content = _extract_completion_text(llm_payload)
+                accumulated = ""
+                for chunk in _chunk_text(content):
+                    accumulated += chunk
+                    yield _sse_event({"type": "chunk", "content": chunk})
 
-            usage = llm_payload.get("usage") or {}
-            latency_ms = (time.perf_counter() - start_time) * 1000.0
-            session_id = metadata.get("session_id")
-            await diagnostics_manager.record_llm_metrics(
-                latency_ms=latency_ms,
-                prompt_tokens=usage.get("prompt_tokens") or usage.get("promptTokens"),
-                completion_tokens=usage.get("completion_tokens")
-                or usage.get("completionTokens"),
-                total_tokens=usage.get("total_tokens") or usage.get("totalTokens"),
-                persona_sentiment=None,
-                persona_confidence=None,
-                session_id=session_id,
-            )
+                usage = llm_payload.get("usage") or {}
+                latency_ms = (time.perf_counter() - start_time) * 1000.0
+                session_id = metadata.get("session_id")
+                await diagnostics_manager.record_llm_metrics(
+                    latency_ms=latency_ms,
+                    prompt_tokens=usage.get("prompt_tokens")
+                    or usage.get("promptTokens"),
+                    completion_tokens=usage.get("completion_tokens")
+                    or usage.get("completionTokens"),
+                    total_tokens=usage.get("total_tokens") or usage.get("totalTokens"),
+                    persona_sentiment=None,
+                    persona_confidence=None,
+                    session_id=session_id,
+                )
 
-            persona_metadata = {
-                **metadata,
-                "hermes_response_id": llm_payload.get("id"),
-                "hermes_provider": llm_payload.get("provider"),
-                "hermes_model": llm_payload.get("model"),
-            }
-            latest_user_message = _latest_user_message(request.messages)
-            await _persist_persona_entry_from_chat(
-                content=accumulated,
-                summary=latest_user_message or accumulated,
-                metadata=persona_metadata,
-            )
-
-            await diagnostics_manager.record_log(
-                "info",
-                (
-                    "Hermes chat completion | "
-                    f"session={session_id or 'n/a'} latency={latency_ms:.1f}ms "
-                    f"tokens={usage.get('total_tokens') or usage.get('totalTokens') or 'n/a'}"
-                ),
-            )
-
-            yield _sse_event(
-                {
-                    "type": "end",
-                    "content": accumulated,
-                    "usage": usage,
+                persona_metadata = {
+                    **metadata,
+                    "hermes_response_id": llm_payload.get("id"),
+                    "hermes_provider": llm_payload.get("provider"),
+                    "hermes_model": llm_payload.get("model"),
                 }
-            )
-        except Exception as exc:  # noqa: BLE001
-            await diagnostics_manager.record_log("error", f"Chat stream failed: {exc}")
-            yield _sse_event({"type": "error", "message": str(exc)})
+                latest_user_message = _latest_user_message(request.messages)
+                await _persist_persona_entry_from_chat(
+                    content=accumulated,
+                    summary=latest_user_message or accumulated,
+                    metadata=persona_metadata,
+                )
 
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache"},
-    )
+                await diagnostics_manager.record_log(
+                    "info",
+                    (
+                        "Hermes chat completion | "
+                        f"session={session_id or 'n/a'} latency={latency_ms:.1f}ms "
+                        f"tokens={usage.get('total_tokens') or usage.get('totalTokens') or 'n/a'}"
+                    ),
+                )
+
+                yield _sse_event(
+                    {
+                        "type": "end",
+                        "content": accumulated,
+                        "usage": usage,
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001
+                await diagnostics_manager.record_log(
+                    "error", f"Chat stream failed: {exc}"
+                )
+                yield _sse_event({"type": "error", "message": str(exc)})
+
+        return StreamingResponse(
+            event_stream(),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache"},
+        )
 
 
 def _build_llm_request(
@@ -1199,6 +1202,7 @@ async def upload_media(
     """
     with tracer.start_as_current_span("apollo.api.media.upload") as span:
         span.set_attribute("media.content_type", media_type)
+        span.set_attribute("media.filename", file.filename or "unknown")
         # Server-side size validation - enforce 100 MB limit
         MAX_FILE_SIZE = 100 * 1024 * 1024  # 100 MB in bytes
 
@@ -1216,6 +1220,7 @@ async def upload_media(
             file.file.seek(0, 2)  # Seek to end
             file_size = file.file.tell()
             file.file.seek(0)  # Reset to beginning
+            span.set_attribute("media.size_bytes", file_size)
 
             if file_size > MAX_FILE_SIZE:
                 await diagnostics_manager.record_log(
