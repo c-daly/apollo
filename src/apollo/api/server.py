@@ -55,11 +55,20 @@ from apollo.data.models import (
 )
 from logos_hermes_sdk.models.llm_message import LLMMessage
 from logos_hermes_sdk.models.llm_request import LLMRequest
-from logos_observability import setup_telemetry, get_tracer
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.trace import StatusCode
 
-tracer = get_tracer("apollo.api")
+try:
+    from logos_observability import setup_telemetry, get_tracer
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+    from opentelemetry.trace import StatusCode
+
+    tracer = get_tracer("apollo.api")
+    _OTEL_AVAILABLE = True
+except ImportError:
+    setup_telemetry = None  # type: ignore[assignment]
+    FastAPIInstrumentor = None  # type: ignore[assignment,misc]
+    StatusCode = None  # type: ignore[assignment,misc]
+    tracer = None  # type: ignore[assignment]
+    _OTEL_AVAILABLE = False
 
 
 # Global HCG client instance
