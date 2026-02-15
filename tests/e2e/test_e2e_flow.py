@@ -15,19 +15,16 @@ import os
 import sys
 import time
 import subprocess
-import logging
 from pathlib import Path
 
 import requests
 from neo4j import GraphDatabase
+from logos_test_utils import setup_logging
 from apollo.client.sophia_client import SophiaClient
 from apollo.config.settings import SophiaConfig
 from apollo.env import get_neo4j_config, get_sophia_config
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = setup_logging("apollo-e2e", structured=False)
 
 # Load test configuration - use defaults for host access (localhost with mapped ports)
 # The .env.test file has Docker-internal values; OS env vars can override if needed

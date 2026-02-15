@@ -23,7 +23,7 @@ jobs:
       docker_compose_file: 'containers/docker-compose.test.yml -f containers/docker-compose.test.apollo.yml'
       docker_compose_wait_script: |
         echo "Waiting for Neo4j..."
-        timeout 60 bash -c 'until docker exec apollo-test-neo4j cypher-shell -u neo4j -p neo4jtest "RETURN 1" 2>/dev/null; do sleep 2; done'
+        timeout 60 bash -c 'until docker exec apollo-test-neo4j cypher-shell -u neo4j -p logosdev "RETURN 1" 2>/dev/null; do sleep 2; done'
         echo "Waiting for etcd..."
         timeout 60 bash -c 'until docker exec apollo-test-milvus-etcd etcdctl endpoint health 2>/dev/null; do sleep 2; done'
         echo "Waiting for MinIO..."
@@ -39,9 +39,9 @@ jobs:
         echo "All services ready!"
       pytest_env_script: |
         export NEO4J_URI=bolt://localhost:27687
-        export NEO4J_HTTP_PORT=27474
+        export NEO4J_HTTP_PORT=7474
         export NEO4J_USER=neo4j
-        export NEO4J_PASSWORD=neo4jtest
+        export NEO4J_PASSWORD=logosdev
         export MILVUS_HOST=localhost
         export MILVUS_PORT=27530
         export MILVUS_METRICS_PORT=27091

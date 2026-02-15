@@ -15,7 +15,7 @@ services:
     environment:
       - NEO4J_HOST=neo4j
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=neo4jtest
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-logosdev}
       - MILVUS_HOST=milvus
       - MILVUS_PORT=19530
       - SOPHIA_API_TOKEN=test-token-for-sophia
@@ -69,7 +69,7 @@ services:
       - APOLLO_PORT=27000
       - NEO4J_URI=bolt://neo4j:7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=neo4jtest
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-logosdev}
       - SOPHIA_HOST=sophia
       - SOPHIA_PORT=8000
       - SOPHIA_API_KEY=test-token-for-sophia
