@@ -55,6 +55,8 @@ from apollo.data.models import (
 )
 from logos_hermes_sdk.models.llm_message import LLMMessage
 from logos_hermes_sdk.models.llm_request import LLMRequest
+from logos_observability import setup_telemetry
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 
 # Global HCG client instance
@@ -276,6 +278,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """FastAPI lifespan context manager."""
     global hcg_client, diagnostics_task, persona_store, hermes_client
 
+    # Initialize OpenTelemetry
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    setup_telemetry(
+        service_name="apollo",
+        export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true",
+        otlp_endpoint=otlp_endpoint,
+    )
+    print(f"OpenTelemetry initialized (otlp_endpoint={otlp_endpoint or "none"})")
+
     # Startup: Initialize HCG client
     config = ApolloConfig.load()
     if config.hcg and config.hcg.neo4j:
@@ -398,6 +409,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+FastAPIInstrumentor.instrument_app(app)
 
 # Configure CORS
 origins = [
