@@ -731,18 +731,18 @@ async def get_graph_snapshot(
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
     """Stream Hermes completions back to the client while logging telemetry/persona."""
-    with tracer.start_as_current_span("apollo.api.chat") as span:
-        prompt_text = request.messages[-1].content if request.messages else ""
-        span.set_attribute("chat.prompt_length", len(prompt_text))
-        if request.provider:
-            span.set_attribute("chat.provider", request.provider)
-        if request.model:
-            span.set_attribute("chat.model", request.model)
+    if not hermes_client:
+        raise HTTPException(status_code=503, detail="Hermes client not configured")
 
-        if not hermes_client:
-            raise HTTPException(status_code=503, detail="Hermes client not configured")
+    async def event_stream() -> AsyncGenerator[str, None]:
+        with tracer.start_as_current_span("apollo.api.chat") as span:
+            prompt_text = request.messages[-1].content if request.messages else ""
+            span.set_attribute("chat.prompt_length", len(prompt_text))
+            if request.provider:
+                span.set_attribute("chat.provider", request.provider)
+            if request.model:
+                span.set_attribute("chat.model", request.model)
 
-        async def event_stream() -> AsyncGenerator[str, None]:
             metadata = _sanitize_metadata(dict(request.metadata or {}))
             start_time = time.perf_counter()
             try:
@@ -810,16 +810,18 @@ async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
                     }
                 )
             except Exception as exc:  # noqa: BLE001
+                span.record_exception(exc)
+                span.set_status(StatusCode.ERROR, str(exc))
                 await diagnostics_manager.record_log(
                     "error", f"Chat stream failed: {exc}"
                 )
                 yield _sse_event({"type": "error", "message": str(exc)})
 
-        return StreamingResponse(
-            event_stream(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache"},
-        )
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 def _build_llm_request(
@@ -1297,32 +1299,40 @@ async def upload_media(
 
             return response.json()  # type: ignore[no-any-return]
 
+        except HTTPException:
+            raise
         except httpx.HTTPStatusError as exc:
+            span.record_exception(exc)
+            span.set_status(StatusCode.ERROR, str(exc))
             await diagnostics_manager.record_log(
                 "error",
                 f"Media upload failed: HTTP {exc.response.status_code} - {exc.response.text}",
             )
             raise HTTPException(
                 status_code=exc.response.status_code,
-                detail=f"Hermes upload failed: {exc.response.text}",
+                detail="Hermes upload failed",
             ) from exc
         except httpx.RequestError as exc:
+            span.record_exception(exc)
+            span.set_status(StatusCode.ERROR, str(exc))
             await diagnostics_manager.record_log(
                 "error",
                 f"Media upload connection error: {str(exc)}",
             )
             raise HTTPException(
                 status_code=503,
-                detail=f"Cannot connect to Hermes service: {str(exc)}",
+                detail="Cannot connect to Hermes service",
             ) from exc
         except Exception as exc:  # noqa: BLE001
+            span.record_exception(exc)
+            span.set_status(StatusCode.ERROR, str(exc))
             await diagnostics_manager.record_log(
                 "error",
                 f"Media upload failed: {str(exc)}",
             )
             raise HTTPException(
                 status_code=500,
-                detail=f"Media upload failed: {str(exc)}",
+                detail="Media upload failed",
             ) from exc
 
 

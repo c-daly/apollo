@@ -18,18 +18,56 @@ from apollo.client.sophia_client import SophiaClient
 from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.client.persona_client import PersonaClient
 from apollo.config.settings import ApolloConfig, PersonaApiConfig
-from logos_observability import setup_telemetry, get_tracer
-import os
+
+try:
+    import os
+
+    from logos_observability import setup_telemetry, get_tracer
+
+    _OTEL_AVAILABLE = True
+except ImportError:
+    import os
+
+    class _NoopSpan:
+        """No-op span stub when OTel is not installed."""
+
+        def set_attribute(self, *a: Any) -> None:
+            pass
+
+        def set_status(self, *a: Any) -> None:
+            pass
+
+        def record_exception(self, *a: Any) -> None:
+            pass
+
+        def __enter__(self) -> "_NoopSpan":
+            return self
+
+        def __exit__(self, *a: Any) -> None:
+            pass
+
+    class _NoopTracer:
+        """No-op tracer stub when OTel is not installed."""
+
+        def start_as_current_span(self, name: str, **kw: Any) -> _NoopSpan:
+            return _NoopSpan()
+
+    def get_tracer(name: str) -> _NoopTracer:  # type: ignore[misc]
+        return _NoopTracer()
+
+    setup_telemetry = None  # type: ignore[assignment]
+    _OTEL_AVAILABLE = False
 
 console = Console()
 
 # Initialize OTel for CLI
-otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-setup_telemetry(
-    service_name=os.getenv("OTEL_SERVICE_NAME", "apollo-cli"),
-    export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true",
-    otlp_endpoint=otlp_endpoint,
-)
+if _OTEL_AVAILABLE:
+    otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+    setup_telemetry(
+        service_name=os.getenv("OTEL_SERVICE_NAME", "apollo-cli"),
+        export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower() == "true",
+        otlp_endpoint=otlp_endpoint,
+    )
 cli_tracer = get_tracer("apollo.cli")
 
 DEFAULT_CHAT_SYSTEM_PROMPT = (
@@ -272,40 +310,45 @@ def plan(ctx: click.Context, goal: Optional[str]) -> None:
     with cli_tracer.start_as_current_span("apollo.cli.plan") as span:
         span.set_attribute("plan.goal", (goal or "")[:200])
 
-    if not goal:
-        console.print("[yellow]Usage:[/yellow] apollo-cli plan '<goal description>'")
-        console.print(
-            "\n[dim]Example:[/dim] apollo-cli plan 'Inspect the kitchen counters'"
-        )
-        console.print(
-            "\n[dim]Tip:[/dim] Include constraints in plain English if needed"
-        )
-        return
-
-    client: SophiaClient = ctx.obj["client"]
-
-    console.print(f"[bold]Invoking planner for goal:[/bold] {goal}\n")
-
-    response = client.invoke_planner(goal)
-
-    if response.success and response.data:
-        console.print("[green]✓[/green] Plan generated successfully\n")
-
-        if isinstance(response.data, dict):
-            # Display formatted response
-            response_text = yaml.dump(
-                response.data, default_flow_style=False, sort_keys=False
+        if not goal:
+            console.print(
+                "[yellow]Usage:[/yellow] apollo-cli plan '<goal description>'"
             )
-            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
-            panel = Panel(syntax, title="Plan Details", border_style="green")
-            console.print(panel)
+            console.print(
+                "\n[dim]Example:[/dim] apollo-cli plan 'Inspect the kitchen counters'"
+            )
+            console.print(
+                "\n[dim]Tip:[/dim] Include constraints in plain English if needed"
+            )
+            return
+
+        client: SophiaClient = ctx.obj["client"]
+
+        console.print(f"[bold]Invoking planner for goal:[/bold] {goal}\n")
+
+        response = client.invoke_planner(goal)
+
+        if response.success and response.data:
+            console.print("[green]\u2713[/green] Plan generated successfully\n")
+
+            if isinstance(response.data, dict):
+                # Display formatted response
+                response_text = yaml.dump(
+                    response.data, default_flow_style=False, sort_keys=False
+                )
+                syntax = Syntax(
+                    response_text, "yaml", theme="monokai", line_numbers=False
+                )
+                panel = Panel(syntax, title="Plan Details", border_style="green")
+                console.print(panel)
+            else:
+                console.print(response.data)
         else:
-            console.print(response.data)
-    else:
-        console.print(f"[red]✗ Error:[/red] {response.error}")
-        console.print(
-            "\n[dim]Tip: Ensure Sophia service is running and the goal exists[/dim]"
-        )
+            console.print(f"[red]\u2717 Error:[/red] {response.error}")
+            console.print(
+                "\n[dim]Tip: Ensure Sophia service is running"
+                " and the goal exists[/dim]"
+            )
 
 
 @cli.command()
@@ -324,38 +367,43 @@ def execute(ctx: click.Context, plan_id: Optional[str], step: int) -> None:
             span.set_attribute("execute.plan_id", plan_id)
         span.set_attribute("execute.step", step)
 
-    if not plan_id:
-        console.print("[yellow]Usage:[/yellow] apollo-cli execute '<plan_id>'")
-        console.print("\n[dim]Example:[/dim] apollo-cli execute 'plan_12345'")
-        console.print("\n[dim]Options:[/dim]")
-        console.print("  --step <index>  Step index to execute (default: 0)")
-        console.print("\n[dim]Tip:[/dim] Generate a plan first with 'apollo-cli plan'")
-        return
-
-    client: SophiaClient = ctx.obj["client"]
-
-    console.print(f"[bold]Executing step {step} of plan:[/bold] {plan_id}\n")
-
-    response = client.execute_step(plan_id, step)
-
-    if response.success and response.data:
-        console.print(f"[green]✓[/green] Step {step} executed successfully\n")
-
-        if isinstance(response.data, dict):
-            # Display formatted response
-            response_text = yaml.dump(
-                response.data, default_flow_style=False, sort_keys=False
+        if not plan_id:
+            console.print("[yellow]Usage:[/yellow] apollo-cli execute '<plan_id>'")
+            console.print("\n[dim]Example:[/dim] apollo-cli execute 'plan_12345'")
+            console.print("\n[dim]Options:[/dim]")
+            console.print("  --step <index>  Step index to execute (default: 0)")
+            console.print(
+                "\n[dim]Tip:[/dim] Generate a plan first with 'apollo-cli plan'"
             )
-            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
-            panel = Panel(syntax, title="Execution Result", border_style="green")
-            console.print(panel)
+            return
+
+        client: SophiaClient = ctx.obj["client"]
+
+        console.print(f"[bold]Executing step {step} of plan:[/bold] {plan_id}\n")
+
+        response = client.execute_step(plan_id, step)
+
+        if response.success and response.data:
+            console.print(f"[green]\u2713[/green] Step {step} executed successfully\n")
+
+            if isinstance(response.data, dict):
+                # Display formatted response
+                response_text = yaml.dump(
+                    response.data, default_flow_style=False, sort_keys=False
+                )
+                syntax = Syntax(
+                    response_text, "yaml", theme="monokai", line_numbers=False
+                )
+                panel = Panel(syntax, title="Execution Result", border_style="green")
+                console.print(panel)
+            else:
+                console.print(response.data)
         else:
-            console.print(response.data)
-    else:
-        console.print(f"[red]✗ Error:[/red] {response.error}")
-        console.print(
-            "\n[dim]Tip: Ensure Sophia service is running and the plan exists[/dim]"
-        )
+            console.print(f"[red]\u2717 Error:[/red] {response.error}")
+            console.print(
+                "\n[dim]Tip: Ensure Sophia service is running"
+                " and the plan exists[/dim]"
+            )
 
 
 @cli.command()
@@ -434,51 +482,55 @@ def embed(ctx: click.Context, text: Optional[str], model: str) -> None:
     with cli_tracer.start_as_current_span("apollo.cli.embed") as span:
         span.set_attribute("embed.text_length", len(text or ""))
 
-    if not text:
-        console.print("[yellow]Usage:[/yellow] apollo-cli embed '<text>'")
-        console.print(
-            "\n[dim]Example:[/dim] apollo-cli embed 'Navigate to the kitchen'"
-        )
-        console.print("\n[dim]Options:[/dim]")
-        console.print("  --model <name>  Embedding model (default: default)")
-        return
-
-    hermes: HermesClient = ctx.obj["hermes"]
-
-    console.print(f"[bold]Generating embedding for:[/bold] {text}\n")
-    console.print(f"[dim]Model: {model}[/dim]\n")
-
-    response = hermes.embed_text(text, model=model)
-
-    if response.success and response.data:
-        console.print("[green]✓[/green] Embedding generated successfully\n")
-
-        if isinstance(response.data, dict):
-            # Display formatted response (truncate embedding vector for readability)
-            display_data = response.data.copy()
-            if "embedding" in display_data and isinstance(
-                display_data["embedding"], list
-            ):
-                embedding = display_data["embedding"]
-                if len(embedding) > 10:
-                    display_data["embedding"] = embedding[:5] + ["..."] + embedding[-5:]
-                    display_data[
-                        "_note"
-                    ] = f"Full embedding has {len(embedding)} dimensions"
-
-            response_text = yaml.dump(
-                display_data, default_flow_style=False, sort_keys=False
+        if not text:
+            console.print("[yellow]Usage:[/yellow] apollo-cli embed '<text>'")
+            console.print(
+                "\n[dim]Example:[/dim] apollo-cli embed" " 'Navigate to the kitchen'"
             )
-            syntax = Syntax(response_text, "yaml", theme="monokai", line_numbers=False)
-            panel = Panel(syntax, title="Embedding Result", border_style="green")
-            console.print(panel)
+            console.print("\n[dim]Options:[/dim]")
+            console.print("  --model <name>  Embedding model (default: default)")
+            return
+
+        hermes: HermesClient = ctx.obj["hermes"]
+
+        console.print(f"[bold]Generating embedding for:[/bold] {text}\n")
+        console.print(f"[dim]Model: {model}[/dim]\n")
+
+        response = hermes.embed_text(text, model=model)
+
+        if response.success and response.data:
+            console.print("[green]\u2713[/green] Embedding generated successfully\n")
+
+            if isinstance(response.data, dict):
+                # Display formatted response (truncate embedding vector)
+                display_data = response.data.copy()
+                if "embedding" in display_data and isinstance(
+                    display_data["embedding"], list
+                ):
+                    embedding = display_data["embedding"]
+                    if len(embedding) > 10:
+                        display_data["embedding"] = (
+                            embedding[:5] + ["..."] + embedding[-5:]
+                        )
+                        display_data[
+                            "_note"
+                        ] = f"Full embedding has {len(embedding)} dimensions"
+
+                response_text = yaml.dump(
+                    display_data, default_flow_style=False, sort_keys=False
+                )
+                syntax = Syntax(
+                    response_text, "yaml", theme="monokai", line_numbers=False
+                )
+                panel = Panel(syntax, title="Embedding Result", border_style="green")
+                console.print(panel)
+            else:
+                console.print(response.data)
         else:
-            console.print(response.data)
-    else:
-        console.print(f"[red]✗ Error:[/red] {response.error}")
-        console.print(
-            "\n[dim]Tip: Ensure Hermes service is running and accessible[/dim]"
-        )
+            console.print(f"[red]\u2717 Error:[/red] {response.error}")
+            console.print(
+                "\n[dim]Tip: Ensure Hermes service is running" " and accessible[/dim]"
+            )
 
 
 @cli.command()
@@ -532,97 +584,100 @@ def chat(
     with cli_tracer.start_as_current_span("apollo.cli.chat") as span:
         span.set_attribute("chat.prompt_length", len(prompt or ""))
 
-    if not prompt:
-        prompt = click.prompt("Enter your prompt")
+        if not prompt:
+            prompt = click.prompt("Enter your prompt")
 
-    config: ApolloConfig = ctx.obj["config"]
-    hermes: HermesClient = ctx.obj["hermes"]
-    persona_client: PersonaClient = ctx.obj["persona"]
+        config: ApolloConfig = ctx.obj["config"]
+        hermes: HermesClient = ctx.obj["hermes"]
+        persona_client: PersonaClient = ctx.obj["persona"]
 
-    overrides = {
-        "provider": provider or config.hermes.provider,
-        "model": model_override or config.hermes.model,
-        "temperature": (
-            temperature if temperature is not None else config.hermes.temperature
-        ),
-        "max_tokens": (
-            max_tokens if max_tokens is not None else config.hermes.max_tokens
-        ),
-    }
+        overrides = {
+            "provider": provider or config.hermes.provider,
+            "model": model_override or config.hermes.model,
+            "temperature": (
+                temperature if temperature is not None else config.hermes.temperature
+            ),
+            "max_tokens": (
+                max_tokens if max_tokens is not None else config.hermes.max_tokens
+            ),
+        }
 
-    persona_entries: List[Dict[str, Any]] = []
-    if not no_persona and persona_limit > 0:
-        persona_entries = _fetch_persona_entries(persona_client, persona_limit)
-        if persona_entries:
+        persona_entries: List[Dict[str, Any]] = []
+        if not no_persona and persona_limit > 0:
+            persona_entries = _fetch_persona_entries(persona_client, persona_limit)
+            if persona_entries:
+                console.print(
+                    Panel(
+                        _format_persona_summary(persona_entries),
+                        title="Persona Context",
+                        border_style="cyan",
+                    )
+                )
+
+        persona_metadata = _build_persona_metadata(persona_entries)
+        system_prompt = (
+            system_prompt_override
+            or config.hermes.system_prompt
+            or DEFAULT_CHAT_SYSTEM_PROMPT
+        )
+        persona_block = persona_metadata.pop("persona_context_block", None)
+        if persona_block:
+            system_prompt = (
+                f"{system_prompt}\n\nPersona diary context:\n{persona_block}"
+            )
+
+        llm_request = _build_llm_request(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            overrides=overrides,
+            metadata=_sanitize_metadata(
+                {
+                    "surface": "apollo-cli.chat",
+                    "cli_version": "0.1.0",
+                    **persona_metadata,
+                }
+            ),
+        )
+
+        console.print("[bold]Contacting Hermes...[/bold]\n")
+        started = time.perf_counter()
+        response: HermesResponse = hermes.llm_generate(llm_request)
+        latency_ms = (time.perf_counter() - started) * 1000.0
+
+        if response.success and isinstance(response.data, dict):
+            completion_text = _extract_completion_text(response.data)
+            usage_note = _format_usage(response.data.get("usage"))
             console.print(
                 Panel(
-                    _format_persona_summary(persona_entries),
-                    title="Persona Context",
-                    border_style="cyan",
+                    completion_text or "[dim]Hermes returned an empty message[/dim]",
+                    title="Hermes Response",
+                    border_style="green",
                 )
             )
+            if usage_note:
+                console.print(f"[dim]{usage_note}[/dim]")
+            console.print(f"[dim]Latency:[/dim] {latency_ms:.1f} ms\n")
 
-    persona_metadata = _build_persona_metadata(persona_entries)
-    system_prompt = (
-        system_prompt_override
-        or config.hermes.system_prompt
-        or DEFAULT_CHAT_SYSTEM_PROMPT
-    )
-    persona_block = persona_metadata.pop("persona_context_block", None)
-    if persona_block:
-        system_prompt = f"{system_prompt}\n\nPersona diary context:\n{persona_block}"
-
-    llm_request = _build_llm_request(
-        prompt=prompt,
-        system_prompt=system_prompt,
-        overrides=overrides,
-        metadata=_sanitize_metadata(
-            {
-                "surface": "apollo-cli.chat",
-                "cli_version": "0.1.0",
-                **persona_metadata,
-            }
-        ),
-    )
-
-    console.print("[bold]Contacting Hermes...[/bold]\n")
-    started = time.perf_counter()
-    response: HermesResponse = hermes.llm_generate(llm_request)
-    latency_ms = (time.perf_counter() - started) * 1000.0
-
-    if response.success and isinstance(response.data, dict):
-        completion_text = _extract_completion_text(response.data)
-        usage_note = _format_usage(response.data.get("usage"))
-        console.print(
-            Panel(
-                completion_text or "[dim]Hermes returned an empty message[/dim]",
-                title="Hermes Response",
-                border_style="green",
+            _emit_llm_telemetry(
+                config.persona_api,
+                response.data,
+                latency_ms,
+                llm_request.metadata or {},
             )
-        )
-        if usage_note:
-            console.print(f"[dim]{usage_note}[/dim]")
-        console.print(f"[dim]Latency:[/dim] {latency_ms:.1f} ms\n")
-
-        _emit_llm_telemetry(
-            config.persona_api,
-            response.data,
-            latency_ms,
-            llm_request.metadata or {},
-        )
-        _log_persona_entry(
-            persona_client=persona_client,
-            prompt=prompt,
-            response_text=completion_text,
-            response_data=response.data,
-            metadata=llm_request.metadata or {},
-        )
-    else:
-        console.print("[red]✗ Hermes request failed[/red]")
-        console.print(
-            response.error
-            or "Hermes did not return a completion response. Check the service logs."
-        )
+            _log_persona_entry(
+                persona_client=persona_client,
+                prompt=prompt,
+                response_text=completion_text,
+                response_data=response.data,
+                metadata=llm_request.metadata or {},
+            )
+        else:
+            console.print("[red]\u2717 Hermes request failed[/red]")
+            console.print(
+                response.error
+                or "Hermes did not return a completion response."
+                " Check the service logs."
+            )
 
 
 @cli.command()
