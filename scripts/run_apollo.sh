@@ -71,7 +71,7 @@ start_sophia() {
         log_info "Starting Sophia on port ${SOPHIA_PORT}..."
 
         cd "${SOPHIA_ROOT}"
-        poetry install --sync >/dev/null 2>&1 || true
+        poetry install --sync -E otel >/dev/null 2>&1 || true
 
         if [ "$DETACH" = true ]; then
             SOPHIA_API_TOKEN="${SOPHIA_API_TOKEN}" nohup poetry run uvicorn sophia.api.app:app --host 0.0.0.0 --port "${SOPHIA_PORT}" >/tmp/sophia.log 2>&1 &
@@ -109,7 +109,7 @@ start_hermes() {
     export SOPHIA_PORT="${SOPHIA_PORT:-47000}"
 
         cd "${HERMES_ROOT}"
-        poetry install --sync >/dev/null 2>&1 || true
+        poetry install --sync -E otel >/dev/null 2>&1 || true
 
         if [ "$DETACH" = true ]; then
             HERMES_PORT="${HERMES_PORT}" HERMES_LLM_API_KEY="${HERMES_LLM_API_KEY}" SOPHIA_API_KEY="${SOPHIA_API_KEY}" SOPHIA_HOST="${SOPHIA_HOST}" SOPHIA_PORT="${SOPHIA_PORT}" nohup poetry run python -m hermes.main >/tmp/hermes.log 2>&1 &
@@ -139,7 +139,7 @@ start_api() {
         log_info "Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
 
         # Ensure poetry env is ready
-        poetry install --sync >/dev/null
+        poetry install --sync -E otel >/dev/null 2>&1 || true
 
         if [ "$DETACH" = true ]; then
             nohup poetry run apollo-api >/tmp/apollo-api.log 2>&1 &
