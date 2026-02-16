@@ -1,4 +1,4 @@
-FROM ghcr.io/c-daly/logos-foundry:0.1.0
+FROM ghcr.io/c-daly/logos-foundry:0.4.0
 
 WORKDIR /app/apollo
 
@@ -8,7 +8,7 @@ COPY pyproject.toml poetry.lock README.md ./
 
 # Install Apollo's specific dependencies (SDKs, etc.) and Apollo itself
 # logos utilities are already available from foundry base
-RUN poetry install --only main --no-interaction --no-ansi
+RUN poetry install --only main -E otel --no-interaction --no-ansi
 
 # Expose port
 EXPOSE 27000

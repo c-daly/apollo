@@ -16,7 +16,7 @@ jobs:
       python_versions: '["3.11"]'
       python_package_manager: 'poetry'
       python_command_prefix: 'poetry run '
-      poetry_install_args: '--with dev'
+      poetry_install_args: '--with dev -E otel'
       python_lint_paths: 'src tests'
       mypy_targets: 'src'
       # Start full test stack: Neo4j, Milvus, and Sophia (via overlay)
@@ -85,7 +85,7 @@ jobs:
           virtualenvs-in-project: true
 
       - name: Install dependencies
-        run: poetry install --with dev
+        run: poetry install --with dev -E otel
 
       - name: Run tests with coverage
         run: poetry run pytest tests/unit -m "not e2e and not integration" --cov=apollo --cov-report=xml --cov-report=term
