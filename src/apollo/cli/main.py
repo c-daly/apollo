@@ -19,14 +19,13 @@ from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.client.persona_client import PersonaClient
 from apollo.config.settings import ApolloConfig, PersonaApiConfig
 
-try:
-    import os
+import os
 
+try:
     from logos_observability import setup_telemetry, get_tracer
 
     _OTEL_AVAILABLE = True
 except ImportError:
-    import os
 
     class _NoopSpan:
         """No-op span stub when OTel is not installed."""
@@ -582,10 +581,10 @@ def chat(
 ) -> None:
     """Send a conversational query through Hermes' LLM gateway."""
     with cli_tracer.start_as_current_span("apollo.cli.chat") as span:
-        span.set_attribute("chat.prompt_length", len(prompt or ""))
-
         if not prompt:
             prompt = click.prompt("Enter your prompt")
+
+        span.set_attribute("chat.prompt_length", len(prompt))
 
         config: ApolloConfig = ctx.obj["config"]
         hermes: HermesClient = ctx.obj["hermes"]

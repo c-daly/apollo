@@ -323,7 +323,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if _OTEL_AVAILABLE:
         otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
         setup_telemetry(
-            service_name=os.getenv("OTEL_SERVICE_NAME", "apollo"),
+            service_name=os.getenv("OTEL_SERVICE_NAME", "apollo-api"),
             export_to_console=os.getenv("OTEL_CONSOLE_EXPORT", "false").lower()
             == "true",
             otlp_endpoint=otlp_endpoint,
@@ -544,6 +544,8 @@ async def get_entities(
 ) -> List[Entity]:
     """Get entities from HCG graph."""
     with tracer.start_as_current_span("apollo.api.hcg.entities") as span:
+        span.set_attribute("hcg.entity_type", type or "all")
+        span.set_attribute("hcg.limit", limit)
         if not hcg_client:
             raise HTTPException(status_code=503, detail="HCG client not available")
 
@@ -1266,6 +1268,7 @@ async def upload_media(
             span.set_attribute("media.size_bytes", file_size)
 
             if file_size > MAX_FILE_SIZE:
+                span.set_status(StatusCode.ERROR, f"File too large: {file_size} bytes")
                 await diagnostics_manager.record_log(
                     "warning",
                     f"Media upload rejected: {file.filename} exceeds 100 MB limit ({file_size / (1024 * 1024):.2f} MB)",
