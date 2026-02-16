@@ -107,7 +107,7 @@ def get_neo4j_config(env: Mapping[str, str] | None = None) -> dict[str, str]:
         f"bolt://localhost:{APOLLO_PORTS.neo4j_bolt}",
     )
     user = get_env_value("NEO4J_USER", env, "neo4j")
-    password = get_env_value("NEO4J_PASSWORD", env, "neo4jtest")
+    password = get_env_value("NEO4J_PASSWORD", env, "logosdev")
     assert uri is not None
     assert user is not None
     assert password is not None

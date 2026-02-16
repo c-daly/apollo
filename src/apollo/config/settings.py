@@ -130,7 +130,7 @@ class Neo4jConfig(BaseModel):
         description="Neo4j username",
     )
     password: str = Field(
-        default_factory=lambda: os.getenv("NEO4J_PASSWORD", "neo4jtest"),
+        default_factory=lambda: os.getenv("NEO4J_PASSWORD", "logosdev"),
         description="Neo4j password",
     )
 
