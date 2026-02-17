@@ -5,7 +5,7 @@
  * with 2D and 3D rendering modes, semantic clustering, and temporal playback.
  */
 
-import { useEffect, useMemo, useCallback, useState, type ChangeEvent } from 'react'
+import { useEffect, useMemo, useCallback, useState, useRef, type ChangeEvent } from 'react'
 import { useHCGSnapshot, type HCGGraphSnapshot } from '../../hooks/useHCG'
 import { HCGExplorerProvider, useHCGExplorer } from './context'
 import { ThreeRenderer } from './renderers/ThreeRenderer'
@@ -18,16 +18,33 @@ import type {
   GraphNode,
   ProcessedGraph,
   GraphSnapshot,
+  CausalEdge,
 } from './types'
 import { NODE_COLORS } from './types'
 import './HCGExplorer.css'
 
-/** Convert HCGGraphSnapshot to our internal GraphSnapshot type */
+/** Check if an entity is an entity-type definition (ontology metadata, not data).
+ *  Sophia's seeder creates type-def nodes with uuid prefix "type_"
+ *  (e.g. id="type_object", name="object", type="physical_entity").
+ *  Note: the entity's `type` field is the PARENT type, not the type it defines. */
+function isEntityTypeDef(e: { id: string }): boolean {
+  return e.id.startsWith('type_') && !e.id.startsWith('type_edge_')
+}
+
+/** Check if an entity is an edge-type definition (e.g. type_edge_located_at).
+ *  These are already represented as edges in the graph and should never
+ *  appear as nodes. */
+function isEdgeTypeDef(e: { id: string }): boolean {
+  return e.id.startsWith('type_edge_')
+}
+
+/** Convert HCGGraphSnapshot to our internal GraphSnapshot type (keeps all entities) */
 function convertSnapshot(hcg: HCGGraphSnapshot): GraphSnapshot {
   return {
     entities: hcg.entities.map(e => ({
       id: e.id,
       type: e.type,
+      name: e.name,
       properties: e.properties,
       labels: e.labels || [],
       created_at: e.created_at,
@@ -64,8 +81,8 @@ const LAYOUT_NAMES: Record<LayoutType, string> = {
   semantic: 'Semantic',
 }
 
-/** Entity types for filtering */
-const ENTITY_TYPES = ['goal', 'plan', 'step', 'state', 'process', 'agent']
+/** Well-known entity types shown first in filter bar */
+const KNOWN_ENTITY_TYPES = ['goal', 'plan', 'step', 'action', 'state', 'process', 'agent', 'object', 'location', 'workspace', 'zone', 'simulation']
 
 export interface HCGExplorerProps {
   /** Initial view mode */
@@ -134,6 +151,9 @@ function HCGExplorerInner({
   // Track if using mock data
   const [usingMockData, setUsingMockData] = useState(false)
 
+  // Toggle to hide ontology type-definition nodes (on by default)
+  const [hideTypeDefs, setHideTypeDefs] = useState(true)
+
   // Fetch graph data
   const {
     data: apiSnapshot,
@@ -147,26 +167,96 @@ function HCGExplorerInner({
     refetchInterval: refreshInterval > 0 ? refreshInterval : false,
   })
 
+  // Track whether we've loaded any data (for mock fallback decision).
+  // Using a ref avoids including currentSnapshot in the dep array,
+  // which would re-trigger the effect every time we add a snapshot.
+  const hasDataRef = useRef(false)
+
   // Add new snapshots to history (with mock fallback)
   useEffect(() => {
     if (apiSnapshot) {
       setUsingMockData(false)
+      hasDataRef.current = true
       addSnapshot(convertSnapshot(apiSnapshot))
-    } else if (error && !currentSnapshot) {
+    } else if (error && !hasDataRef.current) {
       // Fallback to mock data if API fails and we have no data
       console.log('HCG API unavailable, using mock data')
       setUsingMockData(true)
+      hasDataRef.current = true
       addSnapshot(generateMockSnapshot())
     }
-  }, [apiSnapshot, error, currentSnapshot, addSnapshot])
+  }, [apiSnapshot, error, addSnapshot])
 
-  // Process graph data for rendering
+  // Process graph data for rendering.
+  // - Edge-type-defs are always excluded (they're already represented as edges).
+  // - Entity-type-defs are shown/hidden via the hideTypeDefs toggle.
+  // - When entity-type-defs are shown, synthetic INSTANCE_OF edges are added
+  //   because Sophia stores type hierarchy as node properties, not :RELATION edges.
   const processedGraph = useMemo<ProcessedGraph>(() => {
     if (!currentSnapshot) {
       return { nodes: [], edges: [], clusters: [] }
     }
-    return processGraph(currentSnapshot, filterConfig)
-  }, [currentSnapshot, filterConfig])
+    // Always strip edge-type-def nodes — they manifest as edges, not nodes.
+    let entities = currentSnapshot.entities.filter(e => !isEdgeTypeDef(e))
+    let edges = currentSnapshot.edges
+
+    if (hideTypeDefs) {
+      entities = entities.filter(e => !isEntityTypeDef(e))
+      const ids = new Set(entities.map(e => e.id))
+      edges = edges.filter(e => ids.has(e.source_id) && ids.has(e.target_id))
+    } else {
+      // Synthesize INSTANCE_OF edges from data entities to their type-def nodes.
+      const typeDefsByName = new Map<string, string>()
+      for (const e of entities) {
+        if (isEntityTypeDef(e) && e.name) {
+          // Key by name — the type this node defines (e.g., "object"),
+          // NOT by type which is the parent (e.g., "physical_entity").
+          typeDefsByName.set(e.name, e.id)
+        }
+      }
+      const syntheticEdges: CausalEdge[] = []
+      for (const e of entities) {
+        const typeDefId = typeDefsByName.get(e.type)
+        // Connect every entity to the type-def matching its `type` field.
+        // Data entities get INSTANCE_OF to their type (e.g., goal → type_goal).
+        // Type-def entities get IS_A to their parent (e.g., type_goal → type_intention).
+        if (typeDefId && typeDefId !== e.id) {
+          syntheticEdges.push({
+            id: `synthetic-${isEntityTypeDef(e) ? 'is-a' : 'instance-of'}-${e.id}`,
+            source_id: e.id,
+            target_id: typeDefId,
+            edge_type: isEntityTypeDef(e) ? 'IS_A' : 'INSTANCE_OF',
+            properties: {},
+            weight: 0.5,
+            created_at: new Date().toISOString(),
+          })
+        }
+      }
+      edges = [...edges, ...syntheticEdges]
+    }
+
+    const snapshot: GraphSnapshot = {
+      ...currentSnapshot,
+      entities,
+      edges,
+    }
+    return processGraph(snapshot, filterConfig)
+  }, [currentSnapshot, filterConfig, hideTypeDefs])
+
+  // Derive entity types from actual data, ordered by known types first
+  const entityTypes = useMemo<string[]>(() => {
+    if (!currentSnapshot) return KNOWN_ENTITY_TYPES
+    let entities = currentSnapshot.entities.filter(e => !isEdgeTypeDef(e))
+    if (hideTypeDefs) {
+      entities = entities.filter(e => !isEntityTypeDef(e))
+    }
+    const seen = new Set(entities.map(e => e.type))
+    const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
+    for (const t of seen) {
+      if (!ordered.includes(t)) ordered.push(t)
+    }
+    return ordered
+  }, [currentSnapshot, hideTypeDefs])
 
   // Get available layouts based on view mode
   const availableLayouts = viewMode === '3d' ? LAYOUTS_3D : LAYOUTS_2D
@@ -299,7 +389,7 @@ function HCGExplorerInner({
 
         {/* Entity Type Filters */}
         <div className="hcg-toolbar-group">
-          {ENTITY_TYPES.map(type => (
+          {entityTypes.map(type => (
             <button
               key={type}
               className={`hcg-btn ${filterConfig.entityTypes.includes(type) ? 'hcg-btn--active' : ''}`}
@@ -318,6 +408,20 @@ function HCGExplorerInner({
               Clear
             </button>
           )}
+        </div>
+
+        <div className="hcg-toolbar-divider" />
+
+        {/* Type-definition visibility toggle */}
+        <div className="hcg-toolbar-group">
+          <label>Scope</label>
+          <button
+            className={`hcg-btn ${hideTypeDefs ? 'hcg-btn--active' : ''}`}
+            onClick={() => setHideTypeDefs(h => !h)}
+            title="Toggle visibility of ontology type-definition nodes"
+          >
+            {hideTypeDefs ? 'Data only' : 'All nodes'}
+          </button>
         </div>
 
         <div style={{ flex: 1 }} />
@@ -447,7 +551,7 @@ function HCGExplorerInner({
             </div>
             <div className="hcg-panel-content">
               <div className="hcg-legend">
-                {ENTITY_TYPES.map(type => (
+                {entityTypes.map(type => (
                   <div key={type} className="hcg-legend-item">
                     <span
                       className="hcg-legend-color"

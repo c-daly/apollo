@@ -53,8 +53,9 @@ export function processGraph(
 function entityToNode(entity: Entity): GraphNode {
   const props = entity.properties || {}
 
-  // Extract label from common property names
+  // Extract label: prefer top-level name (from API), then properties, then ID
   const label =
+    entity.name ||
     (props.name as string) ||
     (props.title as string) ||
     (props.description as string)?.slice(0, 30) ||
