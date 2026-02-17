@@ -231,7 +231,7 @@ else
     echo "  • Sophia: http://localhost:${SOPHIA_PORT:-47000}"
     echo "  • Hermes: http://localhost:${HERMES_PORT:-17000}"
     echo "  • API: http://localhost:${APOLLO_PORT:-27000}"
-    echo "  • UI: http://localhost:${WEBAPP_PORT:-3000}"
+    echo "  • UI: http://localhost:${WEBAPP_PORT:-3010}"
     echo ""
     echo "Press Ctrl+C to stop all services."
 
