@@ -33,7 +33,15 @@ jobs:
         echo "Waiting for Sophia..."
         timeout 120 bash -c 'until curl -f http://localhost:47000/health 2>/dev/null; do sleep 2; done'
         echo "Waiting for Hermes..."
-        timeout 120 bash -c 'until curl -f http://localhost:17000/health 2>/dev/null; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:17000/health 2>/dev/null; do sleep 2; done' || {
+          echo "=== Hermes failed to start. Container logs: ==="
+          docker logs apollo-test-hermes 2>&1 || true
+          echo "=== Sophia container logs: ==="
+          docker logs apollo-test-sophia 2>&1 || true
+          echo "=== Container status: ==="
+          docker ps -a 2>&1 || true
+          exit 1
+        }
         echo "Waiting for Apollo..."
         timeout 120 bash -c 'until curl -f http://localhost:27000/api/hcg/health 2>/dev/null; do sleep 2; done'
         echo "All services ready!"
