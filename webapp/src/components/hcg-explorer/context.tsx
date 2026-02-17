@@ -153,24 +153,38 @@ const HCGExplorerContext = createContext<HCGExplorerContextValue | null>(null)
 export function HCGExplorerProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(explorerReducer, initialState)
 
+  // Stable action references — dispatch identity never changes, so these
+  // don't need to be recreated when state updates.
+  const actions = useMemo(
+    () => ({
+      setViewMode: (mode: '2d' | '3d') => dispatch({ type: 'SET_VIEW_MODE', mode }),
+      setLayout: (layout: HCGExplorerState['layout']) =>
+        dispatch({ type: 'SET_LAYOUT', layout }),
+      setFilter: (config: Partial<FilterConfig>) =>
+        dispatch({ type: 'SET_FILTER', config }),
+      resetFilters: () => dispatch({ type: 'RESET_FILTERS' }),
+      selectNode: (id: string | null) => dispatch({ type: 'SELECT_NODE', id }),
+      hoverNode: (id: string | null) => dispatch({ type: 'HOVER_NODE', id }),
+      setTimelineIndex: (index: number) =>
+        dispatch({ type: 'SET_TIMELINE_INDEX', index }),
+      togglePlayback: () => dispatch({ type: 'TOGGLE_PLAYBACK' }),
+      setPlaybackSpeed: (speed: number) =>
+        dispatch({ type: 'SET_PLAYBACK_SPEED', speed }),
+      addSnapshot: (snapshot: GraphSnapshot) =>
+        dispatch({ type: 'ADD_SNAPSHOT', snapshot }),
+      setEmbeddingConfig: (config: Partial<EmbeddingConfig>) =>
+        dispatch({ type: 'SET_EMBEDDING_CONFIG', config }),
+    }),
+    [dispatch]
+  )
+
   const value = useMemo<HCGExplorerContextValue>(
     () => ({
       state,
       dispatch,
-      setViewMode: mode => dispatch({ type: 'SET_VIEW_MODE', mode }),
-      setLayout: layout => dispatch({ type: 'SET_LAYOUT', layout }),
-      setFilter: config => dispatch({ type: 'SET_FILTER', config }),
-      resetFilters: () => dispatch({ type: 'RESET_FILTERS' }),
-      selectNode: id => dispatch({ type: 'SELECT_NODE', id }),
-      hoverNode: id => dispatch({ type: 'HOVER_NODE', id }),
-      setTimelineIndex: index => dispatch({ type: 'SET_TIMELINE_INDEX', index }),
-      togglePlayback: () => dispatch({ type: 'TOGGLE_PLAYBACK' }),
-      setPlaybackSpeed: speed => dispatch({ type: 'SET_PLAYBACK_SPEED', speed }),
-      addSnapshot: snapshot => dispatch({ type: 'ADD_SNAPSHOT', snapshot }),
-      setEmbeddingConfig: config =>
-        dispatch({ type: 'SET_EMBEDDING_CONFIG', config }),
+      ...actions,
     }),
-    [state]
+    [state, dispatch, actions]
   )
 
   return (
