@@ -175,6 +175,17 @@ export const NODE_COLORS: Record<string, string> = {
   state: '#f59e0b',
   process: '#ef4444',
   agent: '#38bdf8',
+  action: '#f97316',
+  object: '#fb923c',
+  location: '#2dd4bf',
+  workspace: '#14b8a6',
+  zone: '#5eead4',
+  manipulator: '#818cf8',
+  sensor: '#c084fc',
+  simulation: '#e879f9',
+  imagined_state: '#fbbf24',
+  imagined_process: '#f472b6',
+  capability: '#a3e635',
   default: '#6b7280',
 }
 

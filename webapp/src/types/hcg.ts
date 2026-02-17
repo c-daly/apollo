@@ -6,6 +6,7 @@
 export interface Entity {
   id: string
   type: string
+  name?: string
   properties: Record<string, unknown>
   labels: string[]
   created_at?: string
