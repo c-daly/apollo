@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [{include = "apollo", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 click = "^8.0.0"
 pydantic = "^2.0.0"
 pyyaml = "^6.0"
@@ -53,14 +53,14 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 88
-target-version = ['py311']
+target-version = ['py312']
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
