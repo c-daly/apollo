@@ -7,7 +7,7 @@
 
 import { useRef, useState, useEffect, useCallback, memo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { TrackballControls, Text, Line } from '@react-three/drei'
+import { OrbitControls, Text, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   forceSimulation,
@@ -273,8 +273,14 @@ function SceneContent({
     [positions]
   )
 
+  // Derive focus position from selected node
+  const focusPosition = selectedNodeId ? (positions.get(selectedNodeId) || null) : null
+
   return (
     <>
+      {/* Camera controls with focus-on-select */}
+      <CameraControls focusPosition={focusPosition} />
+
       {/* Background click handler */}
       <mesh
         position={[0, 0, -500]}
@@ -323,7 +329,7 @@ function SceneContent({
 }
 
 /** Camera controls wrapper — persists position/target across re-renders */
-function CameraControls() {
+function CameraControls({ focusPosition }: { focusPosition: [number, number, number] | null }) {
   const { camera, gl } = useThree()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null)
@@ -348,14 +354,27 @@ function CameraControls() {
     }
   }, [camera])
 
+  // Smoothly animate toward selected node
+  const targetVec = useRef(new THREE.Vector3())
+
+  useFrame(() => {
+    if (!controlsRef.current || !focusPosition) return
+    targetVec.current.set(...focusPosition)
+    controlsRef.current.target.lerp(targetVec.current, 0.05)
+    controlsRef.current.update()
+  })
+
   return (
-    <TrackballControls
+    <OrbitControls
       ref={controlsRef}
       args={[camera, gl.domElement]}
-      rotateSpeed={2}
+      enableDamping
+      dampingFactor={0.15}
+      rotateSpeed={1}
       zoomSpeed={1.2}
       panSpeed={0.8}
-      dynamicDampingFactor={0.2}
+      minDistance={20}
+      maxDistance={800}
     />
   )
 }
@@ -378,10 +397,7 @@ export function ThreeRenderer({
       <pointLight position={[100, 100, 100]} intensity={1} />
       <pointLight position={[-100, -100, -100]} intensity={0.5} />
 
-      {/* Controls */}
-      <CameraControls />
-
-      {/* Scene content */}
+      {/* Scene content (includes controls so it can pass focus position) */}
       <SceneContent
         nodes={graph.nodes}
         edges={graph.edges}
