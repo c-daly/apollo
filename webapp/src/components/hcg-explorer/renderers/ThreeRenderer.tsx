@@ -172,29 +172,65 @@ function SceneContent({
   )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const simulationRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const simNodesRef = useRef<Map<string, any>>(new Map())
 
-  // Initialize force simulation
+  // Incrementally update simulation when graph changes
   useEffect(() => {
-    if (nodes.length === 0) return
+    if (nodes.length === 0) {
+      if (simulationRef.current) {
+        simulationRef.current.stop()
+        simulationRef.current = null
+        simNodesRef.current.clear()
+      }
+      setPositions(new Map())
+      return
+    }
 
-    // Create simulation nodes with initial positions
-    const simNodes = nodes.map(node => ({
-      id: node.id,
-      x: node.position?.x ?? (Math.random() - 0.5) * 200,
-      y: node.position?.y ?? (Math.random() - 0.5) * 200,
-      z: node.position?.z ?? (Math.random() - 0.5) * 200,
-    }))
+    const currentNodeMap = simNodesRef.current
+    const newNodeIds = new Set(nodes.map(n => n.id))
 
-    // Create simulation links
-    const nodeIdSet = new Set(nodes.map(n => n.id))
+    // Remove nodes no longer in graph
+    for (const [id] of currentNodeMap) {
+      if (!newNodeIds.has(id)) {
+        currentNodeMap.delete(id)
+      }
+    }
+
+    // Add new nodes near their connected neighbors (or random if no neighbors)
+    for (const node of nodes) {
+      if (!currentNodeMap.has(node.id)) {
+        const neighbor = edges.find(
+          e => (e.source === node.id && currentNodeMap.has(e.target)) ||
+               (e.target === node.id && currentNodeMap.has(e.source))
+        )
+        const neighborId = neighbor
+          ? (neighbor.source === node.id ? neighbor.target : neighbor.source)
+          : null
+        const neighborNode = neighborId ? currentNodeMap.get(neighborId) : null
+
+        currentNodeMap.set(node.id, {
+          id: node.id,
+          x: neighborNode ? neighborNode.x + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 200,
+          y: neighborNode ? neighborNode.y + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 200,
+          z: neighborNode ? neighborNode.z + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 200,
+        })
+      }
+    }
+
+    const simNodes = Array.from(currentNodeMap.values())
+
+    // Build links
+    const nodeIdSet = new Set(simNodes.map(n => n.id))
     const simLinks = edges
       .filter(e => nodeIdSet.has(e.source) && nodeIdSet.has(e.target))
-      .map(e => ({
-        source: e.source,
-        target: e.target,
-      }))
+      .map(e => ({ source: e.source, target: e.target }))
 
-    // Create force simulation
+    // Stop previous simulation
+    if (simulationRef.current) {
+      simulationRef.current.stop()
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linkForce = forceLink(simLinks).id((d: any) => d.id) as any
     if (linkForce.distance) linkForce.distance(50)
@@ -208,7 +244,6 @@ function SceneContent({
 
     simulationRef.current = simulation
 
-    // Update positions on tick
     simulation.on('tick', () => {
       const newPositions = new Map<string, [number, number, number]>()
       for (const node of simNodes) {
@@ -217,8 +252,8 @@ function SceneContent({
       setPositions(newPositions)
     })
 
-    // Run simulation
-    simulation.alpha(1).restart()
+    // Gentle reheat — not full restart
+    simulation.alpha(0.3).restart()
 
     return () => {
       simulation.stop()
