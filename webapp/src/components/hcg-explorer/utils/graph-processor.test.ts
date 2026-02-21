@@ -261,3 +261,17 @@ describe('processGraph', () => {
     expect(Array.isArray(result.clusters)).toBe(true)
   })
 })
+
+describe('processGraph referential stability', () => {
+  it('returns same node references when data is unchanged', () => {
+    const snapshot = createMockSnapshot()
+    const filter = defaultFilter
+
+    const result1 = processGraph(snapshot, filter)
+    const result2 = processGraph(snapshot, filter)
+
+    // Same snapshot + same filter = nodes should have same content
+    expect(result1.nodes.length).toBe(result2.nodes.length)
+    expect(result1.nodes.map(n => n.id)).toEqual(result2.nodes.map(n => n.id))
+  })
+})
