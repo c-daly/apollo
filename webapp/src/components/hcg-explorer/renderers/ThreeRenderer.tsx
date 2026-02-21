@@ -322,12 +322,35 @@ function SceneContent({
   )
 }
 
-/** Camera controls wrapper */
+/** Camera controls wrapper — persists position/target across re-renders */
 function CameraControls() {
   const { camera, gl } = useThree()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null)
+
+  // Store camera state so it survives React re-renders
+  const savedState = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null)
+
+  useEffect(() => {
+    if (controlsRef.current && savedState.current) {
+      camera.position.copy(savedState.current.position)
+      controlsRef.current.target.copy(savedState.current.target)
+      controlsRef.current.update()
+    }
+
+    return () => {
+      if (controlsRef.current) {
+        savedState.current = {
+          position: camera.position.clone(),
+          target: controlsRef.current.target.clone(),
+        }
+      }
+    }
+  }, [camera])
 
   return (
     <TrackballControls
+      ref={controlsRef}
       args={[camera, gl.domElement]}
       rotateSpeed={2}
       zoomSpeed={1.2}
