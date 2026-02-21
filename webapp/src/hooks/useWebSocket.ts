@@ -114,7 +114,10 @@ export function useWebSocket(
     return () => {
       unsubscribe()
       clearInterval(checkConnection)
-      if (batchTimer) clearTimeout(batchTimer)
+      if (batchTimer) {
+        clearTimeout(batchTimer)
+        flushUpdates()
+      }
       if (autoConnect) {
         disconnect()
       }

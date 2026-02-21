@@ -121,7 +121,6 @@ const NodeSphere = memo(function NodeSphere({
 
 /** Edge line component */
 interface EdgeLineProps {
-  edge: GraphEdge
   sourcePos: [number, number, number]
   targetPos: [number, number, number]
 }
@@ -197,24 +196,36 @@ function SceneContent({
       }
     }
 
-    // Add new nodes near their connected neighbors (or random if no neighbors)
+    // Add new nodes near the centroid of connected neighbors (or random if none)
     for (const node of nodes) {
       if (!currentNodeMap.has(node.id)) {
-        const neighbor = edges.find(
-          e => (e.source === node.id && currentNodeMap.has(e.target)) ||
-               (e.target === node.id && currentNodeMap.has(e.source))
-        )
-        const neighborId = neighbor
-          ? (neighbor.source === node.id ? neighbor.target : neighbor.source)
-          : null
-        const neighborNode = neighborId ? currentNodeMap.get(neighborId) : null
+        // Find ALL connected neighbors already in the layout
+        const connectedNeighbors = edges
+          .filter(
+            e => (e.source === node.id && currentNodeMap.has(e.target)) ||
+                 (e.target === node.id && currentNodeMap.has(e.source))
+          )
+          .map(e => currentNodeMap.get(e.source === node.id ? e.target : e.source)!)
 
-        currentNodeMap.set(node.id, {
-          id: node.id,
-          x: neighborNode ? neighborNode.x + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 200,
-          y: neighborNode ? neighborNode.y + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 200,
-          z: neighborNode ? neighborNode.z + (Math.random() - 0.5) * 40 : (Math.random() - 0.5) * 200,
-        })
+        if (connectedNeighbors.length > 0) {
+          // Place near the centroid of all connected neighbors
+          const cx = connectedNeighbors.reduce((s, n) => s + (n.x || 0), 0) / connectedNeighbors.length
+          const cy = connectedNeighbors.reduce((s, n) => s + (n.y || 0), 0) / connectedNeighbors.length
+          const cz = connectedNeighbors.reduce((s, n) => s + (n.z || 0), 0) / connectedNeighbors.length
+          currentNodeMap.set(node.id, {
+            id: node.id,
+            x: cx + (Math.random() - 0.5) * 40,
+            y: cy + (Math.random() - 0.5) * 40,
+            z: cz + (Math.random() - 0.5) * 40,
+          })
+        } else {
+          currentNodeMap.set(node.id, {
+            id: node.id,
+            x: (Math.random() - 0.5) * 200,
+            y: (Math.random() - 0.5) * 200,
+            z: (Math.random() - 0.5) * 200,
+          })
+        }
       }
     }
 
@@ -300,7 +311,6 @@ function SceneContent({
         return (
           <EdgeLine
             key={edge.id}
-            edge={edge}
             sourcePos={sourcePos}
             targetPos={targetPos}
           />
@@ -361,8 +371,10 @@ function CameraControls({ focusPosition }: { focusPosition: [number, number, num
   useFrame(() => {
     if (!controlsRef.current || !focusPosition) return
     targetVec.current.set(...focusPosition)
-    controlsRef.current.target.lerp(targetVec.current, 0.05)
-    controlsRef.current.update()
+    if (controlsRef.current.target.distanceTo(targetVec.current) > 0.1) {
+      controlsRef.current.target.lerp(targetVec.current, 0.05)
+      controlsRef.current.update()
+    }
   })
 
   return (
