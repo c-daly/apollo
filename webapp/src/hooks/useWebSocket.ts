@@ -50,31 +50,46 @@ export function useWebSocket(
   }, [])
 
   useEffect(() => {
+    let batchTimer: ReturnType<typeof setTimeout> | null = null
+    let pendingUpdates: unknown[] = []
+
+    const flushUpdates = () => {
+      if (pendingUpdates.length === 0) return
+      const updates = pendingUpdates
+      pendingUpdates = []
+
+      // Notify update callbacks
+      for (const update of updates) {
+        onUpdate?.(update)
+      }
+
+      // Invalidate only history/states, not the full snapshot
+      queryClient.invalidateQueries({ queryKey: ['hcg', 'history'] })
+      queryClient.invalidateQueries({ queryKey: ['hcg', 'states'] })
+    }
+
     const handleMessage = (message: WebSocketMessage) => {
       setLastMessage(message)
 
       switch (message.type) {
         case 'snapshot':
-          // Full snapshot received
+          // Full snapshot — invalidate everything
           if (message.data && onSnapshot) {
             onSnapshot(message.data as GraphSnapshot)
           }
-          // Invalidate all HCG queries to refresh data
           queryClient.invalidateQueries({ queryKey: ['hcg'] })
           break
 
         case 'update':
-          // Incremental update received
-          if (message.data && onUpdate) {
-            onUpdate(message.data)
+          // Batch incremental updates — collect for 200ms then flush
+          if (message.data) {
+            pendingUpdates.push(message.data)
           }
-          // Invalidate relevant queries
-          queryClient.invalidateQueries({ queryKey: ['hcg', 'history'] })
-          queryClient.invalidateQueries({ queryKey: ['hcg', 'states'] })
+          if (batchTimer) clearTimeout(batchTimer)
+          batchTimer = setTimeout(flushUpdates, 200)
           break
 
         case 'error':
-          // Error message received
           if (message.message && onError) {
             onError(message.message)
           }
@@ -82,19 +97,16 @@ export function useWebSocket(
           break
 
         case 'pong':
-          // Pong response to ping
           break
       }
     }
 
     const unsubscribe = hcgWebSocket.onMessage(handleMessage)
 
-    // Check connection status periodically
     const checkConnection = setInterval(() => {
       setConnected(hcgWebSocket.isConnected())
     }, 1000)
 
-    // Auto-connect if enabled
     if (autoConnect) {
       connect()
     }
@@ -102,19 +114,12 @@ export function useWebSocket(
     return () => {
       unsubscribe()
       clearInterval(checkConnection)
+      if (batchTimer) clearTimeout(batchTimer)
       if (autoConnect) {
         disconnect()
       }
     }
-  }, [
-    autoConnect,
-    connect,
-    disconnect,
-    onSnapshot,
-    onUpdate,
-    onError,
-    queryClient,
-  ])
+  }, [autoConnect, connect, disconnect, onSnapshot, onUpdate, onError, queryClient])
 
   return {
     connected,
