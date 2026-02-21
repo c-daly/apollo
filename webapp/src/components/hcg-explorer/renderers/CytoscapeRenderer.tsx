@@ -419,7 +419,11 @@ export function CytoscapeRenderer({
       if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
       layoutTimerRef.current = setTimeout(() => {
         const layoutConfig = getLayoutConfig(layout)
-        cy.layout({ ...layoutConfig, fit: false }).run()
+        cy.layout(
+          layoutConfig.name === 'null'
+            ? layoutConfig
+            : ({ ...layoutConfig, fit: false } as cytoscape.LayoutOptions)
+        ).run()
       }, 300)
     }
   }, [graph, layout, isInitialized])

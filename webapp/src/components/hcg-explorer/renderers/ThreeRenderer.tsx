@@ -338,17 +338,18 @@ function CameraControls({ focusPosition }: { focusPosition: [number, number, num
   const savedState = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null)
 
   useEffect(() => {
-    if (controlsRef.current && savedState.current) {
+    const controls = controlsRef.current
+    if (controls && savedState.current) {
       camera.position.copy(savedState.current.position)
-      controlsRef.current.target.copy(savedState.current.target)
-      controlsRef.current.update()
+      controls.target.copy(savedState.current.target)
+      controls.update()
     }
 
     return () => {
-      if (controlsRef.current) {
+      if (controls) {
         savedState.current = {
           position: camera.position.clone(),
-          target: controlsRef.current.target.clone(),
+          target: controls.target.clone(),
         }
       }
     }
