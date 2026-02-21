@@ -5,7 +5,7 @@
  * d3-force-3d for force-directed layout simulation.
  */
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, memo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { TrackballControls, Text, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -19,6 +19,15 @@ import {
 import type { RendererProps, GraphNode, GraphEdge } from '../types'
 import { NODE_COLORS, STATUS_COLORS } from '../types'
 
+/* ── Shared geometry & material singletons (allocated once) ── */
+const SHARED_SPHERE_GEO = new THREE.SphereGeometry(5, 16, 16)
+const SHARED_TORUS_GEO = new THREE.TorusGeometry(6, 0.8, 8, 32)
+const SHARED_SELECTION_TORUS_GEO = new THREE.TorusGeometry(8, 0.5, 8, 32)
+const SHARED_MIDPOINT_GEO = new THREE.SphereGeometry(1, 8, 8)
+const SHARED_MIDPOINT_MAT = new THREE.MeshBasicMaterial({ color: '#888888' })
+const SHARED_SELECTION_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff' })
+const TORUS_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0]
+
 /** Node sphere component */
 interface NodeSphereProps {
   node: GraphNode
@@ -29,7 +38,7 @@ interface NodeSphereProps {
   onHover: (id: string | null) => void
 }
 
-function NodeSphere({
+const NodeSphere = memo(function NodeSphere({
   node,
   position,
   isSelected,
@@ -73,8 +82,8 @@ function NodeSphere({
           onHover(null)
           document.body.style.cursor = 'auto'
         }}
+        geometry={SHARED_SPHERE_GEO}
       >
-        <sphereGeometry args={[5, 16, 16]} />
         <meshStandardMaterial
           color={baseColor}
           emissive={isSelected ? baseColor : '#000000'}
@@ -84,18 +93,14 @@ function NodeSphere({
 
       {/* Status ring (if applicable) */}
       {statusColor && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[6, 0.8, 8, 32]} />
+        <mesh rotation={TORUS_ROTATION} geometry={SHARED_TORUS_GEO}>
           <meshStandardMaterial color={statusColor} />
         </mesh>
       )}
 
       {/* Selection ring */}
       {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[8, 0.5, 8, 32]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
+        <mesh rotation={TORUS_ROTATION} geometry={SHARED_SELECTION_TORUS_GEO} material={SHARED_SELECTION_MAT} />
       )}
 
       {/* Label */}
@@ -112,7 +117,7 @@ function NodeSphere({
       </Text>
     </group>
   )
-}
+})
 
 /** Edge line component */
 interface EdgeLineProps {
@@ -121,7 +126,7 @@ interface EdgeLineProps {
   targetPos: [number, number, number]
 }
 
-function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
+const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
   // Calculate midpoint for potential label
   const midpoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
@@ -139,13 +144,10 @@ function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
         transparent
       />
       {/* Arrow indicator near target */}
-      <mesh position={midpoint}>
-        <sphereGeometry args={[1, 8, 8]} />
-        <meshBasicMaterial color="#888888" />
-      </mesh>
+      <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
     </group>
   )
-}
+})
 
 /** Scene content with nodes and edges */
 interface SceneContentProps {
