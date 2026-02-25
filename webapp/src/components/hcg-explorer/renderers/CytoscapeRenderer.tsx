@@ -301,6 +301,9 @@ export function CytoscapeRenderer({
   const cyRef = useRef<Core | null>(null)
   const [isInitialized, setIsInitialized] = useState(false)
 
+  // Track layout debounce timer
+  const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Initialize Cytoscape instance
   useEffect(() => {
     if (!containerRef.current) return
@@ -338,6 +341,7 @@ export function CytoscapeRenderer({
     })
 
     return () => {
+      if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
       cy.destroy()
     }
   }, [onNodeSelect, onNodeHover])
@@ -347,7 +351,6 @@ export function CytoscapeRenderer({
     if (!cyRef.current || !isInitialized) return
     const cy = cyRef.current
 
-    // Convert nodes to Cytoscape format
     const nodes = graph.nodes.map(node => ({
       data: {
         id: node.id,
@@ -357,7 +360,6 @@ export function CytoscapeRenderer({
       },
     }))
 
-    // Convert edges to Cytoscape format
     const edges = graph.edges.map(edge => ({
       data: {
         id: edge.id,
@@ -368,21 +370,24 @@ export function CytoscapeRenderer({
       },
     }))
 
-    // Batch update elements
+    let structuralChange = false
+
     cy.batch(() => {
-      // Remove elements not in new data
       const newNodeIds = new Set(nodes.map(n => n.data.id))
       const newEdgeIds = new Set(edges.map(e => e.data.id))
 
+      // Remove elements not in new data
       cy.nodes().forEach(node => {
         if (!newNodeIds.has(node.id())) {
           node.remove()
+          structuralChange = true
         }
       })
 
       cy.edges().forEach(edge => {
         if (!newEdgeIds.has(edge.id())) {
           edge.remove()
+          structuralChange = true
         }
       })
 
@@ -391,6 +396,7 @@ export function CytoscapeRenderer({
         const existing = cy.getElementById(node.data.id)
         if (existing.length === 0) {
           cy.add({ group: 'nodes', ...node })
+          structuralChange = true
         } else {
           existing.data(node.data)
         }
@@ -401,15 +407,25 @@ export function CytoscapeRenderer({
         const existing = cy.getElementById(edge.data.id)
         if (existing.length === 0) {
           cy.add({ group: 'edges', ...edge })
+          structuralChange = true
         } else {
           existing.data(edge.data)
         }
       }
     })
 
-    // Run layout
-    const layoutConfig = getLayoutConfig(layout)
-    cy.layout(layoutConfig).run()
+    // Only re-layout on structural changes, debounced
+    if (structuralChange) {
+      if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
+      layoutTimerRef.current = setTimeout(() => {
+        const layoutConfig = getLayoutConfig(layout)
+        cy.layout(
+          layoutConfig.name === 'null'
+            ? layoutConfig
+            : ({ ...layoutConfig, fit: false } as cytoscape.LayoutOptions)
+        ).run()
+      }, 300)
+    }
   }, [graph, layout, isInitialized])
 
   // Handle selection changes

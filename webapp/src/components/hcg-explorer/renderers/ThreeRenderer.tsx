@@ -5,9 +5,9 @@
  * d3-force-3d for force-directed layout simulation.
  */
 
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useRef, useState, useEffect, useCallback, memo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { TrackballControls, Text, Line } from '@react-three/drei'
+import { OrbitControls, Text, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import {
   forceSimulation,
@@ -19,6 +19,15 @@ import {
 import type { RendererProps, GraphNode, GraphEdge } from '../types'
 import { NODE_COLORS, STATUS_COLORS } from '../types'
 
+/* ── Shared geometry & material singletons (allocated once) ── */
+const SHARED_SPHERE_GEO = new THREE.SphereGeometry(5, 16, 16)
+const SHARED_TORUS_GEO = new THREE.TorusGeometry(6, 0.8, 8, 32)
+const SHARED_SELECTION_TORUS_GEO = new THREE.TorusGeometry(8, 0.5, 8, 32)
+const SHARED_MIDPOINT_GEO = new THREE.SphereGeometry(1, 8, 8)
+const SHARED_MIDPOINT_MAT = new THREE.MeshBasicMaterial({ color: '#888888' })
+const SHARED_SELECTION_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff' })
+const TORUS_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0]
+
 /** Node sphere component */
 interface NodeSphereProps {
   node: GraphNode
@@ -29,7 +38,7 @@ interface NodeSphereProps {
   onHover: (id: string | null) => void
 }
 
-function NodeSphere({
+const NodeSphere = memo(function NodeSphere({
   node,
   position,
   isSelected,
@@ -73,8 +82,8 @@ function NodeSphere({
           onHover(null)
           document.body.style.cursor = 'auto'
         }}
+        geometry={SHARED_SPHERE_GEO}
       >
-        <sphereGeometry args={[5, 16, 16]} />
         <meshStandardMaterial
           color={baseColor}
           emissive={isSelected ? baseColor : '#000000'}
@@ -84,18 +93,14 @@ function NodeSphere({
 
       {/* Status ring (if applicable) */}
       {statusColor && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[6, 0.8, 8, 32]} />
+        <mesh rotation={TORUS_ROTATION} geometry={SHARED_TORUS_GEO}>
           <meshStandardMaterial color={statusColor} />
         </mesh>
       )}
 
       {/* Selection ring */}
       {isSelected && (
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[8, 0.5, 8, 32]} />
-          <meshBasicMaterial color="#ffffff" />
-        </mesh>
+        <mesh rotation={TORUS_ROTATION} geometry={SHARED_SELECTION_TORUS_GEO} material={SHARED_SELECTION_MAT} />
       )}
 
       {/* Label */}
@@ -112,16 +117,15 @@ function NodeSphere({
       </Text>
     </group>
   )
-}
+})
 
 /** Edge line component */
 interface EdgeLineProps {
-  edge: GraphEdge
   sourcePos: [number, number, number]
   targetPos: [number, number, number]
 }
 
-function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
+const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
   // Calculate midpoint for potential label
   const midpoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
@@ -139,13 +143,10 @@ function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
         transparent
       />
       {/* Arrow indicator near target */}
-      <mesh position={midpoint}>
-        <sphereGeometry args={[1, 8, 8]} />
-        <meshBasicMaterial color="#888888" />
-      </mesh>
+      <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
     </group>
   )
-}
+})
 
 /** Scene content with nodes and edges */
 interface SceneContentProps {
@@ -170,29 +171,77 @@ function SceneContent({
   )
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const simulationRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const simNodesRef = useRef<Map<string, any>>(new Map())
 
-  // Initialize force simulation
+  // Incrementally update simulation when graph changes
   useEffect(() => {
-    if (nodes.length === 0) return
+    if (nodes.length === 0) {
+      if (simulationRef.current) {
+        simulationRef.current.stop()
+        simulationRef.current = null
+        simNodesRef.current.clear()
+      }
+      setPositions(new Map())
+      return
+    }
 
-    // Create simulation nodes with initial positions
-    const simNodes = nodes.map(node => ({
-      id: node.id,
-      x: node.position?.x ?? (Math.random() - 0.5) * 200,
-      y: node.position?.y ?? (Math.random() - 0.5) * 200,
-      z: node.position?.z ?? (Math.random() - 0.5) * 200,
-    }))
+    const currentNodeMap = simNodesRef.current
+    const newNodeIds = new Set(nodes.map(n => n.id))
 
-    // Create simulation links
-    const nodeIdSet = new Set(nodes.map(n => n.id))
+    // Remove nodes no longer in graph
+    for (const [id] of currentNodeMap) {
+      if (!newNodeIds.has(id)) {
+        currentNodeMap.delete(id)
+      }
+    }
+
+    // Add new nodes near the centroid of connected neighbors (or random if none)
+    for (const node of nodes) {
+      if (!currentNodeMap.has(node.id)) {
+        // Find ALL connected neighbors already in the layout
+        const connectedNeighbors = edges
+          .filter(
+            e => (e.source === node.id && currentNodeMap.has(e.target)) ||
+                 (e.target === node.id && currentNodeMap.has(e.source))
+          )
+          .map(e => currentNodeMap.get(e.source === node.id ? e.target : e.source)!)
+
+        if (connectedNeighbors.length > 0) {
+          // Place near the centroid of all connected neighbors
+          const cx = connectedNeighbors.reduce((s, n) => s + (n.x || 0), 0) / connectedNeighbors.length
+          const cy = connectedNeighbors.reduce((s, n) => s + (n.y || 0), 0) / connectedNeighbors.length
+          const cz = connectedNeighbors.reduce((s, n) => s + (n.z || 0), 0) / connectedNeighbors.length
+          currentNodeMap.set(node.id, {
+            id: node.id,
+            x: cx + (Math.random() - 0.5) * 40,
+            y: cy + (Math.random() - 0.5) * 40,
+            z: cz + (Math.random() - 0.5) * 40,
+          })
+        } else {
+          currentNodeMap.set(node.id, {
+            id: node.id,
+            x: (Math.random() - 0.5) * 200,
+            y: (Math.random() - 0.5) * 200,
+            z: (Math.random() - 0.5) * 200,
+          })
+        }
+      }
+    }
+
+    const simNodes = Array.from(currentNodeMap.values())
+
+    // Build links
+    const nodeIdSet = new Set(simNodes.map(n => n.id))
     const simLinks = edges
       .filter(e => nodeIdSet.has(e.source) && nodeIdSet.has(e.target))
-      .map(e => ({
-        source: e.source,
-        target: e.target,
-      }))
+      .map(e => ({ source: e.source, target: e.target }))
 
-    // Create force simulation
+    // Stop previous simulation
+    if (simulationRef.current) {
+      simulationRef.current.stop()
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linkForce = forceLink(simLinks).id((d: any) => d.id) as any
     if (linkForce.distance) linkForce.distance(50)
@@ -206,7 +255,6 @@ function SceneContent({
 
     simulationRef.current = simulation
 
-    // Update positions on tick
     simulation.on('tick', () => {
       const newPositions = new Map<string, [number, number, number]>()
       for (const node of simNodes) {
@@ -215,8 +263,8 @@ function SceneContent({
       setPositions(newPositions)
     })
 
-    // Run simulation
-    simulation.alpha(1).restart()
+    // Gentle reheat — not full restart
+    simulation.alpha(0.3).restart()
 
     return () => {
       simulation.stop()
@@ -236,8 +284,14 @@ function SceneContent({
     [positions]
   )
 
+  // Derive focus position from selected node
+  const focusPosition = selectedNodeId ? (positions.get(selectedNodeId) || null) : null
+
   return (
     <>
+      {/* Camera controls with focus-on-select */}
+      <CameraControls focusPosition={focusPosition} />
+
       {/* Background click handler */}
       <mesh
         position={[0, 0, -500]}
@@ -257,7 +311,6 @@ function SceneContent({
         return (
           <EdgeLine
             key={edge.id}
-            edge={edge}
             sourcePos={sourcePos}
             targetPos={targetPos}
           />
@@ -285,17 +338,56 @@ function SceneContent({
   )
 }
 
-/** Camera controls wrapper */
-function CameraControls() {
+/** Camera controls wrapper — persists position/target across re-renders */
+function CameraControls({ focusPosition }: { focusPosition: [number, number, number] | null }) {
   const { camera, gl } = useThree()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const controlsRef = useRef<any>(null)
+
+  // Store camera state so it survives React re-renders
+  const savedState = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null)
+
+  useEffect(() => {
+    const controls = controlsRef.current
+    if (controls && savedState.current) {
+      camera.position.copy(savedState.current.position)
+      controls.target.copy(savedState.current.target)
+      controls.update()
+    }
+
+    return () => {
+      if (controls) {
+        savedState.current = {
+          position: camera.position.clone(),
+          target: controls.target.clone(),
+        }
+      }
+    }
+  }, [camera])
+
+  // Smoothly animate toward selected node
+  const targetVec = useRef(new THREE.Vector3())
+
+  useFrame(() => {
+    if (!controlsRef.current || !focusPosition) return
+    targetVec.current.set(...focusPosition)
+    if (controlsRef.current.target.distanceTo(targetVec.current) > 0.1) {
+      controlsRef.current.target.lerp(targetVec.current, 0.05)
+      controlsRef.current.update()
+    }
+  })
 
   return (
-    <TrackballControls
+    <OrbitControls
+      ref={controlsRef}
       args={[camera, gl.domElement]}
-      rotateSpeed={2}
+      enableDamping
+      dampingFactor={0.15}
+      rotateSpeed={1}
       zoomSpeed={1.2}
       panSpeed={0.8}
-      dynamicDampingFactor={0.2}
+      minDistance={20}
+      maxDistance={800}
     />
   )
 }
@@ -318,10 +410,7 @@ export function ThreeRenderer({
       <pointLight position={[100, 100, 100]} intensity={1} />
       <pointLight position={[-100, -100, -100]} intensity={0.5} />
 
-      {/* Controls */}
-      <CameraControls />
-
-      {/* Scene content */}
+      {/* Scene content (includes controls so it can pass focus position) */}
       <SceneContent
         nodes={graph.nodes}
         edges={graph.edges}
