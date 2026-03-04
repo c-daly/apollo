@@ -28,7 +28,7 @@ cd webapp && npm install
 # Start mock webapp
 cd webapp && npm run dev:mock
 # Run Python tests
-poetry run pytest tests/unit
+poetry run pytest tests/unit -m "not e2e and not integration"
 ```
 
 ## Checklist (required)
