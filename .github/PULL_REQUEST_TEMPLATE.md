@@ -34,7 +34,7 @@ poetry run pytest tests/unit
 ## Checklist (required)
 - [ ] Linked the related issue (`Closes #<n>` or `See #<n>`)
 - [ ] Tests added or updated
-- [ ] Linting/formatting run (`ruff check --fix .` + `ruff format .`; `npm run lint` for webapp)
+- [ ] Linting/formatting run (`ruff check --fix .` + `black .`; `npm run lint` for webapp)
 - [ ] Type checks (Python `poetry run mypy src/` / TS `npm run type-check`) as applicable
 - [ ] Documentation updated (README, `docs/`, or OpenAPI spec)
 - [ ] CI is passing
