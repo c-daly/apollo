@@ -28,6 +28,8 @@ env/
 ENV/
 .venv
 
+# agent files
+**/.context/
 # IDE
 .vscode/
 .idea/
