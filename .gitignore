@@ -28,6 +28,9 @@ env/
 ENV/
 .venv
 
+.context/
+.serena/
+
 # agent files
 **/.context/
 # IDE
