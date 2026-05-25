@@ -71,7 +71,7 @@ start_sophia() {
         log_info "Starting Sophia on port ${SOPHIA_PORT}..."
 
         cd "${SOPHIA_ROOT}"
-        poetry install --sync -E otel >/dev/null 2>&1 || true
+        poetry install --sync -E otel
 
         if [ "$DETACH" = true ]; then
             SOPHIA_API_TOKEN="${SOPHIA_API_TOKEN}" nohup poetry run uvicorn sophia.api.app:app --host 0.0.0.0 --port "${SOPHIA_PORT}" >/tmp/sophia.log 2>&1 &
@@ -109,7 +109,7 @@ start_hermes() {
     export SOPHIA_PORT="${SOPHIA_PORT:-47000}"
 
         cd "${HERMES_ROOT}"
-        poetry install --sync -E otel >/dev/null 2>&1 || true
+        poetry install --sync -E otel
 
         if [ "$DETACH" = true ]; then
             HERMES_PORT="${HERMES_PORT}" HERMES_LLM_API_KEY="${HERMES_LLM_API_KEY}" SOPHIA_API_KEY="${SOPHIA_API_KEY}" SOPHIA_HOST="${SOPHIA_HOST}" SOPHIA_PORT="${SOPHIA_PORT}" nohup poetry run python -m hermes.main >/tmp/hermes.log 2>&1 &
@@ -139,7 +139,7 @@ start_api() {
         log_info "Starting apollo-api (FastAPI) on port ${APOLLO_PORT}..."
 
         # Ensure poetry env is ready
-        poetry install --sync -E otel >/dev/null 2>&1 || true
+        poetry install --sync -E otel
 
         if [ "$DETACH" = true ]; then
             nohup poetry run apollo-api >/tmp/apollo-api.log 2>&1 &
@@ -168,6 +168,17 @@ start_webapp() {
         log_info "Starting Vite dev server on port ${WEBAPP_PORT}..."
 
         cd "${PROJECT_ROOT}/webapp"
+
+        # Vendored @logos/* SDKs are file: deps whose `prepare` step runs `tsc`.
+        # Build each one first (its own `npm install` pulls typescript + emits
+        # dist/), otherwise the webapp install fails with `tsc: not found`.
+        for sdk in vendor/@logos/*/; do
+            if [[ -f "${sdk}package.json" && ! -d "${sdk}dist" ]]; then
+                log_info "Building vendored SDK: ${sdk}"
+                (cd "${sdk}" && npm install >/dev/null)
+            fi
+        done
+
         if [[ ! -d node_modules ]]; then
             log_info "Installing webapp dependencies..."
             npm install >/dev/null
