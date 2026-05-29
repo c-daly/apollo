@@ -508,42 +508,6 @@ class TestWebSocketBroadcastLock:
             "Collect connection references under lock, then send outside lock."
         )
 
-    @pytest.mark.asyncio
-    async def test_broadcast_copies_connections_under_lock(self):
-        """Verify _broadcast copies connection list under lock before iterating."""
-        from apollo.api.server import DiagnosticsManager
-
-        DiagnosticsManager()
-
-        # We need to verify that the connections dict is copied under lock
-        # This prevents race conditions when connections are added/removed during broadcast
-
-        class TrackingLock:
-            def __init__(self, real_lock):
-                self._real_lock = real_lock
-                self._held = False
-
-            async def __aenter__(self):
-                await self._real_lock.__aenter__()
-                self._held = True
-                return self
-
-            async def __aexit__(self, *args):
-                self._held = False
-                return await self._real_lock.__aexit__(*args)
-
-            def locked(self):
-                return self._held
-
-        # This test ensures the pattern is:
-        # 1. Acquire lock
-        # 2. Copy connections
-        # 3. Release lock
-        # 4. Send to copied connections
-
-        # The implementation should follow this pattern for thread safety
-        assert True  # Placeholder - actual verification in test_broadcast_releases_lock_before_sends
-
 
 # =============================================================================
 # P0.5: Test input validation for Neo4j queries
