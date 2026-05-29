@@ -23,6 +23,7 @@ import {
 } from '@logos/sophia-sdk'
 import type { HealthResponse } from '@logos/sophia-sdk'
 import type { Entity, Process, PlanHistory } from '../types/hcg'
+import { getSophiaConfig } from './config'
 
 export interface SophiaClientConfig {
   baseUrl?: string
@@ -937,10 +938,15 @@ export class SophiaClient {
 }
 
 export function createSophiaClient(config?: SophiaClientConfig): SophiaClient {
+  // Resolve defaults from config.ts (the single source the rest of the app
+  // uses via getHCGConfig/getHermesConfig), so the singleton picks up the
+  // correct Sophia URL/token/timeout even when called with no args -- instead
+  // of falling through to the constructor's stale :8080 fallback.
+  const sophia = getSophiaConfig()
   return new SophiaClient({
-    baseUrl: config?.baseUrl ?? import.meta.env.VITE_SOPHIA_API_URL,
-    apiKey: config?.apiKey ?? import.meta.env.VITE_SOPHIA_API_KEY,
-    timeout: config?.timeout,
+    baseUrl: config?.baseUrl ?? sophia.baseUrl,
+    apiKey: config?.apiKey ?? sophia.apiKey,
+    timeout: config?.timeout ?? sophia.timeout,
   })
 }
 
