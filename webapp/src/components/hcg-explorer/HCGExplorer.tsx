@@ -10,7 +10,7 @@ import { useHCGSnapshot, type HCGGraphSnapshot } from '../../hooks/useHCG'
 import { HCGExplorerProvider, useHCGExplorer } from './context'
 import { ThreeRenderer } from './renderers/ThreeRenderer'
 import { CytoscapeRenderer } from './renderers/CytoscapeRenderer'
-import { processGraph } from './utils/graph-processor'
+import { buildGraph, type GraphMode } from './utils/graph-processor'
 import { generateMockSnapshot } from './utils/mock-data'
 import type {
   LayoutType,
@@ -18,7 +18,6 @@ import type {
   GraphNode,
   ProcessedGraph,
   GraphSnapshot,
-  CausalEdge,
 } from './types'
 import { NODE_COLORS } from './types'
 import './HCGExplorer.css'
