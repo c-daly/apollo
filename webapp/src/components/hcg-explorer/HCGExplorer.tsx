@@ -23,21 +23,6 @@ import type {
 import { NODE_COLORS } from './types'
 import './HCGExplorer.css'
 
-/** Check if an entity is an entity-type definition (ontology metadata, not data).
- *  Sophia's seeder creates type-def nodes with uuid prefix "type_"
- *  (e.g. id="type_object", name="object", type="physical_entity").
- *  Note: the entity's `type` field is the PARENT type, not the type it defines. */
-function isEntityTypeDef(e: { id: string }): boolean {
-  return e.id.startsWith('type_') && !e.id.startsWith('type_edge_')
-}
-
-/** Check if an entity is an edge-type definition (e.g. type_edge_located_at).
- *  These are already represented as edges in the graph and should never
- *  appear as nodes. */
-function isEdgeTypeDef(e: { id: string }): boolean {
-  return e.id.startsWith('type_edge_')
-}
-
 /** Convert HCGGraphSnapshot to our internal GraphSnapshot type (keeps all entities) */
 function convertSnapshot(hcg: HCGGraphSnapshot): GraphSnapshot {
   return {
@@ -151,8 +136,10 @@ function HCGExplorerInner({
   // Track if using mock data
   const [usingMockData, setUsingMockData] = useState(false)
 
-  // Toggle to hide ontology type-definition nodes (on by default)
-  const [hideTypeDefs, setHideTypeDefs] = useState(true)
+  // Which representation to render:
+  // - 'logical' (default): the graph as meant to be seen (reified edges collapsed)
+  // - 'reified': the graph as stored (every edge is a node — "all nodes")
+  const [graphMode, setGraphMode] = useState<GraphMode>('logical')
 
   // Fetch graph data
   const {

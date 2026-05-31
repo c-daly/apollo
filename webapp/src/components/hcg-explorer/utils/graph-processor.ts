@@ -17,6 +17,101 @@ import type {
 import { NODE_COLORS } from '../types'
 
 /**
+ * How to render the HCG.
+ * - 'logical': the graph as it is *meant to be seen* — reified edge-nodes
+ *   collapsed into direct labelled edges between content nodes.
+ * - 'reified': the graph as it is *stored* — every edge is itself a node,
+ *   wired (edge)-[:FROM]->(source) and (edge)-[:TO]->(target). All nodes.
+ */
+export type GraphMode = 'logical' | 'reified'
+
+/** True for an entity-type-definition node (ontology type, e.g. "object").
+ *  Detected by the authoritative `is_type_definition` property; falls back to
+ *  the legacy `type_`-id convention only when the property is absent. Edge-type
+ *  definitions (ancestors include "edge_type") are excluded — they are edges. */
+export function isEntityTypeDef(e: Entity): boolean {
+  const p = e.properties || {}
+  if (p.is_type_definition === true) {
+    const anc = Array.isArray(p.ancestors) ? (p.ancestors as unknown[]) : []
+    return !anc.includes('edge_type')
+  }
+  return e.id.startsWith('type_') && !e.id.startsWith('type_edge_')
+}
+
+/** True for an edge-type-definition node (relation metadata, e.g. "IS_A").
+ *  These describe edges and must never render as content nodes in the logical
+ *  view. Detected by `is_type_definition` + an `edge_type` ancestor; falls back
+ *  to the legacy `type_edge_` id convention. */
+export function isEdgeTypeDef(e: Entity): boolean {
+  const p = e.properties || {}
+  if (p.is_type_definition === true) {
+    const anc = Array.isArray(p.ancestors) ? (p.ancestors as unknown[]) : []
+    return anc.includes('edge_type')
+  }
+  return e.id.startsWith('type_edge_')
+}
+
+/**
+ * Logical view — the graph as meant to be seen.
+ * Drops edge-type-definition metadata nodes (they ARE edges); keeps content
+ * nodes and entity-type-defs (so IS_A has a target). Edges are already
+ * collapsed source->target by Sophia's snapshot, so they pass through directly.
+ */
+export function toLogicalSnapshot(snapshot: GraphSnapshot): GraphSnapshot {
+  return {
+    ...snapshot,
+    entities: snapshot.entities.filter(e => !isEdgeTypeDef(e)),
+    edges: snapshot.edges,
+  }
+}
+
+/**
+ * Reified view — the graph as stored. Every edge becomes a node, re-expanding
+ * the (source)<-[:FROM]-(edge)-[:TO]->(target) shape that the snapshot API
+ * collapsed. All nodes: content, type-defs, and one node per edge instance.
+ */
+export function toReifiedSnapshot(snapshot: GraphSnapshot): GraphSnapshot {
+  const edgeNodes: Entity[] = snapshot.edges.map(e => ({
+    id: e.id,
+    type: 'edge',
+    name: e.edge_type,
+    properties: { ...(e.properties || {}), relation: e.edge_type, reified: true },
+  }))
+  const structural: CausalEdge[] = snapshot.edges.flatMap(e => [
+    {
+      id: `${e.id}__from`,
+      source_id: e.id,
+      target_id: e.source_id,
+      edge_type: 'FROM',
+      properties: {},
+    },
+    {
+      id: `${e.id}__to`,
+      source_id: e.id,
+      target_id: e.target_id,
+      edge_type: 'TO',
+      properties: {},
+    },
+  ])
+  return {
+    ...snapshot,
+    entities: [...snapshot.entities, ...edgeNodes],
+    edges: structural,
+  }
+}
+
+/** Apply the chosen view transform, then the standard render pipeline. */
+export function buildGraph(
+  snapshot: GraphSnapshot,
+  mode: GraphMode,
+  filterConfig: FilterConfig
+): ProcessedGraph {
+  const transformed =
+    mode === 'reified' ? toReifiedSnapshot(snapshot) : toLogicalSnapshot(snapshot)
+  return processGraph(transformed, filterConfig)
+}
+
+/**
  * Process a graph snapshot into renderable format
  */
 export function processGraph(
