@@ -280,19 +280,24 @@ describe('faithful views (logical vs reified)', () => {
   // A content node, an entity-type-def (UUID id, is_type_definition), an
   // edge-type-def metadata node (ancestors include edge_type), and one real
   // IS_A edge already collapsed by the snapshot API.
+  const T = '2024-01-01T00:00:00Z'
   const entities: Entity[] = [
-    { id: 'n1', type: 'entity', name: 'dog', properties: {} },
+    { id: 'n1', type: 'entity', name: 'dog', properties: {}, labels: [], created_at: T },
     {
       id: 'u-typedef',
       type: 'animal',
       name: 'mammal',
       properties: { is_type_definition: true, ancestors: ['root'] },
+      labels: [],
+      created_at: T,
     },
     {
       id: 'u-edgedef',
       type: 'IS_A',
       name: 'IS_A',
       properties: { is_type_definition: true, ancestors: ['edge_type'] },
+      labels: [],
+      created_at: T,
     },
   ]
   const edges: CausalEdge[] = [
@@ -303,9 +308,10 @@ describe('faithful views (logical vs reified)', () => {
       edge_type: 'IS_A',
       properties: {},
       weight: 1,
+      created_at: T,
     },
   ]
-  const snapshot: GraphSnapshot = { entities, edges }
+  const snapshot: GraphSnapshot = { entities, edges, timestamp: T, metadata: {} }
 
   it('detects type-defs by property, not id prefix', () => {
     expect(isEntityTypeDef(entities[1])).toBe(true)

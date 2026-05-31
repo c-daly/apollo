@@ -76,6 +76,8 @@ export function toReifiedSnapshot(snapshot: GraphSnapshot): GraphSnapshot {
     type: 'edge',
     name: e.edge_type,
     properties: { ...(e.properties || {}), relation: e.edge_type, reified: true },
+    labels: ['edge'],
+    created_at: e.created_at,
   }))
   const structural: CausalEdge[] = snapshot.edges.flatMap(e => [
     {
@@ -84,6 +86,8 @@ export function toReifiedSnapshot(snapshot: GraphSnapshot): GraphSnapshot {
       target_id: e.source_id,
       edge_type: 'FROM',
       properties: {},
+      weight: e.weight,
+      created_at: e.created_at,
     },
     {
       id: `${e.id}__to`,
@@ -91,6 +95,8 @@ export function toReifiedSnapshot(snapshot: GraphSnapshot): GraphSnapshot {
       target_id: e.target_id,
       edge_type: 'TO',
       properties: {},
+      weight: e.weight,
+      created_at: e.created_at,
     },
   ])
   return {
