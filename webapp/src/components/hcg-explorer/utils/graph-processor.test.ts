@@ -4,7 +4,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { processGraph, buildGraph, isEntityTypeDef, isEdgeTypeDef } from './graph-processor'
-import type { GraphSnapshot, FilterConfig } from '../types'
+import type { GraphSnapshot, FilterConfig, Entity, CausalEdge } from '../types'
 
 const createMockSnapshot = (): GraphSnapshot => ({
   entities: [
@@ -280,8 +280,8 @@ describe('faithful views (logical vs reified)', () => {
   // A content node, an entity-type-def (UUID id, is_type_definition), an
   // edge-type-def metadata node (ancestors include edge_type), and one real
   // IS_A edge already collapsed by the snapshot API.
-  const entities = [
-    { id: 'n1', type: 'entity', name: 'dog' },
+  const entities: Entity[] = [
+    { id: 'n1', type: 'entity', name: 'dog', properties: {} },
     {
       id: 'u-typedef',
       type: 'animal',
@@ -295,10 +295,17 @@ describe('faithful views (logical vs reified)', () => {
       properties: { is_type_definition: true, ancestors: ['edge_type'] },
     },
   ]
-  const edges = [
-    { id: 'e1', source_id: 'n1', target_id: 'u-typedef', edge_type: 'IS_A' },
+  const edges: CausalEdge[] = [
+    {
+      id: 'e1',
+      source_id: 'n1',
+      target_id: 'u-typedef',
+      edge_type: 'IS_A',
+      properties: {},
+      weight: 1,
+    },
   ]
-  const snapshot = makeSnapshot(entities, edges)
+  const snapshot: GraphSnapshot = { entities, edges }
 
   it('detects type-defs by property, not id prefix', () => {
     expect(isEntityTypeDef(entities[1])).toBe(true)
@@ -309,7 +316,7 @@ describe('faithful views (logical vs reified)', () => {
   })
 
   it('logical view: IS_A is an edge, edge-type-def node is gone', () => {
-    const g = buildGraph(snapshot, 'logical', baseFilter)
+    const g = buildGraph(snapshot, 'logical', defaultFilter)
     // edge-type-def metadata node ('IS_A') must NOT be a node
     expect(g.nodes.find(n => n.id === 'u-edgedef')).toBeUndefined()
     // content node + entity-type-def remain
@@ -320,7 +327,7 @@ describe('faithful views (logical vs reified)', () => {
   })
 
   it('reified view: every edge becomes a node with FROM/TO links', () => {
-    const g = buildGraph(snapshot, 'reified', baseFilter)
+    const g = buildGraph(snapshot, 'reified', defaultFilter)
     // the e1 edge is now a node
     const edgeNode = g.nodes.find(n => n.id === 'e1')
     expect(edgeNode).toBeDefined()
