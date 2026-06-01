@@ -361,14 +361,23 @@ function HCGExplorerInner({
           <label>Representation</label>
           <button
             className={`hcg-btn ${graphMode === 'logical' ? 'hcg-btn--active' : ''}`}
-            onClick={() => setGraphMode('logical')}
+            onClick={() => {
+              setGraphMode('logical')
+              // Switching representation clears the entity-type filter so a
+              // filter set in one view can't silently hide nodes in the other
+              // (notably reified edge-nodes, type 'edge').
+              setFilter({ entityTypes: [] })
+            }}
             title="The graph as meant to be seen: relations rendered as edges"
           >
             Data
           </button>
           <button
             className={`hcg-btn ${graphMode === 'reified' ? 'hcg-btn--active' : ''}`}
-            onClick={() => setGraphMode('reified')}
+            onClick={() => {
+              setGraphMode('reified')
+              setFilter({ entityTypes: [] })
+            }}
             title="The graph as stored: every edge is itself a node"
           >
             All nodes

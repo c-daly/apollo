@@ -148,7 +148,7 @@ const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLin
       {/* Relation label (the edge_type) */}
       {label ? (
         <Text
-          position={midpoint}
+          position={[midpoint[0], midpoint[1] + 3, midpoint[2]]}
           fontSize={2.2}
           color="#cbd5e1"
           anchorX="center"
