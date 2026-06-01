@@ -19,7 +19,7 @@ import type {
   ProcessedGraph,
   GraphSnapshot,
 } from './types'
-import { NODE_COLORS } from './types'
+import { NODE_COLORS, DEFAULT_FILTER_CONFIG } from './types'
 import './HCGExplorer.css'
 
 /** Convert HCGGraphSnapshot to our internal GraphSnapshot type (keeps all entities) */
@@ -185,18 +185,21 @@ function HCGExplorerInner({
   // Derive entity types from the rendered graph, ordered by known types first.
   const entityTypes = useMemo<string[]>(() => {
     if (!currentSnapshot) return KNOWN_ENTITY_TYPES
+    // Reflect ALL types present in the current view, independent of the active
+    // search / status / property filters — otherwise the type buttons vanish as
+    // you type a search. Using DEFAULT_FILTER_CONFIG also drops the filterConfig
+    // dependency, so this no longer rebuilds the whole graph on every keystroke.
     const seen = new Set(
-      buildGraph(currentSnapshot, graphMode, {
-        ...filterConfig,
-        entityTypes: [],
-      }).nodes.map(n => n.type)
+      buildGraph(currentSnapshot, graphMode, DEFAULT_FILTER_CONFIG).nodes.map(
+        n => n.type
+      )
     )
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
       if (!ordered.includes(t)) ordered.push(t)
     }
     return ordered
-  }, [currentSnapshot, graphMode, filterConfig])
+  }, [currentSnapshot, graphMode])
 
   // Get available layouts based on view mode
   const availableLayouts = viewMode === '3d' ? LAYOUTS_3D : LAYOUTS_2D
@@ -355,7 +358,7 @@ function HCGExplorerInner({
         {/* Graph representation: logical (as meant to be seen) vs reified
             (as stored — every edge is a node). */}
         <div className="hcg-toolbar-group">
-          <label>View</label>
+          <label>Representation</label>
           <button
             className={`hcg-btn ${graphMode === 'logical' ? 'hcg-btn--active' : ''}`}
             onClick={() => setGraphMode('logical')}
