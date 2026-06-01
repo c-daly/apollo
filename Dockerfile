@@ -1,4 +1,4 @@
-FROM ghcr.io/c-daly/logos-foundry:0.5.0
+FROM ghcr.io/c-daly/logos-foundry:0.7.2
 
 WORKDIR /app/apollo
 
