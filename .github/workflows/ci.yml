@@ -19,6 +19,7 @@ jobs:
   standard:
     uses: c-daly/logos/.github/workflows/reusable-standard-ci.yml@ci/v2
     with:
+      check_foundry_alignment: true
       python_versions: '["3.12"]'
       python_package_manager: 'poetry'
       python_command_prefix: 'poetry run '
