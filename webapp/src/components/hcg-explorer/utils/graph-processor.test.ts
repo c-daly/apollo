@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { processGraph } from './graph-processor'
-import type { GraphSnapshot, FilterConfig } from '../types'
+import { processGraph, buildGraph, isEntityTypeDef, isEdgeTypeDef } from './graph-processor'
+import type { GraphSnapshot, FilterConfig, Entity, CausalEdge } from '../types'
 
 const createMockSnapshot = (): GraphSnapshot => ({
   entities: [
@@ -273,5 +273,77 @@ describe('processGraph referential stability', () => {
     // Same snapshot + same filter = nodes should have same content
     expect(result1.nodes.length).toBe(result2.nodes.length)
     expect(result1.nodes.map(n => n.id)).toEqual(result2.nodes.map(n => n.id))
+  })
+})
+
+describe('faithful views (logical vs reified)', () => {
+  // A content node, an entity-type-def (UUID id, is_type_definition), an
+  // edge-type-def metadata node (ancestors include edge_type), and one real
+  // IS_A edge already collapsed by the snapshot API.
+  const T = '2024-01-01T00:00:00Z'
+  const entities: Entity[] = [
+    { id: 'n1', type: 'entity', name: 'dog', properties: {}, labels: [], created_at: T },
+    {
+      id: 'u-typedef',
+      type: 'animal',
+      name: 'mammal',
+      properties: { is_type_definition: true, ancestors: ['root'] },
+      labels: [],
+      created_at: T,
+    },
+    {
+      id: 'u-edgedef',
+      type: 'IS_A',
+      name: 'IS_A',
+      properties: { is_type_definition: true, ancestors: ['edge_type'] },
+      labels: [],
+      created_at: T,
+    },
+  ]
+  const edges: CausalEdge[] = [
+    {
+      id: 'e1',
+      source_id: 'n1',
+      target_id: 'u-typedef',
+      edge_type: 'IS_A',
+      properties: {},
+      weight: 1,
+      created_at: T,
+    },
+  ]
+  const snapshot: GraphSnapshot = { entities, edges, timestamp: T, metadata: {} }
+
+  it('detects type-defs by property, not id prefix', () => {
+    expect(isEntityTypeDef(entities[1])).toBe(true)
+    expect(isEdgeTypeDef(entities[1])).toBe(false)
+    expect(isEdgeTypeDef(entities[2])).toBe(true) // the IS_A metadata node
+    expect(isEntityTypeDef(entities[2])).toBe(false)
+    expect(isEntityTypeDef(entities[0])).toBe(false)
+  })
+
+  it('logical view: IS_A is an edge, edge-type-def node is gone', () => {
+    const g = buildGraph(snapshot, 'logical', defaultFilter)
+    // edge-type-def metadata node ('IS_A') must NOT be a node
+    expect(g.nodes.find(n => n.id === 'u-edgedef')).toBeUndefined()
+    // content node + entity-type-def remain
+    expect(g.nodes.map(n => n.id).sort()).toEqual(['n1', 'u-typedef'])
+    // the relation renders as a real edge, not a node
+    expect(g.edges).toHaveLength(1)
+    expect(g.edges[0]).toMatchObject({ source: 'n1', target: 'u-typedef', type: 'IS_A' })
+  })
+
+  it('reified view: every edge becomes a node with FROM/TO links', () => {
+    const g = buildGraph(snapshot, 'reified', defaultFilter)
+    // the e1 edge is now a node
+    const edgeNode = g.nodes.find(n => n.id === 'e1')
+    expect(edgeNode).toBeDefined()
+    expect(edgeNode!.type).toBe('edge')
+    // all original entities still present as nodes (incl. both type-defs)
+    expect(g.nodes.find(n => n.id === 'u-edgedef')).toBeDefined()
+    // structural links: e1 -FROM-> n1 and e1 -TO-> u-typedef
+    const from = g.edges.find(e => e.id === 'e1__from')
+    const to = g.edges.find(e => e.id === 'e1__to')
+    expect(from).toMatchObject({ source: 'e1', target: 'n1', type: 'FROM' })
+    expect(to).toMatchObject({ source: 'e1', target: 'u-typedef', type: 'TO' })
   })
 })

@@ -10,7 +10,7 @@ import { useHCGSnapshot, type HCGGraphSnapshot } from '../../hooks/useHCG'
 import { HCGExplorerProvider, useHCGExplorer } from './context'
 import { ThreeRenderer } from './renderers/ThreeRenderer'
 import { CytoscapeRenderer } from './renderers/CytoscapeRenderer'
-import { processGraph } from './utils/graph-processor'
+import { buildGraph, type GraphMode } from './utils/graph-processor'
 import { generateMockSnapshot } from './utils/mock-data'
 import type {
   LayoutType,
@@ -18,25 +18,9 @@ import type {
   GraphNode,
   ProcessedGraph,
   GraphSnapshot,
-  CausalEdge,
 } from './types'
-import { NODE_COLORS } from './types'
+import { NODE_COLORS, DEFAULT_FILTER_CONFIG } from './types'
 import './HCGExplorer.css'
-
-/** Check if an entity is an entity-type definition (ontology metadata, not data).
- *  Sophia's seeder creates type-def nodes with uuid prefix "type_"
- *  (e.g. id="type_object", name="object", type="physical_entity").
- *  Note: the entity's `type` field is the PARENT type, not the type it defines. */
-function isEntityTypeDef(e: { id: string }): boolean {
-  return e.id.startsWith('type_') && !e.id.startsWith('type_edge_')
-}
-
-/** Check if an entity is an edge-type definition (e.g. type_edge_located_at).
- *  These are already represented as edges in the graph and should never
- *  appear as nodes. */
-function isEdgeTypeDef(e: { id: string }): boolean {
-  return e.id.startsWith('type_edge_')
-}
 
 /** Convert HCGGraphSnapshot to our internal GraphSnapshot type (keeps all entities) */
 function convertSnapshot(hcg: HCGGraphSnapshot): GraphSnapshot {
@@ -151,8 +135,10 @@ function HCGExplorerInner({
   // Track if using mock data
   const [usingMockData, setUsingMockData] = useState(false)
 
-  // Toggle to hide ontology type-definition nodes (on by default)
-  const [hideTypeDefs, setHideTypeDefs] = useState(true)
+  // Which representation to render:
+  // - 'logical' (default): the graph as meant to be seen (reified edges collapsed)
+  // - 'reified': the graph as stored (every edge is a node — "all nodes")
+  const [graphMode, setGraphMode] = useState<GraphMode>('logical')
 
   // Fetch graph data
   const {
@@ -187,76 +173,33 @@ function HCGExplorerInner({
     }
   }, [apiSnapshot, error, addSnapshot])
 
-  // Process graph data for rendering.
-  // - Edge-type-defs are always excluded (they're already represented as edges).
-  // - Entity-type-defs are shown/hidden via the hideTypeDefs toggle.
-  // - When entity-type-defs are shown, synthetic INSTANCE_OF edges are added
-  //   because Sophia stores type hierarchy as node properties, not :RELATION edges.
+  // Process graph data for rendering. The chosen view (logical vs reified) is
+  // applied by buildGraph; see graph-processor for the two transforms.
   const processedGraph = useMemo<ProcessedGraph>(() => {
     if (!currentSnapshot) {
       return { nodes: [], edges: [], clusters: [] }
     }
-    // Always strip edge-type-def nodes — they manifest as edges, not nodes.
-    let entities = currentSnapshot.entities.filter(e => !isEdgeTypeDef(e))
-    let edges = currentSnapshot.edges
+    return buildGraph(currentSnapshot, graphMode, filterConfig)
+  }, [currentSnapshot, filterConfig, graphMode])
 
-    if (hideTypeDefs) {
-      entities = entities.filter(e => !isEntityTypeDef(e))
-      const ids = new Set(entities.map(e => e.id))
-      edges = edges.filter(e => ids.has(e.source_id) && ids.has(e.target_id))
-    } else {
-      // Synthesize INSTANCE_OF edges from data entities to their type-def nodes.
-      const typeDefsByName = new Map<string, string>()
-      for (const e of entities) {
-        if (isEntityTypeDef(e) && e.name) {
-          // Key by name — the type this node defines (e.g., "object"),
-          // NOT by type which is the parent (e.g., "physical_entity").
-          typeDefsByName.set(e.name, e.id)
-        }
-      }
-      const syntheticEdges: CausalEdge[] = []
-      for (const e of entities) {
-        const typeDefId = typeDefsByName.get(e.type)
-        // Connect every entity to the type-def matching its `type` field.
-        // Data entities get INSTANCE_OF to their type (e.g., goal → type_goal).
-        // Type-def entities get IS_A to their parent (e.g., type_goal → type_intention).
-        if (typeDefId && typeDefId !== e.id) {
-          syntheticEdges.push({
-            id: `synthetic-${isEntityTypeDef(e) ? 'is-a' : 'instance-of'}-${e.id}`,
-            source_id: e.id,
-            target_id: typeDefId,
-            edge_type: isEntityTypeDef(e) ? 'IS_A' : 'INSTANCE_OF',
-            properties: {},
-            weight: 0.5,
-            created_at: new Date().toISOString(),
-          })
-        }
-      }
-      edges = [...edges, ...syntheticEdges]
-    }
-
-    const snapshot: GraphSnapshot = {
-      ...currentSnapshot,
-      entities,
-      edges,
-    }
-    return processGraph(snapshot, filterConfig)
-  }, [currentSnapshot, filterConfig, hideTypeDefs])
-
-  // Derive entity types from actual data, ordered by known types first
+  // Derive entity types from the rendered graph, ordered by known types first.
   const entityTypes = useMemo<string[]>(() => {
     if (!currentSnapshot) return KNOWN_ENTITY_TYPES
-    let entities = currentSnapshot.entities.filter(e => !isEdgeTypeDef(e))
-    if (hideTypeDefs) {
-      entities = entities.filter(e => !isEntityTypeDef(e))
-    }
-    const seen = new Set(entities.map(e => e.type))
+    // Reflect ALL types present in the current view, independent of the active
+    // search / status / property filters — otherwise the type buttons vanish as
+    // you type a search. Using DEFAULT_FILTER_CONFIG also drops the filterConfig
+    // dependency, so this no longer rebuilds the whole graph on every keystroke.
+    const seen = new Set(
+      buildGraph(currentSnapshot, graphMode, DEFAULT_FILTER_CONFIG).nodes.map(
+        n => n.type
+      )
+    )
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
       if (!ordered.includes(t)) ordered.push(t)
     }
     return ordered
-  }, [currentSnapshot, hideTypeDefs])
+  }, [currentSnapshot, graphMode])
 
   // Get available layouts based on view mode
   const availableLayouts = viewMode === '3d' ? LAYOUTS_3D : LAYOUTS_2D
@@ -412,15 +355,23 @@ function HCGExplorerInner({
 
         <div className="hcg-toolbar-divider" />
 
-        {/* Type-definition visibility toggle */}
+        {/* Graph representation: logical (as meant to be seen) vs reified
+            (as stored — every edge is a node). */}
         <div className="hcg-toolbar-group">
-          <label>Scope</label>
+          <label>Representation</label>
           <button
-            className={`hcg-btn ${hideTypeDefs ? 'hcg-btn--active' : ''}`}
-            onClick={() => setHideTypeDefs(h => !h)}
-            title="Toggle visibility of ontology type-definition nodes"
+            className={`hcg-btn ${graphMode === 'logical' ? 'hcg-btn--active' : ''}`}
+            onClick={() => setGraphMode('logical')}
+            title="The graph as meant to be seen: relations rendered as edges"
           >
-            {hideTypeDefs ? 'Data only' : 'All nodes'}
+            Data
+          </button>
+          <button
+            className={`hcg-btn ${graphMode === 'reified' ? 'hcg-btn--active' : ''}`}
+            onClick={() => setGraphMode('reified')}
+            title="The graph as stored: every edge is itself a node"
+          >
+            All nodes
           </button>
         </div>
 
