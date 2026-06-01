@@ -110,6 +110,21 @@ def serialize_payload(payload: Any) -> Any:
     return payload
 
 
+def _looks_like_read_timeout(exc: BaseException) -> bool:
+    """Whether *exc* (or a wrapped cause) is a read timeout.
+
+    A read timeout means the service is reachable but too slow to respond
+    (e.g. a long LLM generation) — distinct from a connection failure. The
+    generated SDKs use urllib3, which wraps the underlying cause inside
+    ``MaxRetryError.reason``; we also match by class name so this stays correct
+    regardless of the HTTP transport (urllib3 today, possibly httpx later).
+    """
+    for candidate in (exc, getattr(exc, "reason", None), exc.__cause__):
+        if candidate is not None and "ReadTimeout" in type(candidate).__name__:
+            return True
+    return False
+
+
 def execute_sophia_call(
     sdk: SophiaSDK,
     action: str,
@@ -127,6 +142,13 @@ def execute_sophia_call(
             )
         return False, None, f"Sophia API error while {action}: {details}"
     except Exception as exc:  # noqa: BLE001
+        if _looks_like_read_timeout(exc):
+            return (
+                False,
+                None,
+                f"Sophia timed out after {sdk.timeout}s while {action} "
+                f"(reachable but slow to respond): {exc}",
+            )
         return (
             False,
             None,
@@ -151,6 +173,14 @@ def execute_hermes_call(
             )
         return False, None, f"Hermes API error while {action}: {details}"
     except Exception as exc:  # noqa: BLE001
+        if _looks_like_read_timeout(exc):
+            return (
+                False,
+                None,
+                f"Hermes timed out after {sdk.timeout}s while {action} "
+                f"(reachable but slow to respond, e.g. a long LLM "
+                f"generation): {exc}",
+            )
         return (
             False,
             None,
