@@ -123,10 +123,11 @@ const NodeSphere = memo(function NodeSphere({
 interface EdgeLineProps {
   sourcePos: [number, number, number]
   targetPos: [number, number, number]
+  label: string
 }
 
-const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos }: EdgeLineProps) {
-  // Calculate midpoint for potential label
+const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLineProps) {
+  // Midpoint anchors both the connector marker and the relation label.
   const midpoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
     (sourcePos[1] + targetPos[1]) / 2,
@@ -142,8 +143,22 @@ const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos }: EdgeLineProps)
         opacity={0.6}
         transparent
       />
-      {/* Arrow indicator near target */}
+      {/* Connector marker near midpoint */}
       <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
+      {/* Relation label (the edge_type) */}
+      {label ? (
+        <Text
+          position={midpoint}
+          fontSize={2.2}
+          color="#cbd5e1"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0.15}
+          outlineColor="#000000"
+        >
+          {label}
+        </Text>
+      ) : null}
     </group>
   )
 })
@@ -313,6 +328,7 @@ function SceneContent({
             key={edge.id}
             sourcePos={sourcePos}
             targetPos={targetPos}
+            label={edge.label}
           />
         )
       })}
