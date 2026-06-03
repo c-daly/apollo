@@ -110,6 +110,12 @@ export async function generateNodeEmbeddings(
 
 // Visual half-extent the projected cloud is rescaled to fit (Three.js units).
 const LAYOUT_EXTENT = 120
+// Convex radial compaction exponent applied during rescale. UMAP spreads points
+// fairly evenly over a sphere shell, leaving a hollow core that reads as "too
+// spread out"; gamma > 1 pulls the bulk inward toward the centre (gamma = 1 is
+// plain linear). Tunable — higher = denser core, at a small cost to neighborhood
+// preservation (gamma 2 ~= -2pts kNN on the 266-node graph, gamma 3 ~= -5pts).
+const LAYOUT_GAMMA = 2.0
 // UMAP needs enough points to build a meaningful neighbor graph; below this we
 // fall back to a deterministic linear projection (also covers the unit tests).
 const MIN_UMAP_POINTS = 6
@@ -176,7 +182,7 @@ export function projectTo3D(
   const umap = new UMAP({
     nComponents: 3,
     nNeighbors,
-    minDist: 0.1,
+    minDist: 0.0,
     random: mulberry32(UMAP_SEED),
   })
   const projected = umap.fit(normalized)
@@ -185,9 +191,15 @@ export function projectTo3D(
 }
 
 /**
- * Center 3D coordinates on the origin and scale them so the largest absolute
- * coordinate maps to `extent` — keeps the cloud inside a stable box regardless
- * of UMAP's arbitrary output scale, so the camera framing stays consistent.
+ * Center 3D coordinates on the origin, then map each point's radius through a
+ * convex power curve, (r / rMax)^LAYOUT_GAMMA, before scaling out to `extent`.
+ *
+ * UMAP tends to spread points evenly over a sphere shell, leaving a hollow core
+ * that reads as "too spread out". gamma > 1 pulls the bulk inward toward the
+ * centre while pinning the farthest points at the rim, so clusters read as
+ * denser without changing their angular arrangement. The transform is monotonic
+ * in radius, so neighborhood structure is preserved. Centering also keeps the
+ * cloud framed consistently regardless of UMAP's arbitrary output scale.
  */
 function rescaleToExtent(
   ids: string[],
@@ -201,22 +213,23 @@ function rescaleToExtent(
     center[1] += c[1] / coords.length
     center[2] += c[2] / coords.length
   }
-  let maxAbs = 0
-  for (const c of coords) {
-    maxAbs = Math.max(
-      maxAbs,
-      Math.abs(c[0] - center[0]),
-      Math.abs(c[1] - center[1]),
-      Math.abs(c[2] - center[2])
-    )
-  }
-  const scale = maxAbs > 0 ? extent / maxAbs : 1
+  const radii = coords.map(c =>
+    Math.hypot(c[0] - center[0], c[1] - center[1], c[2] - center[2])
+  )
+  const maxR = Math.max(...radii)
   for (let i = 0; i < ids.length; i++) {
     const c = coords[i]
+    const r = radii[i]
+    if (r === 0 || maxR === 0) {
+      out.set(ids[i], { x: 0, y: 0, z: 0 })
+      continue
+    }
+    // Convex radial compaction: shrink the hollow shell toward the core.
+    const factor = (Math.pow(r / maxR, LAYOUT_GAMMA) * extent) / r
     out.set(ids[i], {
-      x: (c[0] - center[0]) * scale,
-      y: (c[1] - center[1]) * scale,
-      z: (c[2] - center[2]) * scale,
+      x: (c[0] - center[0]) * factor,
+      y: (c[1] - center[1]) * factor,
+      z: (c[2] - center[2]) * factor,
     })
   }
   return out
