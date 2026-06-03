@@ -94,17 +94,34 @@ export interface GraphSnapshotOptions {
   entityTypes?: string[]
   limit?: number
   refetchInterval?: number | false
+  /**
+   * Request stored embedding vectors so the explorer can lay nodes out by
+   * embedding. Defaults to true to preserve explorer behavior; callers that
+   * don't need vectors (e.g. 2D-only views) can disable it to avoid fetching
+   * ~3MB of float data on every refetch.
+   */
+  includeEmbeddings?: boolean
 }
 
 export function useHCGSnapshot(
   options: GraphSnapshotOptions = {}
 ): UseQueryResult<HCGGraphSnapshot, Error> {
-  const { entityTypes, limit = 200, refetchInterval } = options
+  const {
+    entityTypes,
+    limit = 200,
+    refetchInterval,
+    includeEmbeddings = true,
+  } = options
   return useQuery({
-    queryKey: ['hcg', 'snapshot', entityTypes, limit],
+    // includeEmbeddings is part of the key so toggling it never serves a
+    // cached response with the wrong payload shape.
+    queryKey: ['hcg', 'snapshot', entityTypes, limit, includeEmbeddings],
     queryFn: async () => {
-      // Request stored vectors so the explorer can lay nodes out by embedding.
-      const response = await sophiaClient.getHCGSnapshot(entityTypes, limit, true)
+      const response = await sophiaClient.getHCGSnapshot(
+        entityTypes,
+        limit,
+        includeEmbeddings
+      )
       return unwrapResponse(response)
     },
     staleTime: 5000,

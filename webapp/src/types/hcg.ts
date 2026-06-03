@@ -11,6 +11,8 @@ export interface Entity {
   labels: string[]
   created_at?: string
   updated_at?: string
+  /** Stored embedding vector (top-level API field, opt-in via include_embeddings) */
+  embedding?: number[]
 }
 
 export interface State {
