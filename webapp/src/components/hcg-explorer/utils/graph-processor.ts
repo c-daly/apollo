@@ -166,10 +166,13 @@ function entityToNode(entity: Entity): GraphNode {
   const status =
     typeof props.status === 'string' ? props.status.toLowerCase() : undefined
 
-  // Extract embedding if present
-  const embedding = Array.isArray(props.embedding)
-    ? (props.embedding as number[])
-    : undefined
+  // Extract embedding if present. Sophia returns it as a top-level API field
+  // (entity.embedding); fall back to properties.embedding for other sources.
+  const embedding = Array.isArray(entity.embedding)
+    ? entity.embedding
+    : Array.isArray(props.embedding)
+      ? (props.embedding as number[])
+      : undefined
 
   return {
     id: entity.id,

@@ -79,6 +79,32 @@ describe('processGraph', () => {
     expect(goalNode!.label).toBe('Navigate to kitchen')
   })
 
+  it('extracts a top-level embedding (Sophia API shape) onto the graph node', () => {
+    const snapshot = createMockSnapshot()
+    snapshot.entities[0].embedding = [0.1, 0.2, 0.3]
+    const result = processGraph(snapshot, defaultFilter)
+
+    const goalNode = result.nodes.find(n => n.id === 'goal-1')
+    expect(goalNode!.embedding).toEqual([0.1, 0.2, 0.3])
+  })
+
+  it('falls back to properties.embedding when no top-level embedding', () => {
+    const snapshot = createMockSnapshot()
+    snapshot.entities[1].properties.embedding = [0.4, 0.5, 0.6]
+    const result = processGraph(snapshot, defaultFilter)
+
+    const planNode = result.nodes.find(n => n.id === 'plan-1')
+    expect(planNode!.embedding).toEqual([0.4, 0.5, 0.6])
+  })
+
+  it('leaves embedding undefined when neither source provides one', () => {
+    const snapshot = createMockSnapshot()
+    const result = processGraph(snapshot, defaultFilter)
+
+    const agentNode = result.nodes.find(n => n.id === 'agent-1')
+    expect(agentNode!.embedding).toBeUndefined()
+  })
+
   it('converts snapshot edges to graph edges', () => {
     const snapshot = createMockSnapshot()
     const result = processGraph(snapshot, defaultFilter)

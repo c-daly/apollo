@@ -32,6 +32,7 @@ function convertSnapshot(hcg: HCGGraphSnapshot): GraphSnapshot {
       properties: e.properties,
       labels: e.labels || [],
       created_at: e.created_at,
+      embedding: e.embedding,
     })),
     edges: hcg.edges.map(e => ({
       id: e.id,
