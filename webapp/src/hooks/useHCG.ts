@@ -103,7 +103,8 @@ export function useHCGSnapshot(
   return useQuery({
     queryKey: ['hcg', 'snapshot', entityTypes, limit],
     queryFn: async () => {
-      const response = await sophiaClient.getHCGSnapshot(entityTypes, limit)
+      // Request stored vectors so the explorer can lay nodes out by embedding.
+      const response = await sophiaClient.getHCGSnapshot(entityTypes, limit, true)
       return unwrapResponse(response)
     },
     staleTime: 5000,

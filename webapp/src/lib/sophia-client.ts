@@ -770,11 +770,15 @@ export class SophiaClient {
    */
   async getHCGSnapshot(
     entityTypes?: string[],
-    limit: number = 200
+    limit: number = 200,
+    includeEmbeddings: boolean = false
   ): Promise<SophiaResponse<HCGGraphSnapshot>> {
     const params: Record<string, string> = { limit: String(limit) }
     if (entityTypes && entityTypes.length > 0) {
       params.entity_types = entityTypes.join(',')
+    }
+    if (includeEmbeddings) {
+      params.include_embeddings = 'true'
     }
 
     return this.performRequest<HCGGraphSnapshot>({
@@ -1074,6 +1078,8 @@ export interface HCGEntity {
   properties: Record<string, unknown>
   labels: string[]
   created_at?: string
+  /** Entity vector, present when fetched with include_embeddings (semantic layout) */
+  embedding?: number[]
 }
 
 export interface HCGEdge {
