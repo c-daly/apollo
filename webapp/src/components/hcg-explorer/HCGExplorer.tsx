@@ -151,6 +151,10 @@ function HCGExplorerInner({
     entityTypes: filterConfig.entityTypes.length
       ? filterConfig.entityTypes
       : undefined,
+    // The explorer loads the whole graph for its semantic layout; request the
+    // high limit explicitly so the shared hook's default stays small for other
+    // callers (e.g. GraphViewer) (greptile #186).
+    limit: 10000,
     refetchInterval: refreshInterval > 0 ? refreshInterval : false,
   })
 

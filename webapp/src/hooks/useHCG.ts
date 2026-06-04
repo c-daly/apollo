@@ -108,7 +108,7 @@ export function useHCGSnapshot(
 ): UseQueryResult<HCGGraphSnapshot, Error> {
   const {
     entityTypes,
-    limit = 10000,
+    limit = 200,
     refetchInterval,
     includeEmbeddings = true,
   } = options
