@@ -403,7 +403,7 @@ function CameraControls({ focusPosition }: { focusPosition: [number, number, num
       zoomSpeed={1.2}
       panSpeed={0.8}
       minDistance={20}
-      maxDistance={800}
+      maxDistance={6000}
     />
   )
 }
@@ -418,7 +418,7 @@ export function ThreeRenderer({
 }: RendererProps) {
   return (
     <Canvas
-      camera={{ position: [0, 0, 300], fov: 60 }}
+      camera={{ position: [0, 0, 300], fov: 60, far: 20000 }}
       style={{ width: '100%', height: '100%' }}
     >
       {/* Lighting */}
