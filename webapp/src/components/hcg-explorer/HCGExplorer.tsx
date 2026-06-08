@@ -15,6 +15,7 @@ import {
   computeHighlightSubgraphIds,
   computeTypeMemberIds,
   deriveTypeSummaries,
+  isEdgeTypeDef,
   type GraphMode,
   type TypeSummary,
 } from './utils/graph-processor'
@@ -26,7 +27,7 @@ import type {
   ProcessedGraph,
   GraphSnapshot,
 } from './types'
-import { NODE_COLORS, DEFAULT_FILTER_CONFIG } from './types'
+import { NODE_COLORS } from './types'
 import {
   DEFAULT_DENSITY,
   DENSITY_RANGES,
@@ -210,16 +211,18 @@ function HCGExplorerInner({
     if (!currentSnapshot) return KNOWN_ENTITY_TYPES
     // Reflect ALL types present in the current view, independent of the active
     // search / status / property filters — otherwise the type buttons vanish as
-    // you type a search. Using DEFAULT_FILTER_CONFIG also drops the filterConfig
-    // dependency, so this no longer rebuilds the whole graph on every keystroke.
-    const seen = new Set(
-      buildGraph(currentSnapshot, graphMode, {
-        ...DEFAULT_FILTER_CONFIG,
-        // Reflect all realms even when the skeleton-first default is active, so
-        // the realm filter buttons / legend never collapse to type_definition.
-        skeletonOnly: false,
-      }).nodes.map(n => n.type)
-    )
+    // you type a search. This used to run a SECOND full buildGraph() (transform
+    // + processGraph + filters + clustering) on every snapshot just to enumerate
+    // node types. We only need the distinct types of the view's entities, so
+    // reproduce just the view transform's node set: the logical view drops
+    // edge-type-definition nodes; the reified view keeps every entity and adds
+    // one 'edge' node type. That is an O(N) pass with no graph rebuild.
+    const isReified = graphMode === 'reified'
+    const seen = new Set<string>()
+    for (const e of currentSnapshot.entities) {
+      if (isReified || !isEdgeTypeDef(e)) seen.add(e.type)
+    }
+    if (isReified && currentSnapshot.edges.length > 0) seen.add('edge')
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
       if (!ordered.includes(t)) ordered.push(t)
