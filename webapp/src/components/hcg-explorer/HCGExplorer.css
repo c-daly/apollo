@@ -302,6 +302,64 @@
   border-radius: 3px;
 }
 
+/* Types panel - flat, IS_A-driven type filter */
+.hcg-type-search {
+  width: 100%;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.hcg-types {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.hcg-type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  text-align: left;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--hcg-text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hcg-type-row:hover {
+  background: var(--hcg-bg-tertiary);
+}
+
+.hcg-type-row--active {
+  background: var(--hcg-accent);
+  border-color: var(--hcg-accent);
+}
+
+.hcg-type-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hcg-type-count {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--hcg-text-secondary);
+}
+
+.hcg-type-row--active .hcg-type-count {
+  color: inherit;
+}
+
 /* Timeline */
 .hcg-timeline {
   display: flex;
