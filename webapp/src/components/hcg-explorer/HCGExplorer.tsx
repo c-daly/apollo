@@ -242,6 +242,21 @@ function HCGExplorerInner({
     setFilter({ selectedTypeId: null })
   }, [setFilter])
 
+  // Drop a stale type selection when the active snapshot no longer contains the
+  // selected type-definition node (e.g. navigating the timeline to a snapshot
+  // that predates the type). Otherwise computeTypeMemberIds would return only
+  // the missing id and processGraph would filter every node out, leaving an
+  // empty canvas with an active-but-invisible filter. Only clears when the type
+  // is truly absent, so valid selections survive timeline navigation.
+  useEffect(() => {
+    if (
+      filterConfig.selectedTypeId &&
+      !typeSummaries.some(t => t.id === filterConfig.selectedTypeId)
+    ) {
+      setFilter({ selectedTypeId: null })
+    }
+  }, [typeSummaries, filterConfig.selectedTypeId, setFilter])
+
   // Get available layouts based on view mode
   const availableLayouts = viewMode === '3d' ? LAYOUTS_3D : LAYOUTS_2D
 
@@ -599,6 +614,7 @@ function HCGExplorerInner({
                       className={`hcg-type-row ${filterConfig.selectedTypeId === t.id ? 'hcg-type-row--active' : ''}`}
                       onClick={() => handleTypeSelect(t.id)}
                       title={t.name}
+                      aria-pressed={filterConfig.selectedTypeId === t.id}
                     >
                       <span className="hcg-type-name">{t.name}</span>
                       <span className="hcg-type-count">{t.count}</span>

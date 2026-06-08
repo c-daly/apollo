@@ -156,7 +156,7 @@ export function deriveTypeSummaries(snapshot: GraphSnapshot): TypeSummary[] {
     .filter(e => e.type === 'type_definition')
     .map(e => ({
       id: e.id,
-      name: e.name || (e.properties?.name as string) || e.id,
+      name: String(e.name || e.properties?.name || e.id),
       count: counts.get(e.id) ?? 0,
     }))
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
