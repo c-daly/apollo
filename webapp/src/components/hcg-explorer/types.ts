@@ -207,6 +207,13 @@ export interface RendererProps {
    * highlighted only when both endpoints are in the set. Null = no dimming.
    */
   highlightedNodeIds?: Set<string> | null
+  /**
+   * Ids the camera / viewport should frame. When set, the renderer moves the
+   * view to enclose these nodes (the selected type plus its IS_A members, or a
+   * clicked node) so selecting a type in the Types panel focuses the graph on
+   * it. Null = leave the current view untouched.
+   */
+  focusNodeIds?: Set<string> | null
   /** Force-layout density controls (repulsion / link distance / gravity). */
   densityParams?: DensityParams
 }

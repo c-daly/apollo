@@ -15,6 +15,7 @@ import {
   computeHighlightSubgraphIds,
   computeTypeMemberIds,
   deriveTypeSummaries,
+  isEdgeTypeDef,
   type GraphMode,
   type TypeSummary,
 } from './utils/graph-processor'
@@ -26,7 +27,8 @@ import type {
   ProcessedGraph,
   GraphSnapshot,
 } from './types'
-import { NODE_COLORS, DEFAULT_FILTER_CONFIG } from './types'
+import { NODE_COLORS } from './types'
+import { snapshotFingerprint } from './utils/snapshot-fingerprint'
 import {
   DEFAULT_DENSITY,
   DENSITY_RANGES,
@@ -180,12 +182,22 @@ function HCGExplorerInner({
   // Using a ref avoids including currentSnapshot in the dep array,
   // which would re-trigger the effect every time we add a snapshot.
   const hasDataRef = useRef(false)
+  // Content fingerprint of the last applied snapshot. Sophia stamps a fresh
+  // top-level timestamp on every /hcg/snapshot response, so React Query hands
+  // us a new apiSnapshot reference each 15s poll even when the graph is
+  // unchanged. Without this guard every poll rebuilt the whole pipeline.
+  const lastSnapshotFpRef = useRef<string | null>(null)
 
   // Add new snapshots to history (with mock fallback)
   useEffect(() => {
     if (apiSnapshot) {
       setUsingMockData(false)
       hasDataRef.current = true
+      // Skip the rebuild when the poll returned identical content (only the
+      // server's per-request timestamp changed).
+      const fp = snapshotFingerprint(apiSnapshot)
+      if (fp === lastSnapshotFpRef.current) return
+      lastSnapshotFpRef.current = fp
       addSnapshot(convertSnapshot(apiSnapshot))
     } else if (error && !hasDataRef.current) {
       // Fallback to mock data if API fails and we have no data
@@ -210,16 +222,18 @@ function HCGExplorerInner({
     if (!currentSnapshot) return KNOWN_ENTITY_TYPES
     // Reflect ALL types present in the current view, independent of the active
     // search / status / property filters — otherwise the type buttons vanish as
-    // you type a search. Using DEFAULT_FILTER_CONFIG also drops the filterConfig
-    // dependency, so this no longer rebuilds the whole graph on every keystroke.
-    const seen = new Set(
-      buildGraph(currentSnapshot, graphMode, {
-        ...DEFAULT_FILTER_CONFIG,
-        // Reflect all realms even when the skeleton-first default is active, so
-        // the realm filter buttons / legend never collapse to type_definition.
-        skeletonOnly: false,
-      }).nodes.map(n => n.type)
-    )
+    // you type a search. This used to run a SECOND full buildGraph() (transform
+    // + processGraph + filters + clustering) on every snapshot just to enumerate
+    // node types. We only need the distinct types of the view's entities, so
+    // reproduce just the view transform's node set: the logical view drops
+    // edge-type-definition nodes; the reified view keeps every entity and adds
+    // one 'edge' node type. That is an O(N) pass with no graph rebuild.
+    const isReified = graphMode === 'reified'
+    const seen = new Set<string>()
+    for (const e of currentSnapshot.entities) {
+      if (isReified || !isEdgeTypeDef(e)) seen.add(e.type)
+    }
+    if (isReified && currentSnapshot.edges.length > 0) seen.add('edge')
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
       if (!ordered.includes(t)) ordered.push(t)
@@ -311,6 +325,19 @@ function HCGExplorerInner({
     filterConfig.selectionMode,
     selectedNodeId,
   ])
+
+  // Nodes the camera / viewport should frame. Selecting a type in the Types
+  // panel moves the view to that type plus its IS_A members; otherwise a clicked
+  // node is framed. Independent of selectionMode (unlike highlightedNodeIds) so
+  // framing works in both highlight and restrict.
+  const focusNodeIds = useMemo<Set<string> | null>(() => {
+    if (!currentSnapshot) return null
+    if (filterConfig.selectedTypeId) {
+      return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
+    }
+    if (selectedNodeId) return new Set([selectedNodeId])
+    return null
+  }, [currentSnapshot, filterConfig.selectedTypeId, selectedNodeId])
 
   // Handle view mode change
   const handleViewModeChange = useCallback(
@@ -546,6 +573,7 @@ function HCGExplorerInner({
               onNodeHover={hoverNode}
               layout={layout}
               highlightedNodeIds={highlightedNodeIds}
+              focusNodeIds={focusNodeIds}
               densityParams={densityParams}
             />
           )}
@@ -559,6 +587,7 @@ function HCGExplorerInner({
               onNodeHover={hoverNode}
               layout={layout}
               highlightedNodeIds={highlightedNodeIds}
+              focusNodeIds={focusNodeIds}
               densityParams={densityParams}
             />
           )}

@@ -252,34 +252,26 @@ export function processGraph(
     nodes = nodes.filter(n => typeMemberIds.has(n.id))
   }
 
-  // Filter edges to only include those with visible nodes
+  // Edge visibility: a single pass over the edge list applying every edge
+  // filter at once, instead of chaining four .filter() passes (each allocating
+  // a fresh array) over ~8k edges on every filterConfig change. The conditions:
+  //   - both endpoints are visible nodes
+  //   - skeleton mode keeps only type-to-type IS_A hierarchy edges
+  //   - edge-kind toggle (skipped in skeleton mode, which already restricted to
+  //     IS_A above -- 'semantic' there would leave an edgeless skeleton)
+  //   - explicit edge-type allow-list (a Set, so membership is O(1) not O(k))
   const nodeIds = new Set(nodes.map(n => n.id))
-  edges = edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
-
-  // In skeleton mode keep only the type-to-type IS_A hierarchy edges (both
-  // endpoints are already type-definition nodes after the node restriction).
-  if (skeletonOnly) {
-    edges = edges.filter(e => e.type === 'IS_A')
-  }
-
-  // Edge-kind toggle: IS_A membership only, semantic (non-IS_A) only, or both.
-  // Membership (IS_A) is the bulk of the density, so semantic-only thins it out.
-  // Skipped in skeleton mode: that already restricted edges to the type-to-type
-  // IS_A hierarchy above, so 'semantic' here would strip every edge and leave
-  // an edgeless skeleton.
-  if (!skeletonOnly) {
-    const edgeKind = filterConfig.edgeKind ?? 'both'
-    if (edgeKind === 'is_a') {
-      edges = edges.filter(e => e.type === 'IS_A')
-    } else if (edgeKind === 'semantic') {
-      edges = edges.filter(e => e.type !== 'IS_A')
-    }
-  }
-
-  // Apply edge type filter
-  if (filterConfig.edgeTypes.length > 0) {
-    edges = edges.filter(e => filterConfig.edgeTypes.includes(e.type))
-  }
+  const edgeKind = skeletonOnly ? 'both' : (filterConfig.edgeKind ?? 'both')
+  const edgeTypeAllow =
+    filterConfig.edgeTypes.length > 0 ? new Set(filterConfig.edgeTypes) : null
+  edges = edges.filter(e => {
+    if (!nodeIds.has(e.source) || !nodeIds.has(e.target)) return false
+    if (skeletonOnly && e.type !== 'IS_A') return false
+    if (edgeKind === 'is_a' && e.type !== 'IS_A') return false
+    if (edgeKind === 'semantic' && e.type === 'IS_A') return false
+    if (edgeTypeAllow && !edgeTypeAllow.has(e.type)) return false
+    return true
+  })
 
   // Generate clusters (simple type-based clustering for now)
   const clusters = generateClusters(nodes)
@@ -347,44 +339,40 @@ function applyNodeFilters(
   nodes: GraphNode[],
   filterConfig: FilterConfig
 ): GraphNode[] {
-  let filtered = nodes
+  // Single pass applying every node filter at once, rather than chaining five
+  // .filter() passes (each allocating a new array) over ~3.8k nodes on every
+  // filterConfig change -- which includes every search keystroke. Membership
+  // lists become Sets (O(1) .has() vs O(k) .includes()) and the query is
+  // lower-cased once. Predicates are ordered cheapest-first for short-circuit.
+  const typeAllow =
+    filterConfig.entityTypes.length > 0 ? new Set(filterConfig.entityTypes) : null
+  const statusAllow =
+    filterConfig.status.length > 0 ? new Set(filterConfig.status) : null
+  const clusterAllow =
+    filterConfig.clusters.length > 0 ? new Set(filterConfig.clusters) : null
+  const query = filterConfig.searchQuery.trim()
+    ? filterConfig.searchQuery.toLowerCase()
+    : null
+  const propertyFilters = filterConfig.propertyFilters
 
-  // Entity type filter
-  if (filterConfig.entityTypes.length > 0) {
-    filtered = filtered.filter(n => filterConfig.entityTypes.includes(n.type))
-  }
-
-  // Status filter
-  if (filterConfig.status.length > 0) {
-    filtered = filtered.filter(
-      n => n.status && filterConfig.status.includes(n.status)
-    )
-  }
-
-  // Search query filter
-  if (filterConfig.searchQuery.trim()) {
-    const query = filterConfig.searchQuery.toLowerCase()
-    filtered = filtered.filter(
-      n =>
-        n.id.toLowerCase().includes(query) ||
-        n.label.toLowerCase().includes(query) ||
-        n.type.toLowerCase().includes(query)
-    )
-  }
-
-  // Property filters
-  for (const pf of filterConfig.propertyFilters) {
-    filtered = filtered.filter(n => matchPropertyFilter(n, pf))
-  }
-
-  // Cluster filter
-  if (filterConfig.clusters.length > 0) {
-    filtered = filtered.filter(
-      n => n.clusterId && filterConfig.clusters.includes(n.clusterId)
-    )
-  }
-
-  return filtered
+  return nodes.filter(n => {
+    if (typeAllow && !typeAllow.has(n.type)) return false
+    if (statusAllow && !(n.status && statusAllow.has(n.status))) return false
+    if (clusterAllow && !(n.clusterId && clusterAllow.has(n.clusterId))) return false
+    if (query) {
+      if (
+        !n.id.toLowerCase().includes(query) &&
+        !n.label.toLowerCase().includes(query) &&
+        !n.type.toLowerCase().includes(query)
+      ) {
+        return false
+      }
+    }
+    for (const pf of propertyFilters) {
+      if (!matchPropertyFilter(n, pf)) return false
+    }
+    return true
+  })
 }
 
 /**
