@@ -271,13 +271,16 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
         avoidOverlap: true,
         minNodeSpacing: 50,
         concentric: (node: NodeSingular) => {
-          // Order by type: goal > plan > agent > step > process > state
+          // Order by type: goal > plan > agent > step > {process, entity, concept} > state
           const typeOrder: Record<string, number> = {
             goal: 5,
             plan: 4,
             agent: 3,
             step: 2,
+            // NDT realm types (entity/concept/process) are peers and share a ring level
             process: 1,
+            entity: 1,
+            concept: 1,
             state: 0,
           }
           return typeOrder[node.data('type')] ?? 0
