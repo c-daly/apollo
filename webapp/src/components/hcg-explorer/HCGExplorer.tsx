@@ -12,6 +12,8 @@ import { ThreeRenderer } from './renderers/ThreeRenderer'
 import { CytoscapeRenderer } from './renderers/CytoscapeRenderer'
 import {
   buildGraph,
+  computeHighlightSubgraphIds,
+  computeTypeMemberIds,
   deriveTypeSummaries,
   type GraphMode,
   type TypeSummary,
@@ -25,6 +27,11 @@ import type {
   GraphSnapshot,
 } from './types'
 import { NODE_COLORS, DEFAULT_FILTER_CONFIG } from './types'
+import {
+  DEFAULT_DENSITY,
+  DENSITY_RANGES,
+  type DensityParams,
+} from './utils/layout-density'
 import './HCGExplorer.css'
 
 /** Convert HCGGraphSnapshot to our internal GraphSnapshot type (keeps all entities) */
@@ -57,7 +64,7 @@ function convertSnapshot(hcg: HCGGraphSnapshot): GraphSnapshot {
 }
 
 /** Available layouts for each view mode */
-const LAYOUTS_2D: LayoutType[] = ['dagre', 'fcose', 'circle', 'concentric', 'breadthfirst']
+const LAYOUTS_2D: LayoutType[] = ['dagre', 'fcose', 'circle', 'concentric', 'breadthfirst', 'hierarchical']
 const LAYOUTS_3D: LayoutType[] = ['force-3d', 'semantic']
 
 /** Layout display names */
@@ -67,6 +74,7 @@ const LAYOUT_NAMES: Record<LayoutType, string> = {
   circle: 'Circle',
   concentric: 'Concentric',
   breadthfirst: 'Tree',
+  hierarchical: 'IS_A Tree',
   'force-3d': 'Force 3D',
   semantic: 'Semantic',
 }
@@ -147,6 +155,10 @@ function HCGExplorerInner({
   // - 'reified': the graph as stored (every edge is a node — "all nodes")
   const [graphMode, setGraphMode] = useState<GraphMode>('logical')
 
+  // Layout density controls (force layouts + spacing for hierarchical/tree).
+  // Passed to both renderers; changing a slider re-lays-out the canvas live.
+  const [densityParams, setDensityParams] = useState<DensityParams>(DEFAULT_DENSITY)
+
   // Fetch graph data
   const {
     data: apiSnapshot,
@@ -201,9 +213,12 @@ function HCGExplorerInner({
     // you type a search. Using DEFAULT_FILTER_CONFIG also drops the filterConfig
     // dependency, so this no longer rebuilds the whole graph on every keystroke.
     const seen = new Set(
-      buildGraph(currentSnapshot, graphMode, DEFAULT_FILTER_CONFIG).nodes.map(
-        n => n.type
-      )
+      buildGraph(currentSnapshot, graphMode, {
+        ...DEFAULT_FILTER_CONFIG,
+        // Reflect all realms even when the skeleton-first default is active, so
+        // the realm filter buttons / legend never collapse to type_definition.
+        skeletonOnly: false,
+      }).nodes.map(n => n.type)
     )
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
@@ -249,8 +264,13 @@ function HCGExplorerInner({
   // empty canvas with an active-but-invisible filter. Only clears when the type
   // is truly absent, so valid selections survive timeline navigation.
   useEffect(() => {
+    // Only drop the selection when we have a populated type list that genuinely
+    // lacks the selected type. An empty list usually means the snapshot is
+    // mid-refetch (the 15s poll) or filtered down to no type-definition nodes;
+    // clearing then would nuke a still-valid selection on every refresh.
     if (
       filterConfig.selectedTypeId &&
+      typeSummaries.length > 0 &&
       !typeSummaries.some(t => t.id === filterConfig.selectedTypeId)
     ) {
       setFilter({ selectedTypeId: null })
@@ -266,6 +286,32 @@ function HCGExplorerInner({
     return processedGraph.nodes.find(n => n.id === selectedNodeId) || null
   }, [selectedNodeId, processedGraph.nodes])
 
+  // Highlight-subgraph ids for the current focus. A selected emergent type
+  // (Types panel) takes precedence over a clicked node. Threaded to both
+  // renderers, which keep these nodes/edges bright and dim the rest, preserving
+  // context. Null when nothing is focused (no dimming). This is the default
+  // interaction; the restrict-style hard filter lives behind the selection mode.
+  const highlightedNodeIds = useMemo<Set<string> | null>(() => {
+    if (!currentSnapshot) return null
+    // Restrict mode already hard-filters the graph to the selection in
+    // buildGraph; dimming on top of that is redundant for a selected type and
+    // wrongly dims the whole graph when a single node is clicked. Dimming is the
+    // highlight-mode affordance only.
+    if (filterConfig.selectionMode === 'restrict') return null
+    if (filterConfig.selectedTypeId) {
+      return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
+    }
+    if (selectedNodeId) {
+      return computeHighlightSubgraphIds(currentSnapshot, selectedNodeId)
+    }
+    return null
+  }, [
+    currentSnapshot,
+    filterConfig.selectedTypeId,
+    filterConfig.selectionMode,
+    selectedNodeId,
+  ])
+
   // Handle view mode change
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
@@ -280,6 +326,14 @@ function HCGExplorerInner({
       setLayout(e.target.value as LayoutType)
     },
     [setLayout]
+  )
+
+  // Handle a layout-density slider change (live re-layout in both renderers).
+  const handleDensityChange = useCallback(
+    (key: keyof DensityParams, value: number) => {
+      setDensityParams(prev => ({ ...prev, [key]: value }))
+    },
+    []
   )
 
   // Handle search
@@ -491,6 +545,8 @@ function HCGExplorerInner({
               onNodeSelect={selectNode}
               onNodeHover={hoverNode}
               layout={layout}
+              highlightedNodeIds={highlightedNodeIds}
+              densityParams={densityParams}
             />
           )}
 
@@ -502,12 +558,129 @@ function HCGExplorerInner({
               onNodeSelect={selectNode}
               onNodeHover={hoverNode}
               layout={layout}
+              highlightedNodeIds={highlightedNodeIds}
+              densityParams={densityParams}
             />
           )}
         </div>
 
         {/* Sidebar */}
         <div className="hcg-sidebar">
+          {/* View controls (de-hairball): skeleton scope, edge kinds, selection mode. */}
+          <div className="hcg-panel">
+            <div className="hcg-panel-header">
+              <span className="hcg-panel-title">View</span>
+            </div>
+            <div className="hcg-panel-content hcg-view-controls">
+              <button
+                className={`hcg-btn ${filterConfig.skeletonOnly ? 'hcg-btn--active' : ''}`}
+                onClick={() => setFilter({ skeletonOnly: !filterConfig.skeletonOnly })}
+                title="Skeleton-first: show only the type_definition IS_A skeleton"
+              >
+                {filterConfig.skeletonOnly ? 'Skeleton only' : 'Full graph'}
+              </button>
+              <div className="hcg-btn-row">
+                <span className="hcg-view-label">Edges</span>
+                <button
+                  className={`hcg-btn ${(filterConfig.edgeKind ?? 'both') === 'both' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ edgeKind: 'both' })}
+                >
+                  Both
+                </button>
+                <button
+                  className={`hcg-btn ${filterConfig.edgeKind === 'is_a' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ edgeKind: 'is_a' })}
+                >
+                  IS_A
+                </button>
+                <button
+                  className={`hcg-btn ${filterConfig.edgeKind === 'semantic' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ edgeKind: 'semantic' })}
+                >
+                  Semantic
+                </button>
+              </div>
+              <div className="hcg-btn-row">
+                <span className="hcg-view-label">Select</span>
+                <button
+                  className={`hcg-btn ${(filterConfig.selectionMode ?? 'highlight') === 'highlight' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ selectionMode: 'highlight' })}
+                  title="Selecting dims the rest but keeps context"
+                >
+                  Highlight
+                </button>
+                <button
+                  className={`hcg-btn ${filterConfig.selectionMode === 'restrict' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ selectionMode: 'restrict' })}
+                  title="Selecting a type restricts the graph to its members"
+                >
+                  Restrict
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Layout density controls. Force layouts use all three; the
+              hierarchical / tree layouts honour spacing (link distance) only. */}
+          <div className="hcg-panel">
+            <div className="hcg-panel-header">
+              <span className="hcg-panel-title">Layout</span>
+              <button
+                className="hcg-btn hcg-btn--small"
+                onClick={() => setDensityParams(DEFAULT_DENSITY)}
+                title="Reset layout density to defaults"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="hcg-panel-content hcg-density-controls">
+              <label className="hcg-density-row">
+                <span className="hcg-view-label">Repulsion</span>
+                <input
+                  type="range"
+                  min={DENSITY_RANGES.repulsion.min}
+                  max={DENSITY_RANGES.repulsion.max}
+                  step={DENSITY_RANGES.repulsion.step}
+                  value={densityParams.repulsion}
+                  onChange={e =>
+                    handleDensityChange('repulsion', Number(e.target.value))
+                  }
+                />
+                <span className="hcg-density-value">{densityParams.repulsion}</span>
+              </label>
+              <label className="hcg-density-row">
+                <span className="hcg-view-label">Link distance</span>
+                <input
+                  type="range"
+                  min={DENSITY_RANGES.linkDistance.min}
+                  max={DENSITY_RANGES.linkDistance.max}
+                  step={DENSITY_RANGES.linkDistance.step}
+                  value={densityParams.linkDistance}
+                  onChange={e =>
+                    handleDensityChange('linkDistance', Number(e.target.value))
+                  }
+                />
+                <span className="hcg-density-value">{densityParams.linkDistance}</span>
+              </label>
+              <label className="hcg-density-row">
+                <span className="hcg-view-label">Gravity</span>
+                <input
+                  type="range"
+                  min={DENSITY_RANGES.gravity.min}
+                  max={DENSITY_RANGES.gravity.max}
+                  step={DENSITY_RANGES.gravity.step}
+                  value={densityParams.gravity}
+                  onChange={e =>
+                    handleDensityChange('gravity', Number(e.target.value))
+                  }
+                />
+                <span className="hcg-density-value">
+                  {densityParams.gravity.toFixed(2)}
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* Node Details Panel */}
           {showNodeDetails && (
             <div className="hcg-panel">

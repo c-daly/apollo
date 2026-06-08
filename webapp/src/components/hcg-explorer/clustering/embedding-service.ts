@@ -191,6 +191,52 @@ export function projectTo3D(
 }
 
 /**
+ * Project a set of graph nodes to 3D positions from their stored embeddings.
+ * Embedded nodes are placed by {@link projectTo3D} (UMAP / linear fallback);
+ * nodes without an embedding are placed on a deterministic golden-spiral shell
+ * just outside the embedding cloud so they stay visible and distinct. The
+ * returned `embeddedCount` lets callers fall back to a force layout when too
+ * few nodes carry embeddings for a meaningful projection.
+ */
+export function projectNodesTo3D(nodes: GraphNode[]): {
+  positions: Map<string, [number, number, number]>
+  embeddedCount: number
+} {
+  const embeddings = new Map<string, number[]>()
+  for (const n of nodes) {
+    if (Array.isArray(n.embedding) && n.embedding.length > 0) {
+      embeddings.set(n.id, n.embedding)
+    }
+  }
+
+  const projected = projectTo3D(embeddings)
+  const positions = new Map<string, [number, number, number]>()
+  for (const [id, p] of projected) {
+    positions.set(id, [p.x, p.y, p.z])
+  }
+
+  // Deterministic golden-spiral shell for nodes lacking an embedding, so they
+  // remain visible (and clearly outside the embedding cloud) rather than all
+  // collapsing to the origin.
+  const unembedded = nodes.filter(n => !positions.has(n.id))
+  const shell = LAYOUT_EXTENT * 1.6
+  const golden = Math.PI * (3 - Math.sqrt(5))
+  unembedded.forEach((n, i) => {
+    const t = unembedded.length > 1 ? i / (unembedded.length - 1) : 0
+    const y = 1 - 2 * t
+    const r = Math.sqrt(Math.max(0, 1 - y * y))
+    const theta = golden * i
+    positions.set(n.id, [
+      Math.cos(theta) * r * shell,
+      y * shell,
+      Math.sin(theta) * r * shell,
+    ])
+  })
+
+  return { positions, embeddedCount: embeddings.size }
+}
+
+/**
  * Center 3D coordinates on the origin, then map each point's radius through a
  * convex power curve, (r / rMax)^LAYOUT_GAMMA, before scaling out to `extent`.
  *

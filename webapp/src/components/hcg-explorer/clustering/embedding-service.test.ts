@@ -5,9 +5,11 @@
 import { describe, it, expect } from 'vitest'
 import {
   projectTo3D,
+  projectNodesTo3D,
   cosineSimilarity,
   clusterByEmbedding,
 } from './embedding-service'
+import type { GraphNode } from '../types'
 
 describe('cosineSimilarity', () => {
   it('returns 1 for identical vectors', () => {
@@ -180,6 +182,62 @@ describe('clusterByEmbedding', () => {
     for (const clusterId of clusters.values()) {
       expect(Number.isInteger(clusterId)).toBe(true)
       expect(clusterId).toBeGreaterThanOrEqual(0)
+    }
+  })
+})
+
+describe(projectNodesTo3D, () => {
+  function node(id: string, embedding?: number[]): GraphNode {
+    return {
+      id,
+      label: id,
+      type: 'entity',
+      properties: {},
+      embedding,
+      raw: {},
+    } as unknown as GraphNode
+  }
+
+  it('projects embedded nodes and reports the embedded count', () => {
+    const nodes = [
+      node('a', [1, 0, 0, 0]),
+      node('b', [0, 1, 0, 0]),
+      node('c', [0, 0, 1, 0]),
+    ]
+    const { positions, embeddedCount } = projectNodesTo3D(nodes)
+    expect(embeddedCount).toBe(3)
+    expect(positions.size).toBe(3)
+    for (const id of ['a', 'b', 'c']) {
+      const p = positions.get(id)!
+      expect(p).toBeDefined()
+      expect(p.every(c => Number.isFinite(c))).toBe(true)
+    }
+    // Distinct embeddings must not collapse to a single point.
+    expect(positions.get('a')).not.toEqual(positions.get('b'))
+  })
+
+  it('places nodes without embeddings on a visible off-origin shell', () => {
+    const nodes = [
+      node('a', [1, 0, 0, 0]),
+      node('b', [0, 1, 0, 0]),
+      node('c'),
+    ]
+    const { positions, embeddedCount } = projectNodesTo3D(nodes)
+    expect(embeddedCount).toBe(2)
+    expect(positions.size).toBe(3)
+    const c = positions.get('c')!
+    expect(Math.hypot(c[0], c[1], c[2])).toBeGreaterThan(150)
+    expect(c).not.toEqual([0, 0, 0])
+  })
+
+  it('reports embeddedCount 0 when no node carries an embedding', () => {
+    const nodes = [node('a'), node('b'), node('c')]
+    const { positions, embeddedCount } = projectNodesTo3D(nodes)
+    expect(embeddedCount).toBe(0)
+    expect(positions.size).toBe(3)
+    for (const id of ['a', 'b', 'c']) {
+      const p = positions.get(id)!
+      expect(Math.hypot(p[0], p[1], p[2])).toBeGreaterThan(150)
     }
   })
 })

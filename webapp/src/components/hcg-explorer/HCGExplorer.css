@@ -215,6 +215,26 @@
   padding: 16px;
 }
 
+/* De-hairball view controls */
+.hcg-view-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hcg-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hcg-view-label {
+  font-size: 11px;
+  color: var(--hcg-text-secondary);
+  margin-right: 4px;
+}
+
 /* Node details panel */
 .hcg-node-details {
   font-size: 13px;
@@ -530,4 +550,40 @@
   .hcg-input--search {
     width: 100%;
   }
+}
+
+/* Layout density controls */
+.hcg-density-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hcg-density-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hcg-density-row .hcg-view-label {
+  flex: 0 0 88px;
+  margin-right: 0;
+}
+
+.hcg-density-row input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hcg-density-value {
+  flex: 0 0 36px;
+  text-align: right;
+  font-size: 11px;
+  color: var(--hcg-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.hcg-btn--small {
+  padding: 2px 8px;
+  font-size: 11px;
 }

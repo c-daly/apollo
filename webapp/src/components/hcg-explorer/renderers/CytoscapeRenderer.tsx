@@ -8,10 +8,20 @@ import { useEffect, useRef, useState } from 'react'
 import cytoscape, { Core, NodeSingular, EventObject } from 'cytoscape'
 import dagre from 'cytoscape-dagre'
 import type { RendererProps, LayoutType } from '../types'
+import {
+  DEFAULT_DENSITY,
+  densityToFcose,
+  densitySpacingFactor,
+  type DensityParams,
+} from '../utils/layout-density'
 import { NODE_COLORS, STATUS_COLORS } from '../types'
 
 // Register dagre layout
 cytoscape.use(dagre)
+
+/** Realm-root type names; the hierarchical layout roots the IS_A tree on the
+ *  type-definition nodes for these realms. */
+const REALM_ROOTS = new Set(['entity', 'concept', 'process'])
 
 /** Cytoscape stylesheet */
 function getStylesheet(): cytoscape.StylesheetJson {
@@ -227,18 +237,44 @@ function getStylesheet(): cytoscape.StylesheetJson {
         width: 3,
       },
     },
+    // Highlight-subgraph dimming: nodes/edges outside the focused subgraph
+    // fade back so a selection is emphasised without removing context.
+    {
+      selector: 'node.dimmed',
+      style: {
+        opacity: 0.12,
+        'text-opacity': 0.08,
+      },
+    },
+    {
+      selector: 'edge.dimmed',
+      style: {
+        opacity: 0.05,
+        'text-opacity': 0,
+      },
+    },
   ] as cytoscape.StylesheetJson
 }
 
 /** Layout configurations */
-function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
+function getLayoutConfig(
+  layout: LayoutType,
+  cy?: Core,
+  densityParams: DensityParams = DEFAULT_DENSITY
+): cytoscape.LayoutOptions {
+  // Density controls: fcose force layout uses the full mapping; non-force
+  // layouts (hierarchical / tree / circle / concentric / dagre) honour only the
+  // spacing (link-distance) slider.
+  const spacing = densitySpacingFactor(densityParams)
+  const spacingScale = spacing / 1.4
+  const fcose = densityToFcose(densityParams)
   switch (layout) {
     case 'dagre':
       return {
         name: 'dagre',
         rankDir: 'TB',
-        nodeSep: 60,
-        rankSep: 80,
+        nodeSep: Math.round(60 * spacingScale),
+        rankSep: Math.round(80 * spacingScale),
         animate: true,
         animationDuration: 500,
       } as cytoscape.LayoutOptions
@@ -249,9 +285,9 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
         animate: true,
         animationDuration: 500,
         nodeDimensionsIncludeLabels: true,
-        idealEdgeLength: 100,
-        nodeRepulsion: 4500,
-        gravity: 0.25,
+        idealEdgeLength: fcose.idealEdgeLength,
+        nodeRepulsion: fcose.nodeRepulsion,
+        gravity: fcose.gravity,
       } as cytoscape.LayoutOptions
 
     case 'circle':
@@ -260,7 +296,7 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
         animate: true,
         animationDuration: 500,
         avoidOverlap: true,
-        spacingFactor: 1.5,
+        spacingFactor: spacing,
       }
 
     case 'concentric':
@@ -269,15 +305,18 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
         animate: true,
         animationDuration: 500,
         avoidOverlap: true,
-        minNodeSpacing: 50,
+        minNodeSpacing: Math.round(50 * spacingScale),
         concentric: (node: NodeSingular) => {
-          // Order by type: goal > plan > agent > step > process > state
+          // Order by type: goal > plan > agent > step > {process, entity, concept} > state
           const typeOrder: Record<string, number> = {
             goal: 5,
             plan: 4,
             agent: 3,
             step: 2,
+            // NDT realm types (entity/concept/process) are peers and share a ring level
             process: 1,
+            entity: 1,
+            concept: 1,
             state: 0,
           }
           return typeOrder[node.data('type')] ?? 0
@@ -291,16 +330,33 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
         animate: true,
         animationDuration: 500,
         directed: true,
-        spacingFactor: 1.5,
+        spacingFactor: spacing,
         avoidOverlap: true,
       }
+
+    case 'hierarchical': {
+      // Top-down IS_A tree rooted at the realm-root type definitions
+      // (entity / concept / process). Uses cytoscape's built-in breadthfirst
+      // so no new dependency is needed; falls back to auto-picked roots when
+      // the realm roots are absent (e.g. a non-skeleton view).
+      const roots = cy ? cy.nodes('[?isRealmRoot]') : undefined
+      return {
+        name: 'breadthfirst',
+        directed: true,
+        roots: roots && roots.length > 0 ? roots : undefined,
+        spacingFactor: spacing,
+        avoidOverlap: true,
+        animate: true,
+        animationDuration: 500,
+      } as cytoscape.LayoutOptions
+    }
 
     default:
       return {
         name: 'dagre',
         rankDir: 'TB',
-        nodeSep: 60,
-        rankSep: 80,
+        nodeSep: Math.round(60 * spacingScale),
+        rankSep: Math.round(80 * spacingScale),
         animate: true,
       } as cytoscape.LayoutOptions
   }
@@ -314,6 +370,8 @@ export function CytoscapeRenderer({
   onNodeSelect,
   onNodeHover,
   layout,
+  highlightedNodeIds,
+  densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
   // hoveredNodeId handled via CSS classes, not direct state
   const containerRef = useRef<HTMLDivElement>(null)
@@ -322,6 +380,10 @@ export function CytoscapeRenderer({
 
   // Track layout debounce timer
   const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track the last applied layout / density so the element-sync effect can
+  // re-run the layout when those controls change, not only on structural change.
+  const prevLayoutRef = useRef<LayoutType | null>(null)
+  const prevDensityRef = useRef<DensityParams | null>(null)
 
   // Initialize Cytoscape instance
   useEffect(() => {
@@ -376,6 +438,10 @@ export function CytoscapeRenderer({
         label: node.label.length > 20 ? node.label.slice(0, 20) + '...' : node.label,
         type: node.type,
         status: node.status,
+        // Realm-root flag drives the hierarchical layout roots.
+        isRealmRoot:
+          node.type === 'type_definition' &&
+          REALM_ROOTS.has(node.label.trim().toLowerCase()),
       },
     }))
 
@@ -433,19 +499,26 @@ export function CytoscapeRenderer({
       }
     })
 
-    // Only re-layout on structural changes, debounced
-    if (structuralChange) {
+    // Re-layout on structural changes OR when the layout / density controls
+    // change, so switching layout or moving a density slider takes effect
+    // immediately instead of waiting for the next snapshot poll (which is what
+    // made the layout button feel like a no-op). Debounced to coalesce drags.
+    const layoutChanged = prevLayoutRef.current !== layout
+    const densityChanged = prevDensityRef.current !== densityParams
+    prevLayoutRef.current = layout
+    prevDensityRef.current = densityParams
+    if (structuralChange || layoutChanged || densityChanged) {
       if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
       layoutTimerRef.current = setTimeout(() => {
-        const layoutConfig = getLayoutConfig(layout)
+        const layoutConfig = getLayoutConfig(layout, cy, densityParams)
         cy.layout(
           layoutConfig.name === 'null'
             ? layoutConfig
             : ({ ...layoutConfig, fit: false } as cytoscape.LayoutOptions)
         ).run()
-      }, 300)
+      }, 200)
     }
-  }, [graph, layout, isInitialized])
+  }, [graph, layout, densityParams, isInitialized])
 
   // Handle selection changes
   useEffect(() => {
@@ -465,6 +538,35 @@ export function CytoscapeRenderer({
       }
     }
   }, [selectedNodeId, isInitialized])
+
+  // Highlight-subgraph dimming: when a highlight set is active, keep those
+  // nodes (and edges with both endpoints in the set) bright and dim the rest,
+  // preserving context. A null/empty set clears all dimming (full opacity).
+  useEffect(() => {
+    if (!cyRef.current || !isInitialized) return
+    const cy = cyRef.current
+    const hi = highlightedNodeIds
+    // Batch the per-element class toggles so Cytoscape recalculates style/layout
+    // once instead of thrashing on every node and edge in the hairball.
+    cy.batch(() => {
+      if (!hi || hi.size === 0) {
+        cy.nodes().removeClass('dimmed')
+        cy.edges().removeClass('dimmed')
+        return
+      }
+      cy.nodes().forEach(n => {
+        if (hi.has(n.id())) n.removeClass('dimmed')
+        else n.addClass('dimmed')
+      })
+      cy.edges().forEach(e => {
+        if (hi.has(e.source().id()) && hi.has(e.target().id())) {
+          e.removeClass('dimmed')
+        } else {
+          e.addClass('dimmed')
+        }
+      })
+    })
+  }, [highlightedNodeIds, graph, isInitialized])
 
   // Fit view on initial load
   useEffect(() => {

@@ -3,6 +3,7 @@
  */
 
 import type { Entity, CausalEdge, GraphSnapshot } from '../../types/hcg'
+import type { DensityParams } from './utils/layout-density'
 
 // Re-export base types
 export type { Entity, CausalEdge, GraphSnapshot }
@@ -17,8 +18,15 @@ export type LayoutType =
   | 'circle'     // Circular layout
   | 'concentric' // Concentric by type
   | 'breadthfirst' // BFS tree
+  | 'hierarchical' // Top-down IS_A tree rooted at realm roots (2D only)
   | 'force-3d'   // 3D force simulation
   | 'semantic'   // Embedding-based positioning
+
+/** Edge-kind toggle: IS_A membership only, semantic only, or both. */
+export type EdgeKindFilter = 'both' | 'is_a' | 'semantic'
+
+/** How a type/node selection is applied: dim others (highlight) or remove (restrict). */
+export type SelectionMode = 'highlight' | 'restrict'
 
 /** Node representation for rendering */
 export interface GraphNode {
@@ -90,6 +98,27 @@ export interface FilterConfig {
    * literals keep type-checking; treated as null when absent.
    */
   selectedTypeId?: string | null
+  /**
+   * De-hairball default: when true (the app default) the rendered graph is
+   * restricted to the type_definition skeleton: type nodes plus the type-to-type
+   * IS_A hierarchy. Optional so existing FilterConfig literals keep type-checking;
+   * treated as off when absent (preserves direct processGraph/buildGraph callers
+   * and the existing test fixtures).
+   */
+  skeletonOnly?: boolean
+  /**
+   * Which edge kinds to render: both (default), is_a (membership/hierarchy only)
+   * or semantic (everything that is not IS_A). Membership is the bulk of the edge
+   * density, so semantic noticeably thins the view. Treated as both when absent.
+   */
+  edgeKind?: EdgeKindFilter
+  /**
+   * How a type/node selection is applied. highlight (the app default) keeps
+   * context and dims the rest in the renderer; restrict is the prior hard filter
+   * that removes non-members in buildGraph. Absent is treated as restrict to
+   * preserve the original buildGraph type-filter behaviour.
+   */
+  selectionMode?: SelectionMode
 }
 
 /** Property filter definition */
@@ -172,6 +201,14 @@ export interface RendererProps {
   onNodeSelect: (id: string | null) => void
   onNodeHover: (id: string | null) => void
   layout: LayoutType
+  /**
+   * Ids of nodes in the highlighted subgraph. When set (non-null), renderers
+   * keep these nodes/edges at full opacity and dim everything else; an edge is
+   * highlighted only when both endpoints are in the set. Null = no dimming.
+   */
+  highlightedNodeIds?: Set<string> | null
+  /** Force-layout density controls (repulsion / link distance / gravity). */
+  densityParams?: DensityParams
 }
 
 /** Color scheme for entity types */
@@ -223,6 +260,10 @@ export const DEFAULT_FILTER_CONFIG: FilterConfig = {
   propertyFilters: [],
   clusters: [],
   selectedTypeId: null,
+  // De-hairball defaults: skeleton-first, all edge kinds, highlight-on-select.
+  skeletonOnly: true,
+  edgeKind: 'both',
+  selectionMode: 'highlight',
 }
 
 /** Default embedding configuration */

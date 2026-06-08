@@ -15,9 +15,18 @@ import {
   forceLink,
   forceCenter,
   forceCollide,
+  forceX,
+  forceY,
+  forceZ,
 } from 'd3-force-3d'
-import type { RendererProps, GraphNode, GraphEdge } from '../types'
+import type { RendererProps, GraphNode, GraphEdge, LayoutType } from '../types'
 import { NODE_COLORS, STATUS_COLORS } from '../types'
+import { projectNodesTo3D } from '../clustering/embedding-service'
+import {
+  DEFAULT_DENSITY,
+  densityToForce3D,
+  type DensityParams,
+} from '../utils/layout-density'
 
 /* ── Shared geometry & material singletons (allocated once) ── */
 const SHARED_SPHERE_GEO = new THREE.SphereGeometry(5, 16, 16)
@@ -34,6 +43,7 @@ interface NodeSphereProps {
   position: [number, number, number]
   isSelected: boolean
   isHovered: boolean
+  dimmed: boolean
   onSelect: (id: string) => void
   onHover: (id: string | null) => void
 }
@@ -43,6 +53,7 @@ const NodeSphere = memo(function NodeSphere({
   position,
   isSelected,
   isHovered,
+  dimmed,
   onSelect,
   onHover,
 }: NodeSphereProps) {
@@ -88,6 +99,8 @@ const NodeSphere = memo(function NodeSphere({
           color={baseColor}
           emissive={isSelected ? baseColor : '#000000'}
           emissiveIntensity={isSelected ? 0.3 : 0}
+          transparent={dimmed}
+          opacity={dimmed ? 0.1 : 1}
         />
       </mesh>
 
@@ -107,6 +120,7 @@ const NodeSphere = memo(function NodeSphere({
       <Text
         position={[0, 8, 0]}
         fontSize={3}
+        fillOpacity={dimmed ? 0.08 : 1}
         color="#ffffff"
         anchorX="center"
         anchorY="bottom"
@@ -124,9 +138,10 @@ interface EdgeLineProps {
   sourcePos: [number, number, number]
   targetPos: [number, number, number]
   label: string
+  dimmed: boolean
 }
 
-const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLineProps) {
+const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label, dimmed }: EdgeLineProps) {
   // Midpoint anchors both the connector marker and the relation label.
   const midpoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
@@ -140,13 +155,15 @@ const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLin
         points={[sourcePos, targetPos]}
         color="#666666"
         lineWidth={1}
-        opacity={0.6}
+        opacity={dimmed ? 0.05 : 0.6}
         transparent
       />
-      {/* Connector marker near midpoint */}
-      <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
-      {/* Relation label (the edge_type) */}
-      {label ? (
+      {/* Connector marker near midpoint (hidden when dimmed) */}
+      {!dimmed && (
+        <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
+      )}
+      {/* Relation label (the edge_type), hidden when dimmed */}
+      {label && !dimmed ? (
         <Text
           position={[midpoint[0], midpoint[1] + 3, midpoint[2]]}
           fontSize={2.2}
@@ -161,7 +178,24 @@ const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLin
       ) : null}
     </group>
   )
-})
+}, edgeLinePropsEqual)
+
+// sourcePos/targetPos are fresh arrays on every simulation tick, so the default
+// shallow memo comparison never matches and EdgeLine re-renders every frame.
+// Compare coordinate values instead, so an edge only re-renders when it actually
+// moved (or its label/dimmed state changed) — a no-op once the layout settles.
+function edgeLinePropsEqual(prev: EdgeLineProps, next: EdgeLineProps): boolean {
+  return (
+    prev.dimmed === next.dimmed &&
+    prev.label === next.label &&
+    prev.sourcePos[0] === next.sourcePos[0] &&
+    prev.sourcePos[1] === next.sourcePos[1] &&
+    prev.sourcePos[2] === next.sourcePos[2] &&
+    prev.targetPos[0] === next.targetPos[0] &&
+    prev.targetPos[1] === next.targetPos[1] &&
+    prev.targetPos[2] === next.targetPos[2]
+  )
+}
 
 /** Scene content with nodes and edges */
 interface SceneContentProps {
@@ -171,6 +205,9 @@ interface SceneContentProps {
   hoveredNodeId: string | null
   onNodeSelect: (id: string | null) => void
   onNodeHover: (id: string | null) => void
+  highlightedNodeIds?: Set<string> | null
+  layout: LayoutType
+  densityParams: DensityParams
 }
 
 function SceneContent({
@@ -180,6 +217,9 @@ function SceneContent({
   hoveredNodeId,
   onNodeSelect,
   onNodeHover,
+  highlightedNodeIds,
+  layout,
+  densityParams,
 }: SceneContentProps) {
   const [positions, setPositions] = useState<Map<string, [number, number, number]>>(
     new Map()
@@ -199,6 +239,23 @@ function SceneContent({
       }
       setPositions(new Map())
       return
+    }
+
+    // Semantic layout: place nodes at their embedding projection instead of
+    // running the force simulation, so 'semantic' is visibly distinct from
+    // 'force-3d'. Falls back to force when too few nodes carry embeddings.
+    if (layout === 'semantic') {
+      const { positions: semanticPositions, embeddedCount } =
+        projectNodesTo3D(nodes)
+      if (embeddedCount >= 2) {
+        if (simulationRef.current) {
+          simulationRef.current.stop()
+          simulationRef.current = null
+        }
+        setPositions(semanticPositions)
+        return
+      }
+      // No usable embeddings in this snapshot — fall through to force layout.
     }
 
     const currentNodeMap = simNodesRef.current
@@ -257,15 +314,20 @@ function SceneContent({
       simulationRef.current.stop()
     }
 
+    const force = densityToForce3D(densityParams)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linkForce = forceLink(simLinks).id((d: any) => d.id) as any
-    if (linkForce.distance) linkForce.distance(50)
+    if (linkForce.distance) linkForce.distance(force.linkDistance)
 
     const simulation = forceSimulation(simNodes, 3)
-      .force('charge', forceManyBody().strength(-100))
+      .force('charge', forceManyBody().strength(force.chargeStrength))
       .force('link', linkForce)
       .force('center', forceCenter(0, 0, 0))
       .force('collide', forceCollide(10))
+      .force('x', forceX(0).strength(force.gravity))
+      .force('y', forceY(0).strength(force.gravity))
+      .force('z', forceZ(0).strength(force.gravity))
       .alphaDecay(0.02)
 
     simulationRef.current = simulation
@@ -284,7 +346,7 @@ function SceneContent({
     return () => {
       simulation.stop()
     }
-  }, [nodes, edges])
+  }, [nodes, edges, layout, densityParams])
 
   // Handle click on empty space to deselect
   const handleBackgroundClick = useCallback(() => {
@@ -329,6 +391,13 @@ function SceneContent({
             sourcePos={sourcePos}
             targetPos={targetPos}
             label={edge.label}
+            dimmed={
+              !!highlightedNodeIds &&
+              !(
+                highlightedNodeIds.has(edge.source) &&
+                highlightedNodeIds.has(edge.target)
+              )
+            }
           />
         )
       })}
@@ -347,6 +416,7 @@ function SceneContent({
             isHovered={hoveredNodeId === node.id}
             onSelect={onNodeSelect}
             onHover={onNodeHover}
+            dimmed={!!highlightedNodeIds && !highlightedNodeIds.has(node.id)}
           />
         )
       })}
@@ -415,6 +485,9 @@ export function ThreeRenderer({
   hoveredNodeId,
   onNodeSelect,
   onNodeHover,
+  highlightedNodeIds,
+  layout,
+  densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
   return (
     <Canvas
@@ -434,6 +507,9 @@ export function ThreeRenderer({
         hoveredNodeId={hoveredNodeId}
         onNodeSelect={onNodeSelect}
         onNodeHover={onNodeHover}
+        highlightedNodeIds={highlightedNodeIds}
+        layout={layout}
+        densityParams={densityParams}
       />
 
       {/* Grid helper for orientation */}
