@@ -34,6 +34,7 @@ interface NodeSphereProps {
   position: [number, number, number]
   isSelected: boolean
   isHovered: boolean
+  dimmed: boolean
   onSelect: (id: string) => void
   onHover: (id: string | null) => void
 }
@@ -43,6 +44,7 @@ const NodeSphere = memo(function NodeSphere({
   position,
   isSelected,
   isHovered,
+  dimmed,
   onSelect,
   onHover,
 }: NodeSphereProps) {
@@ -88,6 +90,8 @@ const NodeSphere = memo(function NodeSphere({
           color={baseColor}
           emissive={isSelected ? baseColor : '#000000'}
           emissiveIntensity={isSelected ? 0.3 : 0}
+          transparent={dimmed}
+          opacity={dimmed ? 0.1 : 1}
         />
       </mesh>
 
@@ -107,6 +111,7 @@ const NodeSphere = memo(function NodeSphere({
       <Text
         position={[0, 8, 0]}
         fontSize={3}
+        fillOpacity={dimmed ? 0.08 : 1}
         color="#ffffff"
         anchorX="center"
         anchorY="bottom"
@@ -124,9 +129,10 @@ interface EdgeLineProps {
   sourcePos: [number, number, number]
   targetPos: [number, number, number]
   label: string
+  dimmed: boolean
 }
 
-const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLineProps) {
+const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label, dimmed }: EdgeLineProps) {
   // Midpoint anchors both the connector marker and the relation label.
   const midpoint: [number, number, number] = [
     (sourcePos[0] + targetPos[0]) / 2,
@@ -140,13 +146,15 @@ const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label }: EdgeLin
         points={[sourcePos, targetPos]}
         color="#666666"
         lineWidth={1}
-        opacity={0.6}
+        opacity={dimmed ? 0.05 : 0.6}
         transparent
       />
-      {/* Connector marker near midpoint */}
-      <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
-      {/* Relation label (the edge_type) */}
-      {label ? (
+      {/* Connector marker near midpoint (hidden when dimmed) */}
+      {!dimmed && (
+        <mesh position={midpoint} geometry={SHARED_MIDPOINT_GEO} material={SHARED_MIDPOINT_MAT} />
+      )}
+      {/* Relation label (the edge_type), hidden when dimmed */}
+      {label && !dimmed ? (
         <Text
           position={[midpoint[0], midpoint[1] + 3, midpoint[2]]}
           fontSize={2.2}
@@ -171,6 +179,7 @@ interface SceneContentProps {
   hoveredNodeId: string | null
   onNodeSelect: (id: string | null) => void
   onNodeHover: (id: string | null) => void
+  highlightedNodeIds?: Set<string> | null
 }
 
 function SceneContent({
@@ -180,6 +189,7 @@ function SceneContent({
   hoveredNodeId,
   onNodeSelect,
   onNodeHover,
+  highlightedNodeIds,
 }: SceneContentProps) {
   const [positions, setPositions] = useState<Map<string, [number, number, number]>>(
     new Map()
@@ -329,6 +339,13 @@ function SceneContent({
             sourcePos={sourcePos}
             targetPos={targetPos}
             label={edge.label}
+            dimmed={
+              !!highlightedNodeIds &&
+              !(
+                highlightedNodeIds.has(edge.source) &&
+                highlightedNodeIds.has(edge.target)
+              )
+            }
           />
         )
       })}
@@ -347,6 +364,7 @@ function SceneContent({
             isHovered={hoveredNodeId === node.id}
             onSelect={onNodeSelect}
             onHover={onNodeHover}
+            dimmed={!!highlightedNodeIds && !highlightedNodeIds.has(node.id)}
           />
         )
       })}
@@ -415,6 +433,7 @@ export function ThreeRenderer({
   hoveredNodeId,
   onNodeSelect,
   onNodeHover,
+  highlightedNodeIds,
 }: RendererProps) {
   return (
     <Canvas
@@ -434,6 +453,7 @@ export function ThreeRenderer({
         hoveredNodeId={hoveredNodeId}
         onNodeSelect={onNodeSelect}
         onNodeHover={onNodeHover}
+        highlightedNodeIds={highlightedNodeIds}
       />
 
       {/* Grid helper for orientation */}

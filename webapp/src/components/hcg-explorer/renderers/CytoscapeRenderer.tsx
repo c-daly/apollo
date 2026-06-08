@@ -13,6 +13,10 @@ import { NODE_COLORS, STATUS_COLORS } from '../types'
 // Register dagre layout
 cytoscape.use(dagre)
 
+/** Realm-root type names; the hierarchical layout roots the IS_A tree on the
+ *  type-definition nodes for these realms. */
+const REALM_ROOTS = new Set(['entity', 'concept', 'process'])
+
 /** Cytoscape stylesheet */
 function getStylesheet(): cytoscape.StylesheetJson {
   return [
@@ -227,11 +231,30 @@ function getStylesheet(): cytoscape.StylesheetJson {
         width: 3,
       },
     },
+    // Highlight-subgraph dimming: nodes/edges outside the focused subgraph
+    // fade back so a selection is emphasised without removing context.
+    {
+      selector: 'node.dimmed',
+      style: {
+        opacity: 0.12,
+        'text-opacity': 0.08,
+      },
+    },
+    {
+      selector: 'edge.dimmed',
+      style: {
+        opacity: 0.05,
+        'text-opacity': 0,
+      },
+    },
   ] as cytoscape.StylesheetJson
 }
 
 /** Layout configurations */
-function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
+function getLayoutConfig(
+  layout: LayoutType,
+  cy?: Core
+): cytoscape.LayoutOptions {
   switch (layout) {
     case 'dagre':
       return {
@@ -298,6 +321,23 @@ function getLayoutConfig(layout: LayoutType): cytoscape.LayoutOptions {
         avoidOverlap: true,
       }
 
+    case 'hierarchical': {
+      // Top-down IS_A tree rooted at the realm-root type definitions
+      // (entity / concept / process). Uses cytoscape's built-in breadthfirst
+      // so no new dependency is needed; falls back to auto-picked roots when
+      // the realm roots are absent (e.g. a non-skeleton view).
+      const roots = cy ? cy.nodes('[?isRealmRoot]') : undefined
+      return {
+        name: 'breadthfirst',
+        directed: true,
+        roots: roots && roots.length > 0 ? roots : undefined,
+        spacingFactor: 1.4,
+        avoidOverlap: true,
+        animate: true,
+        animationDuration: 500,
+      } as cytoscape.LayoutOptions
+    }
+
     default:
       return {
         name: 'dagre',
@@ -317,6 +357,7 @@ export function CytoscapeRenderer({
   onNodeSelect,
   onNodeHover,
   layout,
+  highlightedNodeIds,
 }: RendererProps) {
   // hoveredNodeId handled via CSS classes, not direct state
   const containerRef = useRef<HTMLDivElement>(null)
@@ -379,6 +420,10 @@ export function CytoscapeRenderer({
         label: node.label.length > 20 ? node.label.slice(0, 20) + '...' : node.label,
         type: node.type,
         status: node.status,
+        // Realm-root flag drives the hierarchical layout roots.
+        isRealmRoot:
+          node.type === 'type_definition' &&
+          REALM_ROOTS.has(node.label.trim().toLowerCase()),
       },
     }))
 
@@ -440,7 +485,7 @@ export function CytoscapeRenderer({
     if (structuralChange) {
       if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
       layoutTimerRef.current = setTimeout(() => {
-        const layoutConfig = getLayoutConfig(layout)
+        const layoutConfig = getLayoutConfig(layout, cy)
         cy.layout(
           layoutConfig.name === 'null'
             ? layoutConfig
@@ -468,6 +513,31 @@ export function CytoscapeRenderer({
       }
     }
   }, [selectedNodeId, isInitialized])
+
+  // Highlight-subgraph dimming: when a highlight set is active, keep those
+  // nodes (and edges with both endpoints in the set) bright and dim the rest,
+  // preserving context. A null/empty set clears all dimming (full opacity).
+  useEffect(() => {
+    if (!cyRef.current || !isInitialized) return
+    const cy = cyRef.current
+    const hi = highlightedNodeIds
+    if (!hi || hi.size === 0) {
+      cy.nodes().removeClass('dimmed')
+      cy.edges().removeClass('dimmed')
+      return
+    }
+    cy.nodes().forEach(n => {
+      if (hi.has(n.id())) n.removeClass('dimmed')
+      else n.addClass('dimmed')
+    })
+    cy.edges().forEach(e => {
+      if (hi.has(e.source().id()) && hi.has(e.target().id())) {
+        e.removeClass('dimmed')
+      } else {
+        e.addClass('dimmed')
+      }
+    })
+  }, [highlightedNodeIds, graph, isInitialized])
 
   // Fit view on initial load
   useEffect(() => {
