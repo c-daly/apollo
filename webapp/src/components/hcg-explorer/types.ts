@@ -174,6 +174,13 @@ export const NODE_COLORS: Record<string, string> = {
   step: '#a78bfa',
   state: '#f59e0b',
   process: '#ef4444',
+  // NDT realm types — sophia's realm-triage tags HCG nodes ingested via the
+  // NLP/media pipeline with one of the three realms {entity, concept, process}
+  // as node.type. `process` doubles as a realm and a fine-grained type and
+  // already has a color above; `entity` and `concept` are added here so realm-
+  // typed nodes color instead of falling back to gray.
+  entity: '#2563eb',
+  concept: '#9333ea',
   agent: '#38bdf8',
   action: '#f97316',
   object: '#fb923c',

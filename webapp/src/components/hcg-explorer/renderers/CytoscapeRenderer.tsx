@@ -97,6 +97,25 @@ function getStylesheet(): cytoscape.StylesheetJson {
         'text-outline-color': NODE_COLORS.process,
       },
     },
+    // NDT realm types emitted by sophia's realm-triage on ingested nodes
+    {
+      selector: 'node[type="entity"]',
+      style: {
+        'background-color': NODE_COLORS.entity,
+        shape: 'ellipse',
+        color: '#ffffff',
+        'text-outline-color': NODE_COLORS.entity,
+      },
+    },
+    {
+      selector: 'node[type="concept"]',
+      style: {
+        'background-color': NODE_COLORS.concept,
+        shape: 'round-rectangle',
+        color: '#ffffff',
+        'text-outline-color': NODE_COLORS.concept,
+      },
+    },
     // Status-based styles
     {
       selector: 'node[status="completed"]',

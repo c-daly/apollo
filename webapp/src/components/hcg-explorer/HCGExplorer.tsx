@@ -66,8 +66,9 @@ const LAYOUT_NAMES: Record<LayoutType, string> = {
   semantic: 'Semantic',
 }
 
-/** Well-known entity types shown first in filter bar */
-const KNOWN_ENTITY_TYPES = ['goal', 'plan', 'step', 'action', 'state', 'process', 'agent', 'object', 'location', 'workspace', 'zone', 'simulation']
+/** Well-known entity types shown first in filter bar (incl. the NDT realms
+ * entity/concept/process that sophia's realm-triage stamps on ingested nodes) */
+const KNOWN_ENTITY_TYPES = ['goal', 'plan', 'step', 'action', 'state', 'process', 'entity', 'concept', 'agent', 'object', 'location', 'workspace', 'zone', 'simulation']
 
 export interface HCGExplorerProps {
   /** Initial view mode */
