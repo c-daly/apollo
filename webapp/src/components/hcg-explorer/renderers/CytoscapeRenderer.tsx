@@ -546,21 +546,25 @@ export function CytoscapeRenderer({
     if (!cyRef.current || !isInitialized) return
     const cy = cyRef.current
     const hi = highlightedNodeIds
-    if (!hi || hi.size === 0) {
-      cy.nodes().removeClass('dimmed')
-      cy.edges().removeClass('dimmed')
-      return
-    }
-    cy.nodes().forEach(n => {
-      if (hi.has(n.id())) n.removeClass('dimmed')
-      else n.addClass('dimmed')
-    })
-    cy.edges().forEach(e => {
-      if (hi.has(e.source().id()) && hi.has(e.target().id())) {
-        e.removeClass('dimmed')
-      } else {
-        e.addClass('dimmed')
+    // Batch the per-element class toggles so Cytoscape recalculates style/layout
+    // once instead of thrashing on every node and edge in the hairball.
+    cy.batch(() => {
+      if (!hi || hi.size === 0) {
+        cy.nodes().removeClass('dimmed')
+        cy.edges().removeClass('dimmed')
+        return
       }
+      cy.nodes().forEach(n => {
+        if (hi.has(n.id())) n.removeClass('dimmed')
+        else n.addClass('dimmed')
+      })
+      cy.edges().forEach(e => {
+        if (hi.has(e.source().id()) && hi.has(e.target().id())) {
+          e.removeClass('dimmed')
+        } else {
+          e.addClass('dimmed')
+        }
+      })
     })
   }, [highlightedNodeIds, graph, isInitialized])
 

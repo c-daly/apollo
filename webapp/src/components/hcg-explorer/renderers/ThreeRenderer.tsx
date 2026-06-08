@@ -178,7 +178,24 @@ const EdgeLine = memo(function EdgeLine({ sourcePos, targetPos, label, dimmed }:
       ) : null}
     </group>
   )
-})
+}, edgeLinePropsEqual)
+
+// sourcePos/targetPos are fresh arrays on every simulation tick, so the default
+// shallow memo comparison never matches and EdgeLine re-renders every frame.
+// Compare coordinate values instead, so an edge only re-renders when it actually
+// moved (or its label/dimmed state changed) — a no-op once the layout settles.
+function edgeLinePropsEqual(prev: EdgeLineProps, next: EdgeLineProps): boolean {
+  return (
+    prev.dimmed === next.dimmed &&
+    prev.label === next.label &&
+    prev.sourcePos[0] === next.sourcePos[0] &&
+    prev.sourcePos[1] === next.sourcePos[1] &&
+    prev.sourcePos[2] === next.sourcePos[2] &&
+    prev.targetPos[0] === next.targetPos[0] &&
+    prev.targetPos[1] === next.targetPos[1] &&
+    prev.targetPos[2] === next.targetPos[2]
+  )
+}
 
 /** Scene content with nodes and edges */
 interface SceneContentProps {
