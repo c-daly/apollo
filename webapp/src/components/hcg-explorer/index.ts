@@ -31,10 +31,7 @@ export { generateMockSnapshot, generateMockHistory } from './utils/mock-data'
 export {
   generateNodeEmbeddings,
   projectTo3D,
-  clusterByEmbedding,
-  cosineSimilarity,
 } from './clustering/embedding-service'
-export { useSemanticLayout } from './hooks/useSemanticLayout'
 
 // Renderers (for advanced usage)
 export { ThreeRenderer } from './renderers/ThreeRenderer'
