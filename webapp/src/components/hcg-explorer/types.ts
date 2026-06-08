@@ -3,6 +3,7 @@
  */
 
 import type { Entity, CausalEdge, GraphSnapshot } from '../../types/hcg'
+import type { DensityParams } from './utils/layout-density'
 
 // Re-export base types
 export type { Entity, CausalEdge, GraphSnapshot }
@@ -206,6 +207,8 @@ export interface RendererProps {
    * highlighted only when both endpoints are in the set. Null = no dimming.
    */
   highlightedNodeIds?: Set<string> | null
+  /** Force-layout density controls (repulsion / link distance / gravity). */
+  densityParams?: DensityParams
 }
 
 /** Color scheme for entity types */

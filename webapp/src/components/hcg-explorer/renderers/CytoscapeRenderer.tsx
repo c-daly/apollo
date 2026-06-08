@@ -8,6 +8,12 @@ import { useEffect, useRef, useState } from 'react'
 import cytoscape, { Core, NodeSingular, EventObject } from 'cytoscape'
 import dagre from 'cytoscape-dagre'
 import type { RendererProps, LayoutType } from '../types'
+import {
+  DEFAULT_DENSITY,
+  densityToFcose,
+  densitySpacingFactor,
+  type DensityParams,
+} from '../utils/layout-density'
 import { NODE_COLORS, STATUS_COLORS } from '../types'
 
 // Register dagre layout
@@ -253,15 +259,22 @@ function getStylesheet(): cytoscape.StylesheetJson {
 /** Layout configurations */
 function getLayoutConfig(
   layout: LayoutType,
-  cy?: Core
+  cy?: Core,
+  densityParams: DensityParams = DEFAULT_DENSITY
 ): cytoscape.LayoutOptions {
+  // Density controls: fcose force layout uses the full mapping; non-force
+  // layouts (hierarchical / tree / circle / concentric / dagre) honour only the
+  // spacing (link-distance) slider.
+  const spacing = densitySpacingFactor(densityParams)
+  const spacingScale = spacing / 1.4
+  const fcose = densityToFcose(densityParams)
   switch (layout) {
     case 'dagre':
       return {
         name: 'dagre',
         rankDir: 'TB',
-        nodeSep: 60,
-        rankSep: 80,
+        nodeSep: Math.round(60 * spacingScale),
+        rankSep: Math.round(80 * spacingScale),
         animate: true,
         animationDuration: 500,
       } as cytoscape.LayoutOptions
@@ -272,9 +285,9 @@ function getLayoutConfig(
         animate: true,
         animationDuration: 500,
         nodeDimensionsIncludeLabels: true,
-        idealEdgeLength: 100,
-        nodeRepulsion: 4500,
-        gravity: 0.25,
+        idealEdgeLength: fcose.idealEdgeLength,
+        nodeRepulsion: fcose.nodeRepulsion,
+        gravity: fcose.gravity,
       } as cytoscape.LayoutOptions
 
     case 'circle':
@@ -283,7 +296,7 @@ function getLayoutConfig(
         animate: true,
         animationDuration: 500,
         avoidOverlap: true,
-        spacingFactor: 1.5,
+        spacingFactor: spacing,
       }
 
     case 'concentric':
@@ -292,7 +305,7 @@ function getLayoutConfig(
         animate: true,
         animationDuration: 500,
         avoidOverlap: true,
-        minNodeSpacing: 50,
+        minNodeSpacing: Math.round(50 * spacingScale),
         concentric: (node: NodeSingular) => {
           // Order by type: goal > plan > agent > step > {process, entity, concept} > state
           const typeOrder: Record<string, number> = {
@@ -317,7 +330,7 @@ function getLayoutConfig(
         animate: true,
         animationDuration: 500,
         directed: true,
-        spacingFactor: 1.5,
+        spacingFactor: spacing,
         avoidOverlap: true,
       }
 
@@ -331,7 +344,7 @@ function getLayoutConfig(
         name: 'breadthfirst',
         directed: true,
         roots: roots && roots.length > 0 ? roots : undefined,
-        spacingFactor: 1.4,
+        spacingFactor: spacing,
         avoidOverlap: true,
         animate: true,
         animationDuration: 500,
@@ -342,8 +355,8 @@ function getLayoutConfig(
       return {
         name: 'dagre',
         rankDir: 'TB',
-        nodeSep: 60,
-        rankSep: 80,
+        nodeSep: Math.round(60 * spacingScale),
+        rankSep: Math.round(80 * spacingScale),
         animate: true,
       } as cytoscape.LayoutOptions
   }
@@ -358,6 +371,7 @@ export function CytoscapeRenderer({
   onNodeHover,
   layout,
   highlightedNodeIds,
+  densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
   // hoveredNodeId handled via CSS classes, not direct state
   const containerRef = useRef<HTMLDivElement>(null)
@@ -366,6 +380,10 @@ export function CytoscapeRenderer({
 
   // Track layout debounce timer
   const layoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Track the last applied layout / density so the element-sync effect can
+  // re-run the layout when those controls change, not only on structural change.
+  const prevLayoutRef = useRef<LayoutType | null>(null)
+  const prevDensityRef = useRef<DensityParams | null>(null)
 
   // Initialize Cytoscape instance
   useEffect(() => {
@@ -481,19 +499,26 @@ export function CytoscapeRenderer({
       }
     })
 
-    // Only re-layout on structural changes, debounced
-    if (structuralChange) {
+    // Re-layout on structural changes OR when the layout / density controls
+    // change, so switching layout or moving a density slider takes effect
+    // immediately instead of waiting for the next snapshot poll (which is what
+    // made the layout button feel like a no-op). Debounced to coalesce drags.
+    const layoutChanged = prevLayoutRef.current !== layout
+    const densityChanged = prevDensityRef.current !== densityParams
+    prevLayoutRef.current = layout
+    prevDensityRef.current = densityParams
+    if (structuralChange || layoutChanged || densityChanged) {
       if (layoutTimerRef.current) clearTimeout(layoutTimerRef.current)
       layoutTimerRef.current = setTimeout(() => {
-        const layoutConfig = getLayoutConfig(layout, cy)
+        const layoutConfig = getLayoutConfig(layout, cy, densityParams)
         cy.layout(
           layoutConfig.name === 'null'
             ? layoutConfig
             : ({ ...layoutConfig, fit: false } as cytoscape.LayoutOptions)
         ).run()
-      }, 300)
+      }, 200)
     }
-  }, [graph, layout, isInitialized])
+  }, [graph, layout, densityParams, isInitialized])
 
   // Handle selection changes
   useEffect(() => {

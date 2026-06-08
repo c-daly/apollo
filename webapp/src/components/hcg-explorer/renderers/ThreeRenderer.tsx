@@ -15,9 +15,18 @@ import {
   forceLink,
   forceCenter,
   forceCollide,
+  forceX,
+  forceY,
+  forceZ,
 } from 'd3-force-3d'
-import type { RendererProps, GraphNode, GraphEdge } from '../types'
+import type { RendererProps, GraphNode, GraphEdge, LayoutType } from '../types'
 import { NODE_COLORS, STATUS_COLORS } from '../types'
+import { projectNodesTo3D } from '../clustering/embedding-service'
+import {
+  DEFAULT_DENSITY,
+  densityToForce3D,
+  type DensityParams,
+} from '../utils/layout-density'
 
 /* ── Shared geometry & material singletons (allocated once) ── */
 const SHARED_SPHERE_GEO = new THREE.SphereGeometry(5, 16, 16)
@@ -180,6 +189,8 @@ interface SceneContentProps {
   onNodeSelect: (id: string | null) => void
   onNodeHover: (id: string | null) => void
   highlightedNodeIds?: Set<string> | null
+  layout: LayoutType
+  densityParams: DensityParams
 }
 
 function SceneContent({
@@ -190,6 +201,8 @@ function SceneContent({
   onNodeSelect,
   onNodeHover,
   highlightedNodeIds,
+  layout,
+  densityParams,
 }: SceneContentProps) {
   const [positions, setPositions] = useState<Map<string, [number, number, number]>>(
     new Map()
@@ -209,6 +222,23 @@ function SceneContent({
       }
       setPositions(new Map())
       return
+    }
+
+    // Semantic layout: place nodes at their embedding projection instead of
+    // running the force simulation, so 'semantic' is visibly distinct from
+    // 'force-3d'. Falls back to force when too few nodes carry embeddings.
+    if (layout === 'semantic') {
+      const { positions: semanticPositions, embeddedCount } =
+        projectNodesTo3D(nodes)
+      if (embeddedCount >= 2) {
+        if (simulationRef.current) {
+          simulationRef.current.stop()
+          simulationRef.current = null
+        }
+        setPositions(semanticPositions)
+        return
+      }
+      // No usable embeddings in this snapshot — fall through to force layout.
     }
 
     const currentNodeMap = simNodesRef.current
@@ -267,15 +297,20 @@ function SceneContent({
       simulationRef.current.stop()
     }
 
+    const force = densityToForce3D(densityParams)
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linkForce = forceLink(simLinks).id((d: any) => d.id) as any
-    if (linkForce.distance) linkForce.distance(50)
+    if (linkForce.distance) linkForce.distance(force.linkDistance)
 
     const simulation = forceSimulation(simNodes, 3)
-      .force('charge', forceManyBody().strength(-100))
+      .force('charge', forceManyBody().strength(force.chargeStrength))
       .force('link', linkForce)
       .force('center', forceCenter(0, 0, 0))
       .force('collide', forceCollide(10))
+      .force('x', forceX(0).strength(force.gravity))
+      .force('y', forceY(0).strength(force.gravity))
+      .force('z', forceZ(0).strength(force.gravity))
       .alphaDecay(0.02)
 
     simulationRef.current = simulation
@@ -294,7 +329,7 @@ function SceneContent({
     return () => {
       simulation.stop()
     }
-  }, [nodes, edges])
+  }, [nodes, edges, layout, densityParams])
 
   // Handle click on empty space to deselect
   const handleBackgroundClick = useCallback(() => {
@@ -434,6 +469,8 @@ export function ThreeRenderer({
   onNodeSelect,
   onNodeHover,
   highlightedNodeIds,
+  layout,
+  densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
   return (
     <Canvas
@@ -454,6 +491,8 @@ export function ThreeRenderer({
         onNodeSelect={onNodeSelect}
         onNodeHover={onNodeHover}
         highlightedNodeIds={highlightedNodeIds}
+        layout={layout}
+        densityParams={densityParams}
       />
 
       {/* Grid helper for orientation */}

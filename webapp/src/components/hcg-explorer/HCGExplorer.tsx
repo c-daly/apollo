@@ -27,6 +27,11 @@ import type {
   GraphSnapshot,
 } from './types'
 import { NODE_COLORS, DEFAULT_FILTER_CONFIG } from './types'
+import {
+  DEFAULT_DENSITY,
+  DENSITY_RANGES,
+  type DensityParams,
+} from './utils/layout-density'
 import './HCGExplorer.css'
 
 /** Convert HCGGraphSnapshot to our internal GraphSnapshot type (keeps all entities) */
@@ -150,6 +155,10 @@ function HCGExplorerInner({
   // - 'reified': the graph as stored (every edge is a node — "all nodes")
   const [graphMode, setGraphMode] = useState<GraphMode>('logical')
 
+  // Layout density controls (force layouts + spacing for hierarchical/tree).
+  // Passed to both renderers; changing a slider re-lays-out the canvas live.
+  const [densityParams, setDensityParams] = useState<DensityParams>(DEFAULT_DENSITY)
+
   // Fetch graph data
   const {
     data: apiSnapshot,
@@ -255,8 +264,13 @@ function HCGExplorerInner({
   // empty canvas with an active-but-invisible filter. Only clears when the type
   // is truly absent, so valid selections survive timeline navigation.
   useEffect(() => {
+    // Only drop the selection when we have a populated type list that genuinely
+    // lacks the selected type. An empty list usually means the snapshot is
+    // mid-refetch (the 15s poll) or filtered down to no type-definition nodes;
+    // clearing then would nuke a still-valid selection on every refresh.
     if (
       filterConfig.selectedTypeId &&
+      typeSummaries.length > 0 &&
       !typeSummaries.some(t => t.id === filterConfig.selectedTypeId)
     ) {
       setFilter({ selectedTypeId: null })
@@ -302,6 +316,14 @@ function HCGExplorerInner({
       setLayout(e.target.value as LayoutType)
     },
     [setLayout]
+  )
+
+  // Handle a layout-density slider change (live re-layout in both renderers).
+  const handleDensityChange = useCallback(
+    (key: keyof DensityParams, value: number) => {
+      setDensityParams(prev => ({ ...prev, [key]: value }))
+    },
+    []
   )
 
   // Handle search
@@ -514,6 +536,7 @@ function HCGExplorerInner({
               onNodeHover={hoverNode}
               layout={layout}
               highlightedNodeIds={highlightedNodeIds}
+              densityParams={densityParams}
             />
           )}
 
@@ -526,6 +549,7 @@ function HCGExplorerInner({
               onNodeHover={hoverNode}
               layout={layout}
               highlightedNodeIds={highlightedNodeIds}
+              densityParams={densityParams}
             />
           )}
         </div>
@@ -583,6 +607,67 @@ function HCGExplorerInner({
                   Restrict
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Layout density controls. Force layouts use all three; the
+              hierarchical / tree layouts honour spacing (link distance) only. */}
+          <div className="hcg-panel">
+            <div className="hcg-panel-header">
+              <span className="hcg-panel-title">Layout</span>
+              <button
+                className="hcg-btn hcg-btn--small"
+                onClick={() => setDensityParams(DEFAULT_DENSITY)}
+                title="Reset layout density to defaults"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="hcg-panel-content hcg-density-controls">
+              <label className="hcg-density-row">
+                <span className="hcg-view-label">Repulsion</span>
+                <input
+                  type="range"
+                  min={DENSITY_RANGES.repulsion.min}
+                  max={DENSITY_RANGES.repulsion.max}
+                  step={DENSITY_RANGES.repulsion.step}
+                  value={densityParams.repulsion}
+                  onChange={e =>
+                    handleDensityChange('repulsion', Number(e.target.value))
+                  }
+                />
+                <span className="hcg-density-value">{densityParams.repulsion}</span>
+              </label>
+              <label className="hcg-density-row">
+                <span className="hcg-view-label">Link distance</span>
+                <input
+                  type="range"
+                  min={DENSITY_RANGES.linkDistance.min}
+                  max={DENSITY_RANGES.linkDistance.max}
+                  step={DENSITY_RANGES.linkDistance.step}
+                  value={densityParams.linkDistance}
+                  onChange={e =>
+                    handleDensityChange('linkDistance', Number(e.target.value))
+                  }
+                />
+                <span className="hcg-density-value">{densityParams.linkDistance}</span>
+              </label>
+              <label className="hcg-density-row">
+                <span className="hcg-view-label">Gravity</span>
+                <input
+                  type="range"
+                  min={DENSITY_RANGES.gravity.min}
+                  max={DENSITY_RANGES.gravity.max}
+                  step={DENSITY_RANGES.gravity.step}
+                  value={densityParams.gravity}
+                  onChange={e =>
+                    handleDensityChange('gravity', Number(e.target.value))
+                  }
+                />
+                <span className="hcg-density-value">
+                  {densityParams.gravity.toFixed(2)}
+                </span>
+              </label>
             </div>
           </div>
 

@@ -115,15 +115,36 @@ declare module 'd3-force-3d' {
 
   export function forceX<N extends SimulationNode = SimulationNode>(
     x?: number | ((node: N) => number)
-  ): Force<N, SimulationLink<N>>
+  ): Force<N, SimulationLink<N>> & {
+    x(): number | ((node: N) => number)
+    x(x: number | ((node: N) => number)): Force<N, SimulationLink<N>>
+    strength(): number | ((node: N, i: number, nodes: N[]) => number)
+    strength(
+      strength: number | ((node: N, i: number, nodes: N[]) => number)
+    ): Force<N, SimulationLink<N>>
+  }
 
   export function forceY<N extends SimulationNode = SimulationNode>(
     y?: number | ((node: N) => number)
-  ): Force<N, SimulationLink<N>>
+  ): Force<N, SimulationLink<N>> & {
+    y(): number | ((node: N) => number)
+    y(y: number | ((node: N) => number)): Force<N, SimulationLink<N>>
+    strength(): number | ((node: N, i: number, nodes: N[]) => number)
+    strength(
+      strength: number | ((node: N, i: number, nodes: N[]) => number)
+    ): Force<N, SimulationLink<N>>
+  }
 
   export function forceZ<N extends SimulationNode = SimulationNode>(
     z?: number | ((node: N) => number)
-  ): Force<N, SimulationLink<N>>
+  ): Force<N, SimulationLink<N>> & {
+    z(): number | ((node: N) => number)
+    z(z: number | ((node: N) => number)): Force<N, SimulationLink<N>>
+    strength(): number | ((node: N, i: number, nodes: N[]) => number)
+    strength(
+      strength: number | ((node: N, i: number, nodes: N[]) => number)
+    ): Force<N, SimulationLink<N>>
+  }
 
   export function forceRadial<N extends SimulationNode = SimulationNode>(
     radius: number | ((node: N) => number),
