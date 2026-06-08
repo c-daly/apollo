@@ -37,6 +37,9 @@ const SHARED_MIDPOINT_MAT = new THREE.MeshBasicMaterial({ color: '#888888' })
 const SHARED_SELECTION_MAT = new THREE.MeshBasicMaterial({ color: '#ffffff' })
 const TORUS_ROTATION: [number, number, number] = [Math.PI / 2, 0, 0]
 
+// Reused inside NodeSphere's per-frame scale animation so it never allocates.
+const _scaleScratch = new THREE.Vector3()
+
 /** Node sphere component */
 interface NodeSphereProps {
   node: GraphNode
@@ -65,14 +68,19 @@ const NodeSphere = memo(function NodeSphere({
     ? STATUS_COLORS[node.status] || STATUS_COLORS.default
     : null
 
-  // Animate scale on hover/select
+  // Animate scale on hover/select. Reuse a module-level scratch vector and skip
+  // the lerp once we've settled at the target, so this per-node per-frame
+  // callback stops allocating a Vector3 (3,880 nodes x 60fps) and stops doing a
+  // no-op lerp for the overwhelming majority that are neither hovered nor
+  // selected.
   useFrame(() => {
     if (!meshRef.current) return
     const targetScale = isSelected ? 1.4 : isHovered ? 1.2 : 1.0
-    meshRef.current.scale.lerp(
-      new THREE.Vector3(targetScale, targetScale, targetScale),
-      0.1
-    )
+    const scale = meshRef.current.scale
+    if (Math.abs(scale.x - targetScale) > 0.001) {
+      _scaleScratch.set(targetScale, targetScale, targetScale)
+      scale.lerp(_scaleScratch, 0.1)
+    }
   })
 
   return (
@@ -131,7 +139,28 @@ const NodeSphere = memo(function NodeSphere({
       </Text>
     </group>
   )
-})
+}, nodeSpherePropsEqual)
+
+// position is a fresh [x,y,z] array every simulation tick, so default shallow
+// memo never matches and every NodeSphere re-renders each tick. Compare by value
+// so a node only re-renders when it actually moves or its state changes -- a
+// no-op once the layout settles.
+function nodeSpherePropsEqual(
+  prev: NodeSphereProps,
+  next: NodeSphereProps
+): boolean {
+  return (
+    prev.isSelected === next.isSelected &&
+    prev.isHovered === next.isHovered &&
+    prev.dimmed === next.dimmed &&
+    prev.node === next.node &&
+    prev.onSelect === next.onSelect &&
+    prev.onHover === next.onHover &&
+    prev.position[0] === next.position[0] &&
+    prev.position[1] === next.position[1] &&
+    prev.position[2] === next.position[2]
+  )
+}
 
 /** Edge line component */
 interface EdgeLineProps {
@@ -206,6 +235,7 @@ interface SceneContentProps {
   onNodeSelect: (id: string | null) => void
   onNodeHover: (id: string | null) => void
   highlightedNodeIds?: Set<string> | null
+  focusNodeIds?: Set<string> | null
   layout: LayoutType
   densityParams: DensityParams
 }
@@ -218,6 +248,7 @@ function SceneContent({
   onNodeSelect,
   onNodeHover,
   highlightedNodeIds,
+  focusNodeIds,
   layout,
   densityParams,
 }: SceneContentProps) {
@@ -361,8 +392,29 @@ function SceneContent({
     [positions]
   )
 
-  // Derive focus position from selected node
-  const focusPosition = selectedNodeId ? (positions.get(selectedNodeId) || null) : null
+  // Derive focus position: the centroid of the focus set (a selected type plus
+  // its members, so picking a type frames that subgraph), falling back to the
+  // single selected node. CameraControls lerps the orbit target toward it.
+  let focusPosition: [number, number, number] | null = null
+  if (focusNodeIds && focusNodeIds.size > 0) {
+    let x = 0
+    let y = 0
+    let z = 0
+    let n = 0
+    for (const id of focusNodeIds) {
+      const p = positions.get(id)
+      if (p) {
+        x += p[0]
+        y += p[1]
+        z += p[2]
+        n++
+      }
+    }
+    if (n > 0) focusPosition = [x / n, y / n, z / n]
+  }
+  if (!focusPosition && selectedNodeId) {
+    focusPosition = positions.get(selectedNodeId) || null
+  }
 
   return (
     <>
@@ -456,7 +508,7 @@ function CameraControls({ focusPosition }: { focusPosition: [number, number, num
 
   useFrame(() => {
     if (!controlsRef.current || !focusPosition) return
-    targetVec.current.set(...focusPosition)
+    targetVec.current.set(focusPosition[0], focusPosition[1], focusPosition[2])
     if (controlsRef.current.target.distanceTo(targetVec.current) > 0.1) {
       controlsRef.current.target.lerp(targetVec.current, 0.05)
       controlsRef.current.update()
@@ -486,6 +538,7 @@ export function ThreeRenderer({
   onNodeSelect,
   onNodeHover,
   highlightedNodeIds,
+  focusNodeIds,
   layout,
   densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
@@ -508,6 +561,7 @@ export function ThreeRenderer({
         onNodeSelect={onNodeSelect}
         onNodeHover={onNodeHover}
         highlightedNodeIds={highlightedNodeIds}
+        focusNodeIds={focusNodeIds}
         layout={layout}
         densityParams={densityParams}
       />
