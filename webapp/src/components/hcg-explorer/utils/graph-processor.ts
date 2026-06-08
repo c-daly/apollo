@@ -117,10 +117,16 @@ export function buildGraph(
   // Type membership is read from the ORIGINAL snapshot IS_A edges (not the
   // transformed one) so the selected-type filter is correct in both modes:
   // reification rewrites edges into FROM/TO and would otherwise lose IS_A.
-  const typeMemberIds = computeTypeMemberIds(
-    snapshot,
-    filterConfig.selectedTypeId ?? null
-  )
+  //
+  // The selection only RESTRICTS the graph in restrict mode. The default
+  // selection mode is highlight (context-preserving): the graph is left intact
+  // and the renderer dims non-members instead. When selectionMode is absent we
+  // keep the original restrict behaviour so direct buildGraph callers and the
+  // existing test fixtures are unaffected.
+  const restrict = filterConfig.selectionMode !== 'highlight'
+  const typeMemberIds = restrict
+    ? computeTypeMemberIds(snapshot, filterConfig.selectedTypeId ?? null)
+    : null
   return processGraph(transformed, filterConfig, typeMemberIds)
 }
 
@@ -182,6 +188,30 @@ export function computeTypeMemberIds(
 }
 
 /**
+ * Build the id set of the highlight subgraph for a focused node (type or
+ * instance): the focus node plus its 1-hop neighbourhood across all edge kinds
+ * (IS_A members/parents and semantic neighbours alike). Used to emphasise a
+ * subgraph in context, where the renderer dims everything outside this set
+ * without removing the rest of the graph. Returns null when nothing is focused.
+ *
+ * For a type-definition focus this yields the type, its IS_A members (edges
+ * targeting it), its child types and parent type; for an instance it yields the
+ * node, its type(s) and any semantically related nodes.
+ */
+export function computeHighlightSubgraphIds(
+  snapshot: GraphSnapshot,
+  focusId: string | null
+): Set<string> | null {
+  if (!focusId) return null
+  const ids = new Set<string>([focusId])
+  for (const e of snapshot.edges) {
+    if (e.source_id === focusId) ids.add(e.target_id)
+    else if (e.target_id === focusId) ids.add(e.source_id)
+  }
+  return ids
+}
+
+/**
  * Process a graph snapshot into renderable format
  */
 export function processGraph(
@@ -194,6 +224,15 @@ export function processGraph(
 
   // Convert edges
   let edges = snapshot.edges.map(edgeToGraphEdge)
+
+  // Skeleton-first (de-hairball): restrict to the type-definition skeleton.
+  // Keep only type-definition nodes; the type-to-type IS_A edges survive the
+  // edge-visibility filter below. This is the primary default for taming the
+  // ~3.8k-instance hairball down to the ~214-type IS_A skeleton.
+  const skeletonOnly = filterConfig.skeletonOnly === true
+  if (skeletonOnly) {
+    nodes = nodes.filter(n => n.type === 'type_definition')
+  }
 
   // Apply filters
   nodes = applyNodeFilters(nodes, filterConfig)
@@ -208,6 +247,21 @@ export function processGraph(
   // Filter edges to only include those with visible nodes
   const nodeIds = new Set(nodes.map(n => n.id))
   edges = edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+
+  // In skeleton mode keep only the type-to-type IS_A hierarchy edges (both
+  // endpoints are already type-definition nodes after the node restriction).
+  if (skeletonOnly) {
+    edges = edges.filter(e => e.type === 'IS_A')
+  }
+
+  // Edge-kind toggle: IS_A membership only, semantic (non-IS_A) only, or both.
+  // Membership (IS_A) is the bulk of the density, so semantic-only thins it out.
+  const edgeKind = filterConfig.edgeKind ?? 'both'
+  if (edgeKind === 'is_a') {
+    edges = edges.filter(e => e.type === 'IS_A')
+  } else if (edgeKind === 'semantic') {
+    edges = edges.filter(e => e.type !== 'IS_A')
+  }
 
   // Apply edge type filter
   if (filterConfig.edgeTypes.length > 0) {
