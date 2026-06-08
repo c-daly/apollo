@@ -113,6 +113,18 @@ describe('edge-kind filtering', () => {
     const g = processGraph(snap(), { ...baseFilter, edgeKind: 'semantic' })
     expect(g.edges.map(e => e.id)).toEqual(['se1'])
   })
+
+  it('ignores the edge-kind toggle in skeleton mode (no edgeless skeleton)', () => {
+    // Regression for B1: skeleton mode already restricts edges to the
+    // type-to-type IS_A hierarchy; edgeKind 'semantic' would otherwise strip
+    // those and leave the skeleton with nodes but no edges.
+    const g = processGraph(snap(), {
+      ...baseFilter,
+      skeletonOnly: true,
+      edgeKind: 'semantic',
+    })
+    expect(g.edges.map(e => e.id).sort()).toEqual(['te1', 'te2'])
+  })
 })
 
 describe('computeHighlightSubgraphIds', () => {
@@ -122,8 +134,14 @@ describe('computeHighlightSubgraphIds', () => {
 
   it('includes a type plus its members, child types and parent type', () => {
     const ids = computeHighlightSubgraphIds(snap(), 'type_elem')!
+    // Real nodes (the type, its parent/child types and direct members) plus the
+    // ids of the touching edges, which are the reified edge-proxy nodes; those
+    // are inert in logical mode (no node carries that id).
     expect([...ids].sort()).toEqual([
       'gold',
+      'me2',
+      'te1',
+      'te2',
       'type_elem',
       'type_entity',
       'type_metal',
@@ -132,7 +150,23 @@ describe('computeHighlightSubgraphIds', () => {
 
   it('includes an instance plus its type and semantic neighbours', () => {
     const ids = computeHighlightSubgraphIds(snap(), 'iron')!
-    expect([...ids].sort()).toEqual(['gold', 'iron', 'type_metal'])
+    expect([...ids].sort()).toEqual([
+      'gold',
+      'iron',
+      'me1',
+      'se1',
+      'type_metal',
+    ])
+  })
+
+  it('keeps the reified edge-proxy node bright (adds the touching edge id)', () => {
+    // Regression for I1: in reified mode each edge renders as a node with
+    // id === e.id sitting between its endpoints. If the focus touches that edge
+    // the proxy must be in the highlight set, otherwise it gets dimmed out from
+    // under its own endpoints. me1 = iron --IS_A--> type_metal.
+    const ids = computeHighlightSubgraphIds(snap(), 'type_metal')!
+    expect(ids.has('me1')).toBe(true)
+    expect(ids.has('te2')).toBe(true)
   })
 })
 

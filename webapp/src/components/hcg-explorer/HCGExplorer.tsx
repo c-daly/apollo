@@ -293,6 +293,11 @@ function HCGExplorerInner({
   // interaction; the restrict-style hard filter lives behind the selection mode.
   const highlightedNodeIds = useMemo<Set<string> | null>(() => {
     if (!currentSnapshot) return null
+    // Restrict mode already hard-filters the graph to the selection in
+    // buildGraph; dimming on top of that is redundant for a selected type and
+    // wrongly dims the whole graph when a single node is clicked. Dimming is the
+    // highlight-mode affordance only.
+    if (filterConfig.selectionMode === 'restrict') return null
     if (filterConfig.selectedTypeId) {
       return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
     }
@@ -300,7 +305,12 @@ function HCGExplorerInner({
       return computeHighlightSubgraphIds(currentSnapshot, selectedNodeId)
     }
     return null
-  }, [currentSnapshot, filterConfig.selectedTypeId, selectedNodeId])
+  }, [
+    currentSnapshot,
+    filterConfig.selectedTypeId,
+    filterConfig.selectionMode,
+    selectedNodeId,
+  ])
 
   // Handle view mode change
   const handleViewModeChange = useCallback(

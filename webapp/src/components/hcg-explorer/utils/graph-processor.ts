@@ -205,8 +205,16 @@ export function computeHighlightSubgraphIds(
   if (!focusId) return null
   const ids = new Set<string>([focusId])
   for (const e of snapshot.edges) {
-    if (e.source_id === focusId) ids.add(e.target_id)
-    else if (e.target_id === focusId) ids.add(e.source_id)
+    // Keep the other endpoint and, in reified mode, the edge-proxy node itself
+    // (rendered with id === e.id) so the proxy bridging the focus to its
+    // neighbour stays bright. Harmless in logical mode (no node has that id).
+    if (e.source_id === focusId) {
+      ids.add(e.target_id)
+      ids.add(e.id)
+    } else if (e.target_id === focusId) {
+      ids.add(e.source_id)
+      ids.add(e.id)
+    }
   }
   return ids
 }
@@ -256,11 +264,16 @@ export function processGraph(
 
   // Edge-kind toggle: IS_A membership only, semantic (non-IS_A) only, or both.
   // Membership (IS_A) is the bulk of the density, so semantic-only thins it out.
-  const edgeKind = filterConfig.edgeKind ?? 'both'
-  if (edgeKind === 'is_a') {
-    edges = edges.filter(e => e.type === 'IS_A')
-  } else if (edgeKind === 'semantic') {
-    edges = edges.filter(e => e.type !== 'IS_A')
+  // Skipped in skeleton mode: that already restricted edges to the type-to-type
+  // IS_A hierarchy above, so 'semantic' here would strip every edge and leave
+  // an edgeless skeleton.
+  if (!skeletonOnly) {
+    const edgeKind = filterConfig.edgeKind ?? 'both'
+    if (edgeKind === 'is_a') {
+      edges = edges.filter(e => e.type === 'IS_A')
+    } else if (edgeKind === 'semantic') {
+      edges = edges.filter(e => e.type !== 'IS_A')
+    }
   }
 
   // Apply edge type filter
