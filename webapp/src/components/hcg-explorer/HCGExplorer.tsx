@@ -28,6 +28,7 @@ import type {
   GraphSnapshot,
 } from './types'
 import { NODE_COLORS } from './types'
+import { snapshotFingerprint } from './utils/snapshot-fingerprint'
 import {
   DEFAULT_DENSITY,
   DENSITY_RANGES,
@@ -181,12 +182,22 @@ function HCGExplorerInner({
   // Using a ref avoids including currentSnapshot in the dep array,
   // which would re-trigger the effect every time we add a snapshot.
   const hasDataRef = useRef(false)
+  // Content fingerprint of the last applied snapshot. Sophia stamps a fresh
+  // top-level timestamp on every /hcg/snapshot response, so React Query hands
+  // us a new apiSnapshot reference each 15s poll even when the graph is
+  // unchanged. Without this guard every poll rebuilt the whole pipeline.
+  const lastSnapshotFpRef = useRef<string | null>(null)
 
   // Add new snapshots to history (with mock fallback)
   useEffect(() => {
     if (apiSnapshot) {
       setUsingMockData(false)
       hasDataRef.current = true
+      // Skip the rebuild when the poll returned identical content (only the
+      // server's per-request timestamp changed).
+      const fp = snapshotFingerprint(apiSnapshot)
+      if (fp === lastSnapshotFpRef.current) return
+      lastSnapshotFpRef.current = fp
       addSnapshot(convertSnapshot(apiSnapshot))
     } else if (error && !hasDataRef.current) {
       // Fallback to mock data if API fails and we have no data
