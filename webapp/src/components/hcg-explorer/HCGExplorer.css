@@ -215,6 +215,26 @@
   padding: 16px;
 }
 
+/* De-hairball view controls */
+.hcg-view-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hcg-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.hcg-view-label {
+  font-size: 11px;
+  color: var(--hcg-text-secondary);
+  margin-right: 4px;
+}
+
 /* Node details panel */
 .hcg-node-details {
   font-size: 13px;

@@ -12,6 +12,8 @@ import { ThreeRenderer } from './renderers/ThreeRenderer'
 import { CytoscapeRenderer } from './renderers/CytoscapeRenderer'
 import {
   buildGraph,
+  computeHighlightSubgraphIds,
+  computeTypeMemberIds,
   deriveTypeSummaries,
   type GraphMode,
   type TypeSummary,
@@ -57,7 +59,7 @@ function convertSnapshot(hcg: HCGGraphSnapshot): GraphSnapshot {
 }
 
 /** Available layouts for each view mode */
-const LAYOUTS_2D: LayoutType[] = ['dagre', 'fcose', 'circle', 'concentric', 'breadthfirst']
+const LAYOUTS_2D: LayoutType[] = ['dagre', 'fcose', 'circle', 'concentric', 'breadthfirst', 'hierarchical']
 const LAYOUTS_3D: LayoutType[] = ['force-3d', 'semantic']
 
 /** Layout display names */
@@ -67,6 +69,7 @@ const LAYOUT_NAMES: Record<LayoutType, string> = {
   circle: 'Circle',
   concentric: 'Concentric',
   breadthfirst: 'Tree',
+  hierarchical: 'IS_A Tree',
   'force-3d': 'Force 3D',
   semantic: 'Semantic',
 }
@@ -201,9 +204,12 @@ function HCGExplorerInner({
     // you type a search. Using DEFAULT_FILTER_CONFIG also drops the filterConfig
     // dependency, so this no longer rebuilds the whole graph on every keystroke.
     const seen = new Set(
-      buildGraph(currentSnapshot, graphMode, DEFAULT_FILTER_CONFIG).nodes.map(
-        n => n.type
-      )
+      buildGraph(currentSnapshot, graphMode, {
+        ...DEFAULT_FILTER_CONFIG,
+        // Reflect all realms even when the skeleton-first default is active, so
+        // the realm filter buttons / legend never collapse to type_definition.
+        skeletonOnly: false,
+      }).nodes.map(n => n.type)
     )
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
@@ -265,6 +271,22 @@ function HCGExplorerInner({
     if (!selectedNodeId) return null
     return processedGraph.nodes.find(n => n.id === selectedNodeId) || null
   }, [selectedNodeId, processedGraph.nodes])
+
+  // Highlight-subgraph ids for the current focus. A selected emergent type
+  // (Types panel) takes precedence over a clicked node. Threaded to both
+  // renderers, which keep these nodes/edges bright and dim the rest, preserving
+  // context. Null when nothing is focused (no dimming). This is the default
+  // interaction; the restrict-style hard filter lives behind the selection mode.
+  const highlightedNodeIds = useMemo<Set<string> | null>(() => {
+    if (!currentSnapshot) return null
+    if (filterConfig.selectedTypeId) {
+      return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
+    }
+    if (selectedNodeId) {
+      return computeHighlightSubgraphIds(currentSnapshot, selectedNodeId)
+    }
+    return null
+  }, [currentSnapshot, filterConfig.selectedTypeId, selectedNodeId])
 
   // Handle view mode change
   const handleViewModeChange = useCallback(
@@ -491,6 +513,7 @@ function HCGExplorerInner({
               onNodeSelect={selectNode}
               onNodeHover={hoverNode}
               layout={layout}
+              highlightedNodeIds={highlightedNodeIds}
             />
           )}
 
@@ -502,12 +525,67 @@ function HCGExplorerInner({
               onNodeSelect={selectNode}
               onNodeHover={hoverNode}
               layout={layout}
+              highlightedNodeIds={highlightedNodeIds}
             />
           )}
         </div>
 
         {/* Sidebar */}
         <div className="hcg-sidebar">
+          {/* View controls (de-hairball): skeleton scope, edge kinds, selection mode. */}
+          <div className="hcg-panel">
+            <div className="hcg-panel-header">
+              <span className="hcg-panel-title">View</span>
+            </div>
+            <div className="hcg-panel-content hcg-view-controls">
+              <button
+                className={`hcg-btn ${filterConfig.skeletonOnly ? 'hcg-btn--active' : ''}`}
+                onClick={() => setFilter({ skeletonOnly: !filterConfig.skeletonOnly })}
+                title="Skeleton-first: show only the type_definition IS_A skeleton"
+              >
+                {filterConfig.skeletonOnly ? 'Skeleton only' : 'Full graph'}
+              </button>
+              <div className="hcg-btn-row">
+                <span className="hcg-view-label">Edges</span>
+                <button
+                  className={`hcg-btn ${(filterConfig.edgeKind ?? 'both') === 'both' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ edgeKind: 'both' })}
+                >
+                  Both
+                </button>
+                <button
+                  className={`hcg-btn ${filterConfig.edgeKind === 'is_a' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ edgeKind: 'is_a' })}
+                >
+                  IS_A
+                </button>
+                <button
+                  className={`hcg-btn ${filterConfig.edgeKind === 'semantic' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ edgeKind: 'semantic' })}
+                >
+                  Semantic
+                </button>
+              </div>
+              <div className="hcg-btn-row">
+                <span className="hcg-view-label">Select</span>
+                <button
+                  className={`hcg-btn ${(filterConfig.selectionMode ?? 'highlight') === 'highlight' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ selectionMode: 'highlight' })}
+                  title="Selecting dims the rest but keeps context"
+                >
+                  Highlight
+                </button>
+                <button
+                  className={`hcg-btn ${filterConfig.selectionMode === 'restrict' ? 'hcg-btn--active' : ''}`}
+                  onClick={() => setFilter({ selectionMode: 'restrict' })}
+                  title="Selecting a type restricts the graph to its members"
+                >
+                  Restrict
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Node Details Panel */}
           {showNodeDetails && (
             <div className="hcg-panel">
