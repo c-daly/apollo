@@ -10,7 +10,12 @@ import { useHCGSnapshot, type HCGGraphSnapshot } from '../../hooks/useHCG'
 import { HCGExplorerProvider, useHCGExplorer } from './context'
 import { ThreeRenderer } from './renderers/ThreeRenderer'
 import { CytoscapeRenderer } from './renderers/CytoscapeRenderer'
-import { buildGraph, type GraphMode } from './utils/graph-processor'
+import {
+  buildGraph,
+  deriveTypeSummaries,
+  type GraphMode,
+  type TypeSummary,
+} from './utils/graph-processor'
 import { generateMockSnapshot } from './utils/mock-data'
 import type {
   LayoutType,
@@ -206,6 +211,36 @@ function HCGExplorerInner({
     }
     return ordered
   }, [currentSnapshot, graphMode])
+
+  // Flat, IS_A-driven type list for the Types panel. Counts come from IS_A
+  // edges (deriveTypeSummaries), independent of the realm-based entityTypes.
+  const typeSummaries = useMemo<TypeSummary[]>(
+    () => (currentSnapshot ? deriveTypeSummaries(currentSnapshot) : []),
+    [currentSnapshot]
+  )
+
+  // Local text filter for the Types list (filters the rows, not the graph).
+  const [typeSearch, setTypeSearch] = useState('')
+
+  const visibleTypeSummaries = useMemo<TypeSummary[]>(() => {
+    const q = typeSearch.trim().toLowerCase()
+    if (!q) return typeSummaries
+    return typeSummaries.filter(t => t.name.toLowerCase().includes(q))
+  }, [typeSummaries, typeSearch])
+
+  // Single-select an emergent type (click the active row again to clear it).
+  const handleTypeSelect = useCallback(
+    (id: string) => {
+      setFilter({
+        selectedTypeId: filterConfig.selectedTypeId === id ? null : id,
+      })
+    },
+    [filterConfig.selectedTypeId, setFilter]
+  )
+
+  const handleTypeClear = useCallback(() => {
+    setFilter({ selectedTypeId: null })
+  }, [setFilter])
 
   // Get available layouts based on view mode
   const availableLayouts = viewMode === '3d' ? LAYOUTS_3D : LAYOUTS_2D
@@ -526,6 +561,50 @@ function HCGExplorerInner({
                     <span>{type}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Types Panel - flat, IS_A-driven emergent type filter.
+              Membership comes from IS_A edges, not node.type (post-NDT
+              node.type is only the realm), so emergent type names show here. */}
+          <div className="hcg-panel">
+            <div className="hcg-panel-header">
+              <span className="hcg-panel-title">Types</span>
+              {filterConfig.selectedTypeId && (
+                <button
+                  className="hcg-btn hcg-btn--icon"
+                  onClick={handleTypeClear}
+                  title="Show all (clear type filter)"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="hcg-panel-content">
+              <input
+                type="text"
+                className="hcg-input hcg-type-search"
+                placeholder="Filter types..."
+                value={typeSearch}
+                onChange={e => setTypeSearch(e.target.value)}
+              />
+              <div className="hcg-types">
+                {visibleTypeSummaries.length === 0 ? (
+                  <div className="hcg-node-details-empty">No types</div>
+                ) : (
+                  visibleTypeSummaries.map(t => (
+                    <button
+                      key={t.id}
+                      className={`hcg-type-row ${filterConfig.selectedTypeId === t.id ? 'hcg-type-row--active' : ''}`}
+                      onClick={() => handleTypeSelect(t.id)}
+                      title={t.name}
+                    >
+                      <span className="hcg-type-name">{t.name}</span>
+                      <span className="hcg-type-count">{t.count}</span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>

@@ -114,7 +114,71 @@ export function buildGraph(
 ): ProcessedGraph {
   const transformed =
     mode === 'reified' ? toReifiedSnapshot(snapshot) : toLogicalSnapshot(snapshot)
-  return processGraph(transformed, filterConfig)
+  // Type membership is read from the ORIGINAL snapshot IS_A edges (not the
+  // transformed one) so the selected-type filter is correct in both modes:
+  // reification rewrites edges into FROM/TO and would otherwise lose IS_A.
+  const typeMemberIds = computeTypeMemberIds(
+    snapshot,
+    filterConfig.selectedTypeId ?? null
+  )
+  return processGraph(transformed, filterConfig, typeMemberIds)
+}
+
+/** A flat (non-hierarchical) summary of one emergent/ontology type. */
+export interface TypeSummary {
+  /** type-definition node id (the IS_A target) */
+  id: string
+  /** human-readable type name, e.g. "chemical element" */
+  name: string
+  /** number of content nodes that IS_A this type */
+  count: number
+}
+
+/**
+ * Flat list of type-definition entities with their IS_A member counts.
+ *
+ * Post-NDT a node "type" property holds only its realm (entity, concept,
+ * process) plus the literal "type_definition", so emergent type NAMES never
+ * appear there. The real type of a node is its IS_A edge to a type-definition
+ * node, so membership is read from IS_A edges: the count for a type T is the
+ * number of edges with edge_type==="IS_A" and target_id===T.id. Source types
+ * are every entity with type==="type_definition" (this intentionally includes
+ * realm roots and reserved nodes). Sorted by count descending, then name.
+ */
+export function deriveTypeSummaries(snapshot: GraphSnapshot): TypeSummary[] {
+  const counts = new Map<string, number>()
+  for (const e of snapshot.edges) {
+    if (e.edge_type === 'IS_A') {
+      counts.set(e.target_id, (counts.get(e.target_id) ?? 0) + 1)
+    }
+  }
+  return snapshot.entities
+    .filter(e => e.type === 'type_definition')
+    .map(e => ({
+      id: e.id,
+      name: e.name || (e.properties?.name as string) || e.id,
+      count: counts.get(e.id) ?? 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+}
+
+/**
+ * Build the set of node ids that belong to a selected emergent type: the
+ * type-definition node itself plus the source_id of every IS_A edge that
+ * targets it. Returns null when nothing is selected (no filtering).
+ */
+export function computeTypeMemberIds(
+  snapshot: GraphSnapshot,
+  selectedTypeId: string | null
+): Set<string> | null {
+  if (!selectedTypeId) return null
+  const ids = new Set<string>([selectedTypeId])
+  for (const e of snapshot.edges) {
+    if (e.edge_type === 'IS_A' && e.target_id === selectedTypeId) {
+      ids.add(e.source_id)
+    }
+  }
+  return ids
 }
 
 /**
@@ -122,7 +186,8 @@ export function buildGraph(
  */
 export function processGraph(
   snapshot: GraphSnapshot,
-  filterConfig: FilterConfig
+  filterConfig: FilterConfig,
+  typeMemberIds?: Set<string> | null
 ): ProcessedGraph {
   // Convert entities to nodes
   let nodes = snapshot.entities.map(entityToNode)
@@ -132,6 +197,13 @@ export function processGraph(
 
   // Apply filters
   nodes = applyNodeFilters(nodes, filterConfig)
+
+  // Restrict to a selected emergent type: keep only the type node and its
+  // IS_A members (see buildGraph / computeTypeMemberIds). Membership comes
+  // from IS_A edges, not node.type, since post-NDT node.type is just the realm.
+  if (typeMemberIds) {
+    nodes = nodes.filter(n => typeMemberIds.has(n.id))
+  }
 
   // Filter edges to only include those with visible nodes
   const nodeIds = new Set(nodes.map(n => n.id))

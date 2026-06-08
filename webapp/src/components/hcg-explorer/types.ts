@@ -83,6 +83,13 @@ export interface FilterConfig {
   propertyFilters: PropertyFilter[]
   /** Cluster filter (show only specific clusters) */
   clusters: string[]
+  /**
+   * Selected emergent-type definition node id (the IS_A target). When set, the
+   * graph is filtered to that type node plus its IS_A members. Independent of
+   * the realm-based `entityTypes` filter. Optional so existing FilterConfig
+   * literals keep type-checking; treated as null when absent.
+   */
+  selectedTypeId?: string | null
 }
 
 /** Property filter definition */
@@ -215,6 +222,7 @@ export const DEFAULT_FILTER_CONFIG: FilterConfig = {
   searchQuery: '',
   propertyFilters: [],
   clusters: [],
+  selectedTypeId: null,
 }
 
 /** Default embedding configuration */
