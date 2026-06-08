@@ -326,6 +326,19 @@ function HCGExplorerInner({
     selectedNodeId,
   ])
 
+  // Nodes the camera / viewport should frame. Selecting a type in the Types
+  // panel moves the view to that type plus its IS_A members; otherwise a clicked
+  // node is framed. Independent of selectionMode (unlike highlightedNodeIds) so
+  // framing works in both highlight and restrict.
+  const focusNodeIds = useMemo<Set<string> | null>(() => {
+    if (!currentSnapshot) return null
+    if (filterConfig.selectedTypeId) {
+      return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
+    }
+    if (selectedNodeId) return new Set([selectedNodeId])
+    return null
+  }, [currentSnapshot, filterConfig.selectedTypeId, selectedNodeId])
+
   // Handle view mode change
   const handleViewModeChange = useCallback(
     (mode: ViewMode) => {
@@ -560,6 +573,7 @@ function HCGExplorerInner({
               onNodeHover={hoverNode}
               layout={layout}
               highlightedNodeIds={highlightedNodeIds}
+              focusNodeIds={focusNodeIds}
               densityParams={densityParams}
             />
           )}
@@ -573,6 +587,7 @@ function HCGExplorerInner({
               onNodeHover={hoverNode}
               layout={layout}
               highlightedNodeIds={highlightedNodeIds}
+              focusNodeIds={focusNodeIds}
               densityParams={densityParams}
             />
           )}

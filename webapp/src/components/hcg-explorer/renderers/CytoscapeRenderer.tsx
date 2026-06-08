@@ -371,6 +371,7 @@ export function CytoscapeRenderer({
   onNodeHover,
   layout,
   highlightedNodeIds,
+  focusNodeIds,
   densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
   // hoveredNodeId handled via CSS classes, not direct state
@@ -567,6 +568,20 @@ export function CytoscapeRenderer({
       })
     })
   }, [highlightedNodeIds, graph, isInitialized])
+
+  // Frame the focus set: selecting a type in the Types panel (or clicking a
+  // node) animates the viewport to enclose those nodes, so picking a type moves
+  // the view to it. Only fits when a focus is active; clearing it leaves the
+  // current view untouched.
+  useEffect(() => {
+    if (!cyRef.current || !isInitialized) return
+    if (!focusNodeIds || focusNodeIds.size === 0) return
+    const cy = cyRef.current
+    const eles = cy.nodes().filter(n => focusNodeIds.has(n.id()))
+    if (eles.length > 0) {
+      cy.animate({ fit: { eles, padding: 80 }, duration: 350, easing: 'ease-in-out' })
+    }
+  }, [focusNodeIds, isInitialized])
 
   // Fit view on initial load
   useEffect(() => {

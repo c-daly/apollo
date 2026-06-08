@@ -235,6 +235,7 @@ interface SceneContentProps {
   onNodeSelect: (id: string | null) => void
   onNodeHover: (id: string | null) => void
   highlightedNodeIds?: Set<string> | null
+  focusNodeIds?: Set<string> | null
   layout: LayoutType
   densityParams: DensityParams
 }
@@ -247,6 +248,7 @@ function SceneContent({
   onNodeSelect,
   onNodeHover,
   highlightedNodeIds,
+  focusNodeIds,
   layout,
   densityParams,
 }: SceneContentProps) {
@@ -390,8 +392,29 @@ function SceneContent({
     [positions]
   )
 
-  // Derive focus position from selected node
-  const focusPosition = selectedNodeId ? (positions.get(selectedNodeId) || null) : null
+  // Derive focus position: the centroid of the focus set (a selected type plus
+  // its members, so picking a type frames that subgraph), falling back to the
+  // single selected node. CameraControls lerps the orbit target toward it.
+  let focusPosition: [number, number, number] | null = null
+  if (focusNodeIds && focusNodeIds.size > 0) {
+    let x = 0
+    let y = 0
+    let z = 0
+    let n = 0
+    for (const id of focusNodeIds) {
+      const p = positions.get(id)
+      if (p) {
+        x += p[0]
+        y += p[1]
+        z += p[2]
+        n++
+      }
+    }
+    if (n > 0) focusPosition = [x / n, y / n, z / n]
+  }
+  if (!focusPosition && selectedNodeId) {
+    focusPosition = positions.get(selectedNodeId) || null
+  }
 
   return (
     <>
@@ -515,6 +538,7 @@ export function ThreeRenderer({
   onNodeSelect,
   onNodeHover,
   highlightedNodeIds,
+  focusNodeIds,
   layout,
   densityParams = DEFAULT_DENSITY,
 }: RendererProps) {
@@ -537,6 +561,7 @@ export function ThreeRenderer({
         onNodeSelect={onNodeSelect}
         onNodeHover={onNodeHover}
         highlightedNodeIds={highlightedNodeIds}
+        focusNodeIds={focusNodeIds}
         layout={layout}
         densityParams={densityParams}
       />
