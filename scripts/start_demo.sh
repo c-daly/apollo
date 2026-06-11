@@ -50,8 +50,8 @@ check_dependencies() {
 }
 
 start_infra() {
-    log_info "Ensuring Neo4j/Milvus/SHACL containers are running..."
-    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d neo4j milvus-standalone shacl-validation
+    log_info "Ensuring Neo4j/Milvus/Redis/SHACL containers are running..."
+    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d neo4j milvus-standalone redis shacl-validation
 
     # Start OTel observability stack
     local otel_compose="${LOGOS_ROOT}/infra/docker-compose.otel.yml"
