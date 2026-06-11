@@ -229,7 +229,7 @@ cd "${PROJECT_ROOT}"
 # Check infra (redundant if called from start_demo but good for standalone)
 if [[ -f "${DOCKER_COMPOSE_FILE}" ]]; then
     log_info "Ensuring infra containers are up..."
-    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d --wait neo4j milvus-standalone >/dev/null 2>&1 || true
+    docker compose -f "${DOCKER_COMPOSE_FILE}" up -d --wait neo4j milvus-standalone redis >/dev/null 2>&1 || true
 fi
 
 # Start in dependency order: Sophia → Hermes → Apollo
