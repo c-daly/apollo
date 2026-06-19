@@ -100,3 +100,37 @@ def test_apollo_config_load() -> None:
     config = ApolloConfig.load()
     assert isinstance(config, ApolloConfig)
     assert isinstance(config.sophia, SophiaConfig)
+
+
+def test_sophia_api_token_used_when_set() -> None:
+    """SOPHIA_API_TOKEN populates api_key when present."""
+    with patch.dict(
+        os.environ,
+        {"SOPHIA_API_TOKEN": "canonical-token"},
+        clear=False,
+    ):
+        config = SophiaConfig()
+        assert config.api_key == "canonical-token"
+
+
+def test_sophia_api_token_falls_back_to_api_key() -> None:
+    """api_key falls back to SOPHIA_API_KEY when only that is set."""
+    with patch.dict(
+        os.environ,
+        {"SOPHIA_API_KEY": "legacy-key"},
+        clear=False,
+    ):
+        os.environ.pop("SOPHIA_API_TOKEN", None)
+        config = SophiaConfig()
+        assert config.api_key == "legacy-key"
+
+
+def test_sophia_api_token_precedence_over_api_key() -> None:
+    """SOPHIA_API_TOKEN wins over SOPHIA_API_KEY when both are set."""
+    with patch.dict(
+        os.environ,
+        {"SOPHIA_API_TOKEN": "canonical-token", "SOPHIA_API_KEY": "legacy-key"},
+        clear=False,
+    ):
+        config = SophiaConfig()
+        assert config.api_key == "canonical-token"
