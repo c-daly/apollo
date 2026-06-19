@@ -89,30 +89,37 @@ def render_neighborhood_png(
         labels = {n: graph.nodes[n].get("label", n) for n in graph.nodes}
         node_colors = ["#e06c75" if n == root_uuid else "#61afef" for n in graph.nodes]
 
-        fig, ax = plt.subplots(figsize=(9, 7))
-        nx.draw_networkx_nodes(
-            graph, pos, node_color=node_colors, node_size=1600, ax=ax
-        )
-        nx.draw_networkx_edges(
-            graph,
-            pos,
-            ax=ax,
-            arrows=True,
-            arrowstyle="-|>",
-            arrowsize=18,
-            edge_color="#888888",
-            node_size=1600,
-        )
-        nx.draw_networkx_labels(graph, pos, labels=labels, font_size=8, ax=ax)
-        nx.draw_networkx_edge_labels(
-            graph, pos, edge_labels=edge_labels, font_size=7, ax=ax
-        )
-        ax.set_title(f"Neighborhood: {root_name or root_uuid}")
-        ax.axis("off")
-        fig.tight_layout()
-        fig.savefig(out_path, dpi=120, bbox_inches="tight")
-        plt.close(fig)
-        return True
+        # Wrap draw+save in try/finally so the figure is always closed even if
+        # layout/drawing/saving raises (matplotlib keeps a global ref to every
+        # open figure, so a leaked fig is a memory leak).
+        fig = None
+        try:
+            fig, ax = plt.subplots(figsize=(9, 7))
+            nx.draw_networkx_nodes(
+                graph, pos, node_color=node_colors, node_size=1600, ax=ax
+            )
+            nx.draw_networkx_edges(
+                graph,
+                pos,
+                ax=ax,
+                arrows=True,
+                arrowstyle="-|>",
+                arrowsize=18,
+                edge_color="#888888",
+                node_size=1600,
+            )
+            nx.draw_networkx_labels(graph, pos, labels=labels, font_size=8, ax=ax)
+            nx.draw_networkx_edge_labels(
+                graph, pos, edge_labels=edge_labels, font_size=7, ax=ax
+            )
+            ax.set_title(f"Neighborhood: {root_name or root_uuid}")
+            ax.axis("off")
+            fig.tight_layout()
+            fig.savefig(out_path, dpi=120, bbox_inches="tight")
+            return True
+        finally:
+            if fig is not None:
+                plt.close(fig)
     except Exception:
         return False
 

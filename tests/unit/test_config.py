@@ -3,6 +3,8 @@
 import os
 from unittest.mock import patch
 
+import pytest
+
 from apollo.config.settings import (
     ApolloConfig,
     HCGConfig,
@@ -113,16 +115,17 @@ def test_sophia_api_token_used_when_set() -> None:
         assert config.api_key == "canonical-token"
 
 
-def test_sophia_api_token_falls_back_to_api_key() -> None:
+def test_sophia_api_token_falls_back_to_api_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """api_key falls back to SOPHIA_API_KEY when only that is set."""
-    with patch.dict(
-        os.environ,
-        {"SOPHIA_API_KEY": "legacy-key"},
-        clear=False,
-    ):
-        os.environ.pop("SOPHIA_API_TOKEN", None)
-        config = SophiaConfig()
-        assert config.api_key == "legacy-key"
+    # Use monkeypatch.delenv rather than mutating the live os.environ inside a
+    # patch.dict context: the latter is fragile under parallel test execution
+    # (e.g. pytest-xdist) where workers share the process.
+    monkeypatch.setenv("SOPHIA_API_KEY", "legacy-key")
+    monkeypatch.delenv("SOPHIA_API_TOKEN", raising=False)
+    config = SophiaConfig()
+    assert config.api_key == "legacy-key"
 
 
 def test_sophia_api_token_precedence_over_api_key() -> None:

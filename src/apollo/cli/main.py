@@ -1093,11 +1093,16 @@ def graph_stats(ctx: click.Context) -> None:
         _graph_error(str(exc), "Ensure Sophia is running and SOPHIA_API_TOKEN is set")
         return
 
-    total = int(data.get("total_nodes", 0))
-    content = int(data.get("content_nodes", 0))
-    edge = int(data.get("edge_nodes", 0))
-    classified = int(data.get("content_classified", 0))
-    top_predicates = {k: int(v) for k, v in (data.get("top_predicates") or {}).items()}
+    # ``.get(key, default)`` returns ``None`` (not the default) when the key
+    # exists with an explicit null value, so coerce every numeric read with
+    # ``or 0`` to stay crash-safe on empty/partially-initialized graphs.
+    total = int(data.get("total_nodes") or 0)
+    content = int(data.get("content_nodes") or 0)
+    edge = int(data.get("edge_nodes") or 0)
+    classified = int(data.get("content_classified") or 0)
+    top_predicates = {
+        str(k): int(v or 0) for k, v in (data.get("top_predicates") or {}).items()
+    }
 
     # Distribution by ACTUAL (positional) type, not the coarse realm: drop the
     # realm roots so the bars show what the graph is about (cell, biomolecule…).
@@ -1124,7 +1129,7 @@ def graph_stats(ctx: click.Context) -> None:
     type_table = _counts_bar_table(by_type, top=12)
     predicate_table = _counts_bar_table(top_predicates, top=10)
 
-    parked = int(data.get("content_parked", 0))
+    parked = int(data.get("content_parked") or 0)
     untyped = max(content - classified - parked, 0)
     coverage = Text()
     if content:
@@ -1276,7 +1281,9 @@ def graph_node(ctx: click.Context, uuid: str) -> None:
         console.print(f"[dim]No entity found for {uuid}[/dim]")
         return
 
-    name = str(entity.get("name", uuid))
+    # Use ``or`` (not the .get default) so an explicit null name still falls
+    # back to the uuid rather than rendering the literal string "None".
+    name = str(entity.get("name") or uuid)
     # Prefer the nested properties block; otherwise dump the object minus noise.
     if isinstance(entity.get("properties"), dict):
         payload = entity["properties"]
@@ -1334,7 +1341,7 @@ def graph_neighbors(
     for node in nodes:
         nid = node.get("uuid")
         if nid:
-            name_by_uuid[nid] = str(node.get("name", nid))
+            name_by_uuid[nid] = str(node.get("name") or nid)
 
     # Best-effort root name via the entity endpoint; fall back to the uuid.
     root_name = root_uuid
@@ -1368,18 +1375,25 @@ def graph_neighbors(
             )
         tree.add(label)
 
+    # The text tree is the default. When --image succeeds we show ONLY the
+    # inline image; the tree is the fallback for --no-image / unsupported
+    # terminals / a missing optional stack.
+    show_tree = True
     if image:
         from apollo.cli.graph_image import try_inline_neighborhood
 
         rendered = try_inline_neighborhood(root_uuid, root_name, nodes, edges)
-        if not rendered:
+        if rendered:
+            show_tree = False
+        else:
             console.print(
                 "[dim]graph-image unavailable; showing tree "
                 "(install extra: poetry install -E graph-image, and use a "
                 "kitty/iTerm2/sixel terminal)[/dim]"
             )
 
-    console.print(tree)
+    if show_tree:
+        console.print(tree)
 
 
 def main() -> None:
