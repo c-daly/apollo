@@ -736,6 +736,87 @@ async def get_graph_snapshot(
             )
 
 
+@app.get("/api/hcg/stats")
+async def get_graph_stats() -> Dict[str, Any]:
+    """Graph size/shape: content nodes vs reified edge-nodes, types, predicates."""
+    with tracer.start_as_current_span("apollo.api.hcg.stats") as span:
+        if not hcg_client:
+            raise HTTPException(status_code=503, detail="HCG client not available")
+        try:
+            return await asyncio.to_thread(hcg_client.get_graph_stats)
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to fetch graph stats: {str(e)}"
+            )
+
+
+@app.get("/api/hcg/types")
+async def get_type_summaries(
+    limit: int = Query(500, ge=1, le=2000, description="Maximum number of types"),
+) -> List[Dict[str, Any]]:
+    """The positional type layer (any IS_A target) with member counts + parent."""
+    with tracer.start_as_current_span("apollo.api.hcg.types") as span:
+        span.set_attribute("hcg.limit", limit)
+        if not hcg_client:
+            raise HTTPException(status_code=503, detail="HCG client not available")
+        try:
+            return await asyncio.to_thread(hcg_client.get_type_summaries, limit=limit)
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to fetch types: {str(e)}"
+            )
+
+
+@app.get("/api/hcg/neighborhood/{node_id}", response_model=GraphSnapshot)
+async def get_neighborhood(
+    node_id: str,
+    depth: int = Query(1, ge=1, le=4, description="Logical hops to expand"),
+    limit: int = Query(100, ge=1, le=1000, description="Maximum number of nodes"),
+) -> GraphSnapshot:
+    """De-reified logical neighborhood of a node, scoped by depth + limit."""
+    try:
+        node_id = validate_entity_id(node_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    with tracer.start_as_current_span("apollo.api.hcg.neighborhood") as span:
+        span.set_attribute("hcg.depth", depth)
+        if not hcg_client:
+            raise HTTPException(status_code=503, detail="HCG client not available")
+        try:
+            return await asyncio.to_thread(
+                hcg_client.get_neighborhood, node_id, depth=depth, limit=limit
+            )
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to fetch neighborhood: {str(e)}"
+            )
+
+
+@app.get("/api/hcg/search", response_model=List[Entity])
+async def search_nodes(
+    q: str = Query(..., min_length=1, description="Name or uuid to search for"),
+    limit: int = Query(25, ge=1, le=200, description="Maximum number of results"),
+) -> List[Entity]:
+    """Find content nodes by name (or exact uuid) — entry points for navigation."""
+    with tracer.start_as_current_span("apollo.api.hcg.search") as span:
+        if not hcg_client:
+            raise HTTPException(status_code=503, detail="HCG client not available")
+        try:
+            return await asyncio.to_thread(hcg_client.search_nodes, q, limit=limit)
+        except Exception as e:
+            span.set_status(StatusCode.ERROR, str(e))
+            span.record_exception(e)
+            raise HTTPException(
+                status_code=500, detail=f"Failed to search nodes: {str(e)}"
+            )
+
+
 @app.post("/api/chat/stream")
 async def chat_stream(request: ChatStreamRequest) -> StreamingResponse:
     """Stream Hermes completions back to the client while logging telemetry/persona."""

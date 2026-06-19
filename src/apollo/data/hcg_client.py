@@ -234,7 +234,7 @@ class HCGClient:
 
         query = """
         MATCH (n)
-        WHERE n.id = $entity_id OR id(n) = $node_id
+        WHERE n.id = $entity_id OR n.uuid = $entity_id OR id(n) = $node_id
         RETURN n
         """
 

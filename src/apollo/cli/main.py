@@ -18,6 +18,7 @@ from apollo.client.sophia_client import SophiaClient
 from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.client.persona_client import PersonaClient
 from apollo.config.settings import ApolloConfig, PersonaApiConfig
+from apollo.data.hcg_client import HCGClient
 
 import os
 
@@ -92,6 +93,7 @@ def cli(ctx: click.Context) -> None:
     ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
     ctx.obj["hermes"] = HermesClient(ctx.obj["config"].hermes)
     ctx.obj["persona"] = PersonaClient(ctx.obj["config"].persona_api)
+    ctx.obj["hcg"] = HCGClient(ctx.obj["config"].hcg.neo4j)
 
 
 @cli.command()
@@ -1018,6 +1020,117 @@ def _persona_api_base_url(config: PersonaApiConfig) -> str:
     if config.host.startswith(("http://", "https://")):
         return config.host.rstrip("/")
     return f"http://{config.host}:{config.port}"
+
+
+# ---------------------------------------------------------------------------
+# graph: interrogate the HCG directly (same scoped data the API serves; the CLI
+# imports HCGClient so it works with no API process running)
+# ---------------------------------------------------------------------------
+@cli.group()
+def graph() -> None:
+    """Query the HCG graph directly (same data the API serves)."""
+
+
+@graph.command("stats")
+@click.pass_context
+def graph_stats(ctx: click.Context) -> None:
+    """Graph size: content nodes vs reified edge-nodes, types, top predicates."""
+    hcg: HCGClient = ctx.obj["hcg"]
+    s = hcg.get_graph_stats()
+    console.print(
+        f"[bold]{s['total_nodes']}[/bold] nodes = "
+        f"[green]{s['content_nodes']} content[/green] + "
+        f"[dim]{s['edge_nodes']} edge-nodes[/dim]  |  "
+        f"{s['type_definitions']} type-definitions"
+    )
+    realms = Table(title="content by realm")
+    realms.add_column("realm")
+    realms.add_column("count", justify="right")
+    for realm, count in s["by_realm"].items():
+        realms.add_row(str(realm), str(count))
+    console.print(realms)
+    preds = Table(title="top predicates")
+    preds.add_column("predicate")
+    preds.add_column("count", justify="right")
+    for rel, count in s["top_predicates"].items():
+        preds.add_row(str(rel), str(count))
+    console.print(preds)
+
+
+@graph.command("types")
+@click.option("--limit", default=30, help="Maximum number of types to show")
+@click.pass_context
+def graph_types(ctx: click.Context, limit: int) -> None:
+    """The positional type layer with member counts and parent type."""
+    hcg: HCGClient = ctx.obj["hcg"]
+    table = Table(title="positional type layer")
+    table.add_column("type")
+    table.add_column("members", justify="right")
+    table.add_column("parent")
+    for row in hcg.get_type_summaries(limit=limit):
+        table.add_row(
+            row["name"] or "?", str(row["member_count"]), row["parent"] or "-"
+        )
+    console.print(table)
+
+
+@graph.command("search")
+@click.argument("query")
+@click.option("--limit", default=20, help="Maximum number of results")
+@click.pass_context
+def graph_search(ctx: click.Context, query: str, limit: int) -> None:
+    """Find nodes by name (or exact uuid) — entry points for navigation."""
+    hcg: HCGClient = ctx.obj["hcg"]
+    table = Table(title=f"search: {query!r}")
+    table.add_column("uuid")
+    table.add_column("name")
+    table.add_column("type")
+    for entity in hcg.search_nodes(query, limit=limit):
+        table.add_row(entity.id, str(entity.properties.get("name", "")), entity.type)
+    console.print(table)
+
+
+@graph.command("node")
+@click.argument("node_id")
+@click.pass_context
+def graph_node(ctx: click.Context, node_id: str) -> None:
+    """Show a single node (by uuid) and its properties."""
+    hcg: HCGClient = ctx.obj["hcg"]
+    entity = hcg.get_entity_by_id(node_id)
+    if not entity:
+        console.print(f"[red]not found:[/red] {node_id}")
+        return
+    body = yaml.safe_dump(entity.properties, sort_keys=False, default_flow_style=False)
+    console.print(
+        Panel(body, title=f"{entity.properties.get('name', '?')} ({entity.type})")
+    )
+
+
+@graph.command("neighbors")
+@click.argument("node_id")
+@click.option("--depth", default=1, help="Logical hops to expand")
+@click.option("--limit", default=50, help="Maximum number of nodes")
+@click.pass_context
+def graph_neighbors(ctx: click.Context, node_id: str, depth: int, limit: int) -> None:
+    """De-reified logical neighborhood of a node (src --predicate--> tgt)."""
+    hcg: HCGClient = ctx.obj["hcg"]
+    snap = hcg.get_neighborhood(node_id, depth=depth, limit=limit)
+    names = {e.id: e.properties.get("name", e.id[:8]) for e in snap.entities}
+    console.print(
+        f"[bold]{names.get(node_id, node_id)}[/bold] — {len(snap.entities)} nodes, "
+        f"{len(snap.edges)} logical edges (depth {depth})"
+    )
+    table = Table()
+    table.add_column("source")
+    table.add_column("predicate")
+    table.add_column("target")
+    for edge in snap.edges:
+        table.add_row(
+            str(names.get(edge.source_id, edge.source_id[:8])),
+            edge.edge_type,
+            str(names.get(edge.target_id, edge.target_id[:8])),
+        )
+    console.print(table)
 
 
 def main() -> None:
