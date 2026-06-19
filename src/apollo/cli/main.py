@@ -1136,14 +1136,30 @@ def graph_types(ctx: click.Context, limit: int) -> None:
     """Show the positional type hierarchy as a tree."""
     client = _graph_client(ctx)
     try:
-        rows = client.types(limit=limit)
+        # Fetch the full (small) type layer so the tree can be rooted correctly.
+        # --limit then bounds what we DISPLAY, not what we fetch: we show the top
+        # `limit` types by membership PLUS each one's ancestor chain, so a shown
+        # type's parent is always present and children don't orphan to the root.
+        all_rows = client.types(limit=2000)
     except HCGQueryError as exc:
         _graph_error(str(exc), "Ensure Sophia is running and SOPHIA_API_TOKEN is set")
         return
 
-    if not rows:
+    if not all_rows:
         console.print("[dim]No type definitions returned[/dim]")
         return
+
+    full_by_name: Dict[str, Dict[str, Any]] = {
+        r["name"]: r for r in all_rows if r.get("name")
+    }
+    top = sorted(all_rows, key=lambda r: -(r.get("member_count") or 0))[:limit]
+    keep: set = set()
+    for r in top:
+        nm = r.get("name")
+        while nm and nm in full_by_name and nm not in keep:
+            keep.add(nm)
+            nm = full_by_name[nm].get("parent")
+    rows = [r for r in all_rows if r.get("name") in keep]
 
     # Index rows by name and build parent -> children adjacency.
     by_name: Dict[str, Dict[str, Any]] = {}
