@@ -201,6 +201,7 @@ function HCGExplorerInner({
     data: neighborhood,
     isFetching: isExpanding,
     error: neighborhoodError,
+    refetch: refetchNeighborhood,
   } = useHCGNeighborhood(expandUuid, 1, 60)
 
   // Track the last neighborhood we merged so re-renders / refetches of an
@@ -218,6 +219,24 @@ function HCGExplorerInner({
     mergeNeighborhood(neighborhood, expandUuid)
   }, [neighborhood, expandUuid, mergeNeighborhood])
 
+  // Point the expand query at `uuid` and allow the next response to merge.
+  // If `uuid` is ALREADY the active target, setExpandUuid is a no-op (React
+  // bails on an identical value), so the fetch/merge would never re-fire --
+  // force a refetch instead. This is what makes "Re-expand neighborhood"
+  // actually re-fetch (and merge any new neighbors), and lets a failed expand
+  // be retried.
+  const triggerExpand = useCallback(
+    (uuid: string) => {
+      lastMergedKeyRef.current = null
+      if (uuid === expandUuid) {
+        void refetchNeighborhood()
+      } else {
+        setExpandUuid(uuid)
+      }
+    },
+    [expandUuid, refetchNeighborhood]
+  )
+
   // Seed the graph with a search result / type chip (plants the node + its
   // neighborhood). Seeding is an intentional "start exploring" action, so it
   // explicitly switches into lazy mode FIRST -- a full-graph view is never
@@ -225,11 +244,10 @@ function HCGExplorerInner({
   // flips to "Lazy mode" and the working-set counts appear).
   const handleSeed = useCallback(
     (uuid: string) => {
-      lastMergedKeyRef.current = null
       setDataMode('lazy')
-      setExpandUuid(uuid)
+      triggerExpand(uuid)
     },
-    [setDataMode]
+    [setDataMode, triggerExpand]
   )
 
   // Expand the currently selected node on demand. Only reachable from the
@@ -237,11 +255,10 @@ function HCGExplorerInner({
   // always what grows (never the abandoned full snapshot).
   const handleExpand = useCallback(
     (uuid: string) => {
-      lastMergedKeyRef.current = null
       setDataMode('lazy')
-      setExpandUuid(uuid)
+      triggerExpand(uuid)
     },
-    [setDataMode]
+    [setDataMode, triggerExpand]
   )
 
   // Clear the working set back to an empty canvas.
