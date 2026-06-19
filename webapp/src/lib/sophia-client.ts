@@ -848,6 +848,76 @@ export class SophiaClient {
     })
   }
 
+  // ---------------------------------------------------------------------------
+  // HCG scoped / lazy-load methods (seed + expand)
+  //
+  // The explorer no longer loads the whole graph by default. These endpoints
+  // let it start empty and grow an accumulated working set on demand:
+  //   - getHCGStats   -> headline counts + typing coverage for the header
+  //   - getHCGTypes   -> the positional type layer (entry chips)
+  //   - searchHCG     -> seed candidates the user clicks to plant a node
+  //   - getHCGNeighborhood -> 1-hop (or deeper) de-reified expansion of a node
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Get headline HCG statistics: node/edge counts, typing coverage and the
+   * realm / top-predicate breakdowns. Backs the explorer header.
+   */
+  async getHCGStats(): Promise<SophiaResponse<HCGStats>> {
+    return this.performRequest<HCGStats>({
+      action: 'fetching HCG stats',
+      method: 'GET',
+      path: '/hcg/stats',
+    })
+  }
+
+  /**
+   * Get the positional type layer: type-definition nodes with their member
+   * counts and parent type. Used as entry chips for seeding the explorer.
+   */
+  async getHCGTypes(limit: number = 50): Promise<SophiaResponse<HCGTypeSummary[]>> {
+    return this.performRequest<HCGTypeSummary[]>({
+      action: 'fetching HCG types',
+      method: 'GET',
+      path: '/hcg/types',
+      params: { limit: String(limit) },
+    })
+  }
+
+  /**
+   * Get the de-reified neighborhood around a node: the node plus everything
+   * within `depth` hops, with logical edges (src --relation--> tgt). This is
+   * the unit of lazy expansion the explorer merges into its working set.
+   */
+  async getHCGNeighborhood(
+    uuid: string,
+    depth: number = 1,
+    limit: number = 50
+  ): Promise<SophiaResponse<HCGNeighborhood>> {
+    return this.performRequest<HCGNeighborhood>({
+      action: 'fetching HCG neighborhood',
+      method: 'GET',
+      path: `/hcg/neighborhood/${encodeURIComponent(uuid)}`,
+      params: { depth: String(depth), limit: String(limit) },
+    })
+  }
+
+  /**
+   * Search HCG nodes by name/text. Returns lightweight hits the explorer uses
+   * as seed candidates (clicking one plants its neighborhood).
+   */
+  async searchHCG(
+    q: string,
+    limit: number = 20
+  ): Promise<SophiaResponse<HCGSearchResult[]>> {
+    return this.performRequest<HCGSearchResult[]>({
+      action: 'searching HCG',
+      method: 'GET',
+      path: '/hcg/search',
+      params: { q, limit: String(limit) },
+    })
+  }
+
   /**
    * Check HCG endpoint health.
    */
@@ -1101,6 +1171,72 @@ export interface HCGGraphSnapshot {
   timestamp?: string
   /** Additional metadata (optional for HCG snapshots) */
   metadata?: Record<string, unknown>
+}
+
+// ---------------------------------------------------------------------------
+// HCG scoped / lazy-load response types (seed + expand)
+// ---------------------------------------------------------------------------
+
+/** Headline HCG statistics from GET /hcg/stats. */
+export interface HCGStats {
+  total_nodes: number
+  content_nodes: number
+  edge_nodes: number
+  type_definitions: number
+  content_classified: number
+  content_parked: number
+  /** node count per realm / type, e.g. { entity: 2109, process: 94, ... } */
+  by_realm: Record<string, number>
+  /** edge count per predicate, e.g. { IS_A: 2276, INCLUDES: 152, ... } */
+  top_predicates: Record<string, number>
+}
+
+/** One entry of the positional type layer from GET /hcg/types. */
+export interface HCGTypeSummary {
+  uuid: string
+  name: string
+  member_count: number
+  /** parent type name in the IS_A hierarchy (may be a root like "node") */
+  parent: string | null
+}
+
+/** A de-reified neighborhood node from GET /hcg/neighborhood. */
+export interface HCGNeighborhoodNode {
+  uuid: string
+  name: string
+  type: string
+  properties: Record<string, unknown>
+}
+
+/** A de-reified logical edge (src --relation--> tgt) from GET /hcg/neighborhood. */
+export interface HCGNeighborhoodEdge {
+  id: string
+  source: string
+  target: string
+  relation: string
+}
+
+/** Metadata block returned alongside a neighborhood. */
+export interface HCGNeighborhoodMetadata {
+  root: string
+  depth: number
+  reified: boolean
+  node_count: number
+  edge_count: number
+}
+
+/** Response of GET /hcg/neighborhood/{uuid}. */
+export interface HCGNeighborhood {
+  nodes: HCGNeighborhoodNode[]
+  edges: HCGNeighborhoodEdge[]
+  metadata: HCGNeighborhoodMetadata
+}
+
+/** A lightweight search hit from GET /hcg/search. */
+export interface HCGSearchResult {
+  uuid: string
+  name: string
+  type: string
 }
 
 export type {

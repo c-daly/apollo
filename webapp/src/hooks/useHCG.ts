@@ -13,11 +13,24 @@ import type {
   HCGEntity,
   HCGEdge,
   HCGGraphSnapshot,
+  HCGStats,
+  HCGTypeSummary,
+  HCGNeighborhood,
+  HCGSearchResult,
 } from '../lib/sophia-client'
 import type { Process, PlanHistory } from '../types/hcg'
 
 // Re-export types for consumers
-export type { PersonaEntryFull, HCGEntity, HCGEdge, HCGGraphSnapshot }
+export type {
+  PersonaEntryFull,
+  HCGEntity,
+  HCGEdge,
+  HCGGraphSnapshot,
+  HCGStats,
+  HCGTypeSummary,
+  HCGNeighborhood,
+  HCGSearchResult,
+}
 
 /**
  * Helper to unwrap sophia-client response and throw on error.
@@ -126,6 +139,84 @@ export function useHCGSnapshot(
     },
     staleTime: 5000,
     refetchInterval,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// HCG scoped / lazy-load hooks (seed + expand)
+//
+// These back the lazy-load explorer: stats for the header, the type layer for
+// entry chips, search for seeding, and neighborhood for on-demand expansion.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook to fetch headline HCG statistics (counts + typing coverage).
+ */
+export function useHCGStats(): UseQueryResult<HCGStats, Error> {
+  return useQuery({
+    queryKey: ['hcg', 'stats'],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGStats()
+      return unwrapResponse(response)
+    },
+    staleTime: 10000,
+  })
+}
+
+/**
+ * Hook to fetch the positional type layer (entry chips for seeding).
+ */
+export function useHCGTypes(
+  limit: number = 50
+): UseQueryResult<HCGTypeSummary[], Error> {
+  return useQuery({
+    queryKey: ['hcg', 'types', limit],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGTypes(limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 30000,
+  })
+}
+
+/**
+ * Hook to fetch the de-reified neighborhood of a node, enabled only when a
+ * uuid is provided (so it never fires for the empty initial canvas).
+ */
+export function useHCGNeighborhood(
+  uuid: string | null | undefined,
+  depth: number = 1,
+  limit: number = 50
+): UseQueryResult<HCGNeighborhood, Error> {
+  return useQuery({
+    queryKey: ['hcg', 'neighborhood', uuid, depth, limit],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGNeighborhood(uuid as string, depth, limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 30000,
+    enabled: !!uuid,
+  })
+}
+
+/**
+ * Hook to search HCG nodes for seeding. Enabled only when the query is
+ * non-empty (the enabled-guard doubles as the debounce: an empty box issues
+ * no request). Callers should pass an already-trimmed query.
+ */
+export function useHCGSearch(
+  q: string,
+  limit: number = 20
+): UseQueryResult<HCGSearchResult[], Error> {
+  const query = q.trim()
+  return useQuery({
+    queryKey: ['hcg', 'search', query, limit],
+    queryFn: async () => {
+      const response = await sophiaClient.searchHCG(query, limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+    enabled: query.length > 0,
   })
 }
 
