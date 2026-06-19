@@ -6,7 +6,14 @@
  */
 
 import { useEffect, useMemo, useCallback, useState, useRef, type ChangeEvent } from 'react'
-import { useHCGSnapshot, type HCGGraphSnapshot } from '../../hooks/useHCG'
+import {
+  useHCGSnapshot,
+  useHCGStats,
+  useHCGTypes,
+  useHCGSearch,
+  useHCGNeighborhood,
+  type HCGGraphSnapshot,
+} from '../../hooks/useHCG'
 import { HCGExplorerProvider, useHCGExplorer } from './context'
 import { ThreeRenderer } from './renderers/ThreeRenderer'
 import { CytoscapeRenderer } from './renderers/CytoscapeRenderer'
@@ -123,12 +130,18 @@ function HCGExplorerInner({
     addSnapshot,
     setTimelineIndex,
     togglePlayback,
+    setDataMode,
+    mergeNeighborhood,
+    resetWorkingSet,
   } = useHCGExplorer()
 
   const {
     viewMode,
     layout,
     filterConfig,
+    dataMode,
+    workingSet,
+    expandedNodeIds,
     currentSnapshot,
     snapshotHistory,
     timelineIndex,
@@ -161,7 +174,79 @@ function HCGExplorerInner({
   // Passed to both renderers; changing a slider re-lays-out the canvas live.
   const [densityParams, setDensityParams] = useState<DensityParams>(DEFAULT_DENSITY)
 
-  // Fetch graph data
+  // ---------------------------------------------------------------------------
+  // Lazy-load (seed + expand): the canvas starts empty and grows a working set.
+  // ---------------------------------------------------------------------------
+
+  // Headline stats for the header (total nodes + typing coverage). Graceful:
+  // an error just leaves the header counts blank, it never blocks the canvas.
+  const { data: stats } = useHCGStats()
+
+  // Positional type layer for entry chips.
+  const { data: typeLayer } = useHCGTypes(40)
+
+  // Seed search box. The enabled-guard in useHCGSearch doubles as a debounce:
+  // an empty box issues no request.
+  const [seedQuery, setSeedQuery] = useState('')
+  const {
+    data: searchResults,
+    isFetching: isSearching,
+    error: searchError,
+  } = useHCGSearch(seedQuery)
+
+  // Expand target: the uuid whose neighborhood we want to fetch + merge next.
+  // Set by seeding a search result, clicking a type chip, or expanding a node.
+  const [expandUuid, setExpandUuid] = useState<string | null>(null)
+  const {
+    data: neighborhood,
+    isFetching: isExpanding,
+    error: neighborhoodError,
+  } = useHCGNeighborhood(expandUuid, 1, 60)
+
+  // Track the last neighborhood we merged so re-renders / refetches of an
+  // identical response don't re-dispatch a merge (the metadata.root + counts
+  // form a stable key for one fetch result).
+  const lastMergedKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!neighborhood || !expandUuid) return
+    const key = `${neighborhood.metadata.root}:${neighborhood.metadata.node_count}:${neighborhood.metadata.edge_count}`
+    if (key === lastMergedKeyRef.current) return
+    lastMergedKeyRef.current = key
+    mergeNeighborhood(neighborhood, expandUuid)
+  }, [neighborhood, expandUuid, mergeNeighborhood])
+
+  // Seed the graph with a search result (plants the node + its neighborhood).
+  const handleSeed = useCallback(
+    (uuid: string) => {
+      lastMergedKeyRef.current = null
+      setExpandUuid(uuid)
+    },
+    []
+  )
+
+  // Expand the currently selected (or any) node on demand.
+  const handleExpand = useCallback(
+    (uuid: string) => {
+      lastMergedKeyRef.current = null
+      setExpandUuid(uuid)
+    },
+    []
+  )
+
+  // Clear the working set back to an empty canvas.
+  const handleResetWorkingSet = useCallback(() => {
+    lastMergedKeyRef.current = null
+    setExpandUuid(null)
+    setSeedQuery('')
+    resetWorkingSet()
+  }, [resetWorkingSet])
+
+  // ---------------------------------------------------------------------------
+  // Full-snapshot path (legacy / small graphs), behind "Load full graph".
+  // The query only fires once the user opts in (dataMode === 'full'), so the
+  // default lazy mode never pulls the whole graph.
+  // ---------------------------------------------------------------------------
+  const fullMode = dataMode === 'full'
   const {
     data: apiSnapshot,
     isLoading,
@@ -175,7 +260,8 @@ function HCGExplorerInner({
     // high limit explicitly so the shared hook's default stays small for other
     // callers (e.g. GraphViewer) (greptile #186).
     limit: 10000,
-    refetchInterval: refreshInterval > 0 ? refreshInterval : false,
+    refetchInterval: fullMode && refreshInterval > 0 ? refreshInterval : false,
+    enabled: fullMode,
   })
 
   // Track whether we've loaded any data (for mock fallback decision).
@@ -188,8 +274,12 @@ function HCGExplorerInner({
   // unchanged. Without this guard every poll rebuilt the whole pipeline.
   const lastSnapshotFpRef = useRef<string | null>(null)
 
-  // Add new snapshots to history (with mock fallback)
+  // Add new snapshots to history (with mock fallback). Full-snapshot path only:
+  // in lazy mode the canvas is driven by the working set, never by a snapshot,
+  // and there is no mock fallback (an empty canvas with a seed prompt is the
+  // correct empty state).
   useEffect(() => {
+    if (!fullMode) return
     if (apiSnapshot) {
       setUsingMockData(false)
       hasDataRef.current = true
@@ -206,20 +296,32 @@ function HCGExplorerInner({
       hasDataRef.current = true
       addSnapshot(generateMockSnapshot())
     }
-  }, [apiSnapshot, error, addSnapshot])
+  }, [fullMode, apiSnapshot, error, addSnapshot])
+
+  // The snapshot the canvas + panels operate on: the accumulated lazy-load
+  // working set by default, or the full snapshot once "Load full graph" is on.
+  // workingSet is always a (possibly empty) snapshot, so lazy mode has data as
+  // soon as the first seed merges.
+  const activeSnapshot: GraphSnapshot | null = fullMode ? currentSnapshot : workingSet
+  const hasGraph = !!activeSnapshot && activeSnapshot.entities.length > 0
 
   // Process graph data for rendering. The chosen view (logical vs reified) is
-  // applied by buildGraph; see graph-processor for the two transforms.
+  // applied by buildGraph; see graph-processor for the two transforms. Expanded
+  // node ids are threaded so explored nodes are marked in lazy mode.
+  const expandedIdSet = useMemo<Set<string>>(
+    () => new Set(expandedNodeIds),
+    [expandedNodeIds]
+  )
   const processedGraph = useMemo<ProcessedGraph>(() => {
-    if (!currentSnapshot) {
+    if (!activeSnapshot) {
       return { nodes: [], edges: [], clusters: [] }
     }
-    return buildGraph(currentSnapshot, graphMode, filterConfig)
-  }, [currentSnapshot, filterConfig, graphMode])
+    return buildGraph(activeSnapshot, graphMode, filterConfig, expandedIdSet)
+  }, [activeSnapshot, filterConfig, graphMode, expandedIdSet])
 
   // Derive entity types from the rendered graph, ordered by known types first.
   const entityTypes = useMemo<string[]>(() => {
-    if (!currentSnapshot) return KNOWN_ENTITY_TYPES
+    if (!activeSnapshot) return KNOWN_ENTITY_TYPES
     // Reflect ALL types present in the current view, independent of the active
     // search / status / property filters — otherwise the type buttons vanish as
     // you type a search. This used to run a SECOND full buildGraph() (transform
@@ -230,22 +332,22 @@ function HCGExplorerInner({
     // one 'edge' node type. That is an O(N) pass with no graph rebuild.
     const isReified = graphMode === 'reified'
     const seen = new Set<string>()
-    for (const e of currentSnapshot.entities) {
+    for (const e of activeSnapshot.entities) {
       if (isReified || !isEdgeTypeDef(e)) seen.add(e.type)
     }
-    if (isReified && currentSnapshot.edges.length > 0) seen.add('edge')
+    if (isReified && activeSnapshot.edges.length > 0) seen.add('edge')
     const ordered = KNOWN_ENTITY_TYPES.filter(t => seen.has(t))
     for (const t of seen) {
       if (!ordered.includes(t)) ordered.push(t)
     }
     return ordered
-  }, [currentSnapshot, graphMode])
+  }, [activeSnapshot, graphMode])
 
   // Flat, IS_A-driven type list for the Types panel. Counts come from IS_A
   // edges (deriveTypeSummaries), independent of the realm-based entityTypes.
   const typeSummaries = useMemo<TypeSummary[]>(
-    () => (currentSnapshot ? deriveTypeSummaries(currentSnapshot) : []),
-    [currentSnapshot]
+    () => (activeSnapshot ? deriveTypeSummaries(activeSnapshot) : []),
+    [activeSnapshot]
   )
 
   // Local text filter for the Types list (filters the rows, not the graph).
@@ -306,21 +408,21 @@ function HCGExplorerInner({
   // context. Null when nothing is focused (no dimming). This is the default
   // interaction; the restrict-style hard filter lives behind the selection mode.
   const highlightedNodeIds = useMemo<Set<string> | null>(() => {
-    if (!currentSnapshot) return null
+    if (!activeSnapshot) return null
     // Restrict mode already hard-filters the graph to the selection in
     // buildGraph; dimming on top of that is redundant for a selected type and
     // wrongly dims the whole graph when a single node is clicked. Dimming is the
     // highlight-mode affordance only.
     if (filterConfig.selectionMode === 'restrict') return null
     if (filterConfig.selectedTypeId) {
-      return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
+      return computeTypeMemberIds(activeSnapshot, filterConfig.selectedTypeId)
     }
     if (selectedNodeId) {
-      return computeHighlightSubgraphIds(currentSnapshot, selectedNodeId)
+      return computeHighlightSubgraphIds(activeSnapshot, selectedNodeId)
     }
     return null
   }, [
-    currentSnapshot,
+    activeSnapshot,
     filterConfig.selectedTypeId,
     filterConfig.selectionMode,
     selectedNodeId,
@@ -331,13 +433,13 @@ function HCGExplorerInner({
   // node is framed. Independent of selectionMode (unlike highlightedNodeIds) so
   // framing works in both highlight and restrict.
   const focusNodeIds = useMemo<Set<string> | null>(() => {
-    if (!currentSnapshot) return null
+    if (!activeSnapshot) return null
     if (filterConfig.selectedTypeId) {
-      return computeTypeMemberIds(currentSnapshot, filterConfig.selectedTypeId)
+      return computeTypeMemberIds(activeSnapshot, filterConfig.selectedTypeId)
     }
     if (selectedNodeId) return new Set([selectedNodeId])
     return null
-  }, [currentSnapshot, filterConfig.selectedTypeId, selectedNodeId])
+  }, [activeSnapshot, filterConfig.selectedTypeId, selectedNodeId])
 
   // Handle view mode change
   const handleViewModeChange = useCallback(
@@ -415,6 +517,128 @@ function HCGExplorerInner({
 
   return (
     <div className={`hcg-explorer ${className}`}>
+      {/* Seed / lazy-load bar: stats header, seed search, type chips, mode +
+          reset. The canvas starts empty; seeding a node (or a type chip)
+          plants its neighborhood, and Expand grows the working set on demand. */}
+      <div className="hcg-seedbar">
+        {/* Stats header (typing coverage). Blank if /hcg/stats errored. */}
+        <div className="hcg-seedbar-stats">
+          {stats ? (
+            <>
+              <span className="hcg-stat" title="Total nodes in the graph">
+                {stats.total_nodes.toLocaleString()} nodes
+              </span>
+              <span className="hcg-stat" title="Content nodes that have been typed">
+                {stats.content_classified.toLocaleString()}/
+                {stats.content_nodes.toLocaleString()} typed
+              </span>
+              <span className="hcg-stat" title="Type-definition nodes">
+                {stats.type_definitions} types
+              </span>
+            </>
+          ) : (
+            <span className="hcg-stat hcg-stat--muted">graph stats unavailable</span>
+          )}
+        </div>
+
+        {/* Seed search */}
+        <div className="hcg-seedbar-search">
+          <input
+            type="text"
+            className="hcg-input hcg-input--search"
+            placeholder="Seed: search a node to plant on the canvas..."
+            value={seedQuery}
+            onChange={e => setSeedQuery(e.target.value)}
+          />
+          {seedQuery.trim() && (
+            <div className="hcg-seed-results">
+              {isSearching && (
+                <div className="hcg-seed-result hcg-seed-result--muted">Searching...</div>
+              )}
+              {!isSearching && searchResults && searchResults.length === 0 && (
+                <div className="hcg-seed-result hcg-seed-result--muted">No matches</div>
+              )}
+              {!isSearching &&
+                searchResults?.slice(0, 12).map(r => (
+                  <button
+                    key={r.uuid}
+                    className="hcg-seed-result"
+                    onClick={() => {
+                      handleSeed(r.uuid)
+                      setSeedQuery('')
+                    }}
+                    title={r.uuid}
+                  >
+                    <span className="hcg-seed-result-name">{r.name || r.uuid}</span>
+                    <span
+                      className="hcg-seed-result-type"
+                      style={{ color: NODE_COLORS[r.type] || NODE_COLORS.default }}
+                    >
+                      {r.type}
+                    </span>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+
+        {/* Type chips (entry points) */}
+        {typeLayer && typeLayer.length > 0 && (
+          <div className="hcg-seedbar-chips">
+            {typeLayer.slice(0, 12).map(t => (
+              <button
+                key={t.uuid}
+                className="hcg-chip"
+                onClick={() => handleSeed(t.uuid)}
+                title={`${t.name} — ${t.member_count} members`}
+              >
+                {t.name}
+                <span className="hcg-chip-count">{t.member_count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Working-set counts (lazy mode) */}
+        {!fullMode && (
+          <div className="hcg-seedbar-counts">
+            <span className="hcg-stat" title="Nodes in the working set">
+              {workingSet.entities.length} nodes
+            </span>
+            <span className="hcg-stat" title="Edges in the working set">
+              {workingSet.edges.length} edges
+            </span>
+            {isExpanding && <span className="hcg-stat hcg-stat--muted">expanding...</span>}
+          </div>
+        )}
+
+        {/* Reset (clear working set) */}
+        {!fullMode && hasGraph && (
+          <button
+            className="hcg-btn"
+            onClick={handleResetWorkingSet}
+            title="Clear the canvas back to empty"
+          >
+            Reset
+          </button>
+        )}
+
+        {/* Data-mode toggle: lazy (seed+expand) vs full snapshot. */}
+        <button
+          className={`hcg-btn ${fullMode ? 'hcg-btn--active' : ''}`}
+          onClick={() => setDataMode(fullMode ? 'lazy' : 'full')}
+          title={
+            fullMode
+              ? 'Switch back to lazy seed + expand'
+              : 'Load the entire graph snapshot (small graphs / back-compat)'
+          }
+        >
+          {fullMode ? 'Lazy mode' : 'Load full graph'}
+        </button>
+      </div>
+
       {/* Toolbar */}
       <div className="hcg-toolbar">
         {/* View Mode Toggle */}
@@ -542,17 +766,28 @@ function HCGExplorerInner({
         </div>
       )}
 
+      {/* Lazy-load expand/search error toast (never blocks the canvas) */}
+      {!fullMode && (neighborhoodError || searchError) && (
+        <div className="hcg-mock-banner hcg-mock-banner--error">
+          {neighborhoodError
+            ? `Couldn't expand that node: ${neighborhoodError.message}`
+            : `Search failed: ${searchError?.message}`}
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="hcg-content">
         {/* Canvas */}
         <div className="hcg-canvas">
-          {isLoading && !currentSnapshot && (
+          {/* Full-mode loading */}
+          {fullMode && isLoading && !currentSnapshot && (
             <div className="hcg-loading">
               <div className="hcg-loading-spinner" />
             </div>
           )}
 
-          {error && !currentSnapshot && !usingMockData && (
+          {/* Full-mode error */}
+          {fullMode && error && !currentSnapshot && !usingMockData && (
             <div className="hcg-error">
               <div className="hcg-error-icon">!</div>
               <div className="hcg-error-message">
@@ -564,7 +799,19 @@ function HCGExplorerInner({
             </div>
           )}
 
-          {currentSnapshot && viewMode === '3d' && (
+          {/* Lazy-mode empty state: seed the graph from the search box. */}
+          {!fullMode && !hasGraph && (
+            <div className="hcg-empty">
+              <div className="hcg-empty-title">Explore the graph</div>
+              <div className="hcg-empty-hint">
+                {isExpanding
+                  ? 'Loading neighborhood...'
+                  : 'Search for a node above and click a result to seed the canvas, or pick a type chip. Click a node and Expand to grow the view.'}
+              </div>
+            </div>
+          )}
+
+          {hasGraph && viewMode === '3d' && (
             <ThreeRenderer
               graph={processedGraph}
               selectedNodeId={selectedNodeId}
@@ -578,7 +825,7 @@ function HCGExplorerInner({
             />
           )}
 
-          {currentSnapshot && viewMode === '2d' && (
+          {hasGraph && viewMode === '2d' && (
             <CytoscapeRenderer
               graph={processedGraph}
               selectedNodeId={selectedNodeId}
@@ -749,13 +996,29 @@ function HCGExplorerInner({
                         </span>
                       </div>
                     )}
+                    {!fullMode && (
+                      <button
+                        className="hcg-btn hcg-detail-expand"
+                        onClick={() => handleExpand(selectedNode.id)}
+                        disabled={isExpanding}
+                        title="Fetch this node's neighborhood and merge it into the canvas"
+                      >
+                        {expandedIdSet.has(selectedNode.id)
+                          ? 'Re-expand neighborhood'
+                          : isExpanding
+                            ? 'Expanding...'
+                            : 'Expand neighborhood'}
+                      </button>
+                    )}
                     <div className="hcg-properties">
                       {JSON.stringify(selectedNode.properties, null, 2)}
                     </div>
                   </div>
                 ) : (
                   <div className="hcg-node-details-empty">
-                    Click a node to view details
+                    {fullMode
+                      ? 'Click a node to view details'
+                      : 'Click a node to view details, then Expand to grow the view'}
                   </div>
                 )}
               </div>
@@ -909,11 +1172,11 @@ function HCGExplorerInner({
             {timelineIndex + 1} / {snapshotHistory.length}
           </span>
         </div>
-        {currentSnapshot?.timestamp && (
+        {activeSnapshot?.timestamp && (
           <div className="hcg-stat">
             <span>Updated:</span>
             <span className="hcg-stat-value">
-              {formatTime(currentSnapshot.timestamp)}
+              {formatTime(activeSnapshot.timestamp)}
             </span>
           </div>
         )}

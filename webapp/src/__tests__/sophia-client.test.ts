@@ -376,5 +376,123 @@ describe('SophiaClient', () => {
 
       expect(result).toBe(false)
     })
+
+    // --- Lazy-load (seed + expand) scoped endpoints ---
+
+    it('fetches HCG stats from /hcg/stats', async () => {
+      const statsResponse = {
+        total_nodes: 7006,
+        content_nodes: 2313,
+        edge_nodes: 4693,
+        type_definitions: 16,
+        content_classified: 965,
+        content_parked: 1311,
+        by_realm: { entity: 2109, process: 94 },
+        top_predicates: { IS_A: 2276 },
+      }
+      fetchMock.mockResolvedValueOnce(jsonResponse(statsResponse))
+
+      const result = await client.getHCGStats()
+
+      expect(result.success).toBe(true)
+      expect(result.data?.total_nodes).toBe(7006)
+      expect(result.data?.by_realm.entity).toBe(2109)
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://test-sophia:8080/hcg/stats',
+        expect.objectContaining({ method: 'GET' })
+      )
+    })
+
+    it('fetches the HCG type layer from /hcg/types with a limit', async () => {
+      const typesResponse = [
+        { uuid: 't-1', name: 'entity', member_count: 1235, parent: 'node' },
+        { uuid: 't-2', name: 'chemical substance', member_count: 78, parent: 'agent' },
+      ]
+      fetchMock.mockResolvedValueOnce(jsonResponse(typesResponse))
+
+      const result = await client.getHCGTypes(40)
+
+      expect(result.success).toBe(true)
+      expect(result.data).toHaveLength(2)
+      expect(result.data?.[0].member_count).toBe(1235)
+      const url = fetchMock.mock.calls[0][0] as string
+      expect(url).toContain('/hcg/types')
+      expect(url).toContain('limit=40')
+    })
+
+    it('fetches a de-reified neighborhood from /hcg/neighborhood/{uuid}', async () => {
+      const neighborhoodResponse = {
+        nodes: [
+          { uuid: 'n-1', name: 'social plant', type: 'entity', properties: {} },
+          { uuid: 'n-2', name: 'mutual aid', type: 'entity', properties: {} },
+        ],
+        edges: [
+          { id: 'e-1', source: 'n-1', target: 'n-2', relation: 'IS_A' },
+        ],
+        metadata: {
+          root: 'n-1',
+          depth: 1,
+          reified: false,
+          node_count: 2,
+          edge_count: 1,
+        },
+      }
+      fetchMock.mockResolvedValueOnce(jsonResponse(neighborhoodResponse))
+
+      const result = await client.getHCGNeighborhood('n-1', 1, 60)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.nodes).toHaveLength(2)
+      expect(result.data?.edges[0].relation).toBe('IS_A')
+      expect(result.data?.metadata.reified).toBe(false)
+      const url = fetchMock.mock.calls[0][0] as string
+      expect(url).toContain('/hcg/neighborhood/n-1')
+      expect(url).toContain('depth=1')
+      expect(url).toContain('limit=60')
+    })
+
+    it('url-encodes the neighborhood uuid', async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          nodes: [],
+          edges: [],
+          metadata: { root: 'a/b', depth: 1, reified: false, node_count: 0, edge_count: 0 },
+        })
+      )
+
+      await client.getHCGNeighborhood('a/b')
+
+      const url = fetchMock.mock.calls[0][0] as string
+      expect(url).toContain('/hcg/neighborhood/a%2Fb')
+    })
+
+    it('searches HCG nodes via /hcg/search', async () => {
+      const searchResponse = [
+        { uuid: 's-1', name: 'Plan: Blue Block to Bin', type: 'plan' },
+        { uuid: 's-2', name: 'social plant', type: 'entity' },
+      ]
+      fetchMock.mockResolvedValueOnce(jsonResponse(searchResponse))
+
+      const result = await client.searchHCG('plan', 20)
+
+      expect(result.success).toBe(true)
+      expect(result.data).toHaveLength(2)
+      expect(result.data?.[0].type).toBe('plan')
+      const url = fetchMock.mock.calls[0][0] as string
+      expect(url).toContain('/hcg/search')
+      expect(url).toContain('q=plan')
+      expect(url).toContain('limit=20')
+    })
+
+    it('surfaces a failed stats request as an error result', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response('boom', { status: 500, statusText: 'Server Error' })
+      )
+
+      const result = await client.getHCGStats()
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBeTruthy()
+    })
   })
 })

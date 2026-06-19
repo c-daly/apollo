@@ -13,8 +13,99 @@ import type {
   ProcessedGraph,
   FilterConfig,
   ClusterAssignment,
+  NeighborhoodPayload,
 } from '../types'
 import { NODE_COLORS } from '../types'
+
+// ---------------------------------------------------------------------------
+// Lazy-load (seed + expand): mapping a de-reified neighborhood into the
+// internal snapshot shape, and merging neighborhoods into an accumulated
+// working set with dedupe (nodes by id, edges by id).
+// ---------------------------------------------------------------------------
+
+/**
+ * Map one de-reified neighborhood node (uuid/name/type/properties) to the
+ * internal Entity shape the render pipeline consumes. The neighborhood's
+ * `uuid` becomes the Entity `id` (renderers key on id), and `name`/`type`
+ * carry through. created_at is read from properties when present.
+ */
+export function neighborhoodNodeToEntity(n: {
+  uuid: string
+  name: string
+  type: string
+  properties?: Record<string, unknown>
+}): Entity {
+  const props = n.properties ?? {}
+  const createdAt =
+    typeof props.created === 'string'
+      ? (props.created as string)
+      : typeof props.created_at === 'string'
+        ? (props.created_at as string)
+        : undefined
+  return {
+    id: n.uuid,
+    type: n.type,
+    name: n.name,
+    properties: props,
+    labels: [n.type],
+    created_at: createdAt,
+  }
+}
+
+/**
+ * Map one de-reified logical edge (id/source/target/relation) to the internal
+ * CausalEdge shape. The endpoint already collapses reified edges to direct
+ * src --relation--> tgt links, so `relation` becomes `edge_type` 1:1.
+ */
+export function neighborhoodEdgeToCausalEdge(e: {
+  id: string
+  source: string
+  target: string
+  relation: string
+}): CausalEdge {
+  return {
+    id: e.id,
+    source_id: e.source,
+    target_id: e.target,
+    edge_type: e.relation,
+    properties: {},
+    weight: 1,
+    created_at: '',
+  }
+}
+
+/**
+ * Merge a de-reified neighborhood into an accumulated working-set snapshot,
+ * returning a NEW snapshot (pure — never mutates the input). Nodes are deduped
+ * by id and edges by id: an incoming node/edge that already exists is dropped
+ * (first occurrence wins, so seeded data is stable across re-expansion). The
+ * timestamp is refreshed and metadata carries running counts.
+ */
+export function mergeNeighborhood(
+  current: GraphSnapshot,
+  payload: NeighborhoodPayload
+): GraphSnapshot {
+  const nodeById = new Map<string, Entity>()
+  for (const e of current.entities) nodeById.set(e.id, e)
+  for (const n of payload.nodes) {
+    if (!nodeById.has(n.uuid)) nodeById.set(n.uuid, neighborhoodNodeToEntity(n))
+  }
+
+  const edgeById = new Map<string, CausalEdge>()
+  for (const e of current.edges) edgeById.set(e.id, e)
+  for (const e of payload.edges) {
+    if (!edgeById.has(e.id)) edgeById.set(e.id, neighborhoodEdgeToCausalEdge(e))
+  }
+
+  const entities = Array.from(nodeById.values())
+  const edges = Array.from(edgeById.values())
+  return {
+    entities,
+    edges,
+    timestamp: new Date().toISOString(),
+    metadata: { entity_count: entities.length, edge_count: edges.length },
+  }
+}
 
 /**
  * How to render the HCG.
@@ -110,7 +201,8 @@ export function toReifiedSnapshot(snapshot: GraphSnapshot): GraphSnapshot {
 export function buildGraph(
   snapshot: GraphSnapshot,
   mode: GraphMode,
-  filterConfig: FilterConfig
+  filterConfig: FilterConfig,
+  expandedNodeIds?: Set<string> | null
 ): ProcessedGraph {
   const transformed =
     mode === 'reified' ? toReifiedSnapshot(snapshot) : toLogicalSnapshot(snapshot)
@@ -127,7 +219,7 @@ export function buildGraph(
   const typeMemberIds = restrict
     ? computeTypeMemberIds(snapshot, filterConfig.selectedTypeId ?? null)
     : null
-  return processGraph(transformed, filterConfig, typeMemberIds)
+  return processGraph(transformed, filterConfig, typeMemberIds, expandedNodeIds)
 }
 
 /** A flat (non-hierarchical) summary of one emergent/ontology type. */
@@ -225,10 +317,16 @@ export function computeHighlightSubgraphIds(
 export function processGraph(
   snapshot: GraphSnapshot,
   filterConfig: FilterConfig,
-  typeMemberIds?: Set<string> | null
+  typeMemberIds?: Set<string> | null,
+  expandedNodeIds?: Set<string> | null
 ): ProcessedGraph {
-  // Convert entities to nodes
-  let nodes = snapshot.entities.map(entityToNode)
+  // Convert entities to nodes, marking those the user has expanded so the
+  // renderers can flag explored nodes in the lazy-load working set.
+  let nodes = snapshot.entities.map(e =>
+    expandedNodeIds && expandedNodeIds.has(e.id)
+      ? { ...entityToNode(e), expanded: true }
+      : entityToNode(e)
+  )
 
   // Convert edges
   let edges = snapshot.edges.map(edgeToGraphEdge)

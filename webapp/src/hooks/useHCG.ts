@@ -114,6 +114,12 @@ export interface GraphSnapshotOptions {
    * ~3MB of float data on every refetch.
    */
   includeEmbeddings?: boolean
+  /**
+   * Gate the (potentially large) snapshot fetch. Defaults to true to preserve
+   * existing callers; the lazy-load explorer sets this false so the full-graph
+   * query only fires once the user opts into "Load full graph".
+   */
+  enabled?: boolean
 }
 
 export function useHCGSnapshot(
@@ -124,6 +130,7 @@ export function useHCGSnapshot(
     limit = 200,
     refetchInterval,
     includeEmbeddings = true,
+    enabled = true,
   } = options
   return useQuery({
     // includeEmbeddings is part of the key so toggling it never serves a
@@ -139,6 +146,7 @@ export function useHCGSnapshot(
     },
     staleTime: 5000,
     refetchInterval,
+    enabled,
   })
 }
 
