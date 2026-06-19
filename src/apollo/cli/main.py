@@ -1334,7 +1334,10 @@ def graph_neighbors(
     nodes = data.get("nodes") or []
     edges = data.get("edges") or []
     metadata = data.get("metadata") or {}
-    root_uuid = str(metadata.get("root", uuid))
+    # `or uuid` (not a .get default): sophia may return {"root": null}, and a
+    # default arg only fires when the key is absent -- a null would make every
+    # `source == root_uuid` comparison miss and render the root as "None".
+    root_uuid = str(metadata.get("root") or uuid)
 
     # Build uuid -> name map from neighbors (root is NOT in nodes).
     name_by_uuid: Dict[str, str] = {}

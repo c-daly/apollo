@@ -210,6 +210,23 @@ def test_neighbors_null_neighbor_name_falls_back_to_uuid() -> None:
     assert "None" not in result.output
 
 
+def test_neighbors_null_root_metadata_falls_back_to_uuid() -> None:
+    """sophia returning {"root": null} must fall back to the requested uuid,
+    not render the tree root as the literal "None"."""
+    client = Mock()
+    client.neighborhood.return_value = {
+        "nodes": [{"uuid": "n1", "name": "Neighbor"}],
+        "edges": [{"source": "abc-123", "target": "n1", "relation": "causes"}],
+        "metadata": {"root": None},
+    }
+    client.entity.return_value = {}  # no name -> root label falls back to the uuid
+    result = _run(["neighbors", "abc-123"], client)
+    assert result.exit_code == 0, result.output
+    assert "None" not in result.output
+    assert "abc-123" in result.output
+    assert "causes" in result.output
+
+
 def test_neighbors_image_success_suppresses_tree() -> None:
     """--image rendering must show ONLY the image, not also the tree."""
     client = Mock()
