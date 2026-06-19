@@ -3,8 +3,23 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { processGraph, buildGraph, isEntityTypeDef, isEdgeTypeDef } from './graph-processor'
-import type { GraphSnapshot, FilterConfig, Entity, CausalEdge } from '../types'
+import {
+  processGraph,
+  buildGraph,
+  isEntityTypeDef,
+  isEdgeTypeDef,
+  mergeNeighborhood,
+  neighborhoodNodeToEntity,
+  neighborhoodEdgeToCausalEdge,
+} from './graph-processor'
+import type {
+  GraphSnapshot,
+  FilterConfig,
+  Entity,
+  CausalEdge,
+  NeighborhoodPayload,
+} from '../types'
+import { EMPTY_SNAPSHOT } from '../types'
 
 const createMockSnapshot = (): GraphSnapshot => ({
   entities: [
@@ -371,5 +386,207 @@ describe('faithful views (logical vs reified)', () => {
     const to = g.edges.find(e => e.id === 'e1__to')
     expect(from).toMatchObject({ source: 'e1', target: 'n1', type: 'FROM' })
     expect(to).toMatchObject({ source: 'e1', target: 'u-typedef', type: 'TO' })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Lazy-load (seed + expand): neighborhood mapping + working-set merge/dedupe
+// ---------------------------------------------------------------------------
+
+const makeNeighborhood = (
+  nodes: NeighborhoodPayload['nodes'],
+  edges: NeighborhoodPayload['edges']
+): NeighborhoodPayload => ({ nodes, edges })
+
+describe('neighborhood mapping', () => {
+  it('maps a neighborhood node (uuid -> Entity.id) preserving name/type', () => {
+    const entity = neighborhoodNodeToEntity({
+      uuid: 'u-1',
+      name: 'social plant',
+      type: 'entity',
+      properties: { created: '2026-06-19T00:00:00Z', confidence: 0.7 },
+    })
+    expect(entity.id).toBe('u-1')
+    expect(entity.name).toBe('social plant')
+    expect(entity.type).toBe('entity')
+    expect(entity.labels).toEqual(['entity'])
+    expect(entity.created_at).toBe('2026-06-19T00:00:00Z')
+    expect(entity.properties.confidence).toBe(0.7)
+  })
+
+  it('tolerates a node with no properties', () => {
+    const entity = neighborhoodNodeToEntity({ uuid: 'u-2', name: 'x', type: 'concept' })
+    expect(entity.properties).toEqual({})
+    expect(entity.created_at).toBeUndefined()
+  })
+
+  it('maps a de-reified logical edge (relation -> edge_type) 1:1', () => {
+    const edge = neighborhoodEdgeToCausalEdge({
+      id: 'e-1',
+      source: 'a',
+      target: 'b',
+      relation: 'IS_A',
+    })
+    expect(edge).toMatchObject({
+      id: 'e-1',
+      source_id: 'a',
+      target_id: 'b',
+      edge_type: 'IS_A',
+    })
+  })
+})
+
+describe('mergeNeighborhood', () => {
+  it('seeds an empty working set with a neighborhood', () => {
+    const payload = makeNeighborhood(
+      [
+        { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+        { uuid: 'b', name: 'B', type: 'concept', properties: {} },
+      ],
+      [{ id: 'e1', source: 'a', target: 'b', relation: 'IS_A' }]
+    )
+    const merged = mergeNeighborhood(EMPTY_SNAPSHOT, payload)
+    expect(merged.entities).toHaveLength(2)
+    expect(merged.edges).toHaveLength(1)
+    expect(merged.metadata).toMatchObject({ entity_count: 2, edge_count: 1 })
+  })
+
+  it('does not mutate the input snapshot (pure merge)', () => {
+    const payload = makeNeighborhood(
+      [{ uuid: 'a', name: 'A', type: 'entity', properties: {} }],
+      []
+    )
+    const before = EMPTY_SNAPSHOT.entities.length
+    mergeNeighborhood(EMPTY_SNAPSHOT, payload)
+    expect(EMPTY_SNAPSHOT.entities.length).toBe(before)
+  })
+
+  it('dedupes nodes by uuid and edges by id across two merges', () => {
+    const first = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      makeNeighborhood(
+        [
+          { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+          { uuid: 'b', name: 'B', type: 'entity', properties: {} },
+        ],
+        [{ id: 'e1', source: 'a', target: 'b', relation: 'IS_A' }]
+      )
+    )
+    // Second neighborhood overlaps a/e1 and adds c + e2.
+    const second = mergeNeighborhood(
+      first,
+      makeNeighborhood(
+        [
+          { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+          { uuid: 'c', name: 'C', type: 'entity', properties: {} },
+        ],
+        [
+          { id: 'e1', source: 'a', target: 'b', relation: 'IS_A' },
+          { id: 'e2', source: 'a', target: 'c', relation: 'RELATED_TO' },
+        ]
+      )
+    )
+    expect(second.entities.map(e => e.id).sort()).toEqual(['a', 'b', 'c'])
+    expect(second.edges.map(e => e.id).sort()).toEqual(['e1', 'e2'])
+  })
+
+  it('first occurrence wins for a duplicate node id', () => {
+    const first = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      makeNeighborhood([{ uuid: 'a', name: 'original', type: 'entity', properties: {} }], [])
+    )
+    const second = mergeNeighborhood(
+      first,
+      makeNeighborhood([{ uuid: 'a', name: 'changed', type: 'concept', properties: {} }], [])
+    )
+    const a = second.entities.find(e => e.id === 'a')
+    expect(a?.name).toBe('original')
+    expect(a?.type).toBe('entity')
+  })
+
+  // Defensive: a null working set or a malformed neighborhood (missing arrays
+  // or entries without ids) must degrade gracefully instead of throwing.
+  it('tolerates a null/empty current working set', () => {
+    const payload = makeNeighborhood(
+      [{ uuid: 'a', name: 'A', type: 'entity', properties: {} }],
+      []
+    )
+    const merged = mergeNeighborhood(
+      null as unknown as GraphSnapshot,
+      payload
+    )
+    expect(merged.entities).toHaveLength(1)
+    expect(merged.edges).toHaveLength(0)
+  })
+
+  it('tolerates a payload missing its nodes/edges arrays', () => {
+    const merged = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      {} as unknown as NeighborhoodPayload
+    )
+    expect(merged.entities).toHaveLength(0)
+    expect(merged.edges).toHaveLength(0)
+    expect(merged.metadata).toMatchObject({ entity_count: 0, edge_count: 0 })
+  })
+
+  it('skips payload nodes/edges that lack an id', () => {
+    const payload = {
+      nodes: [
+        { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+        { name: 'no-uuid', type: 'entity', properties: {} },
+      ],
+      edges: [
+        { id: 'e1', source: 'a', target: 'a', relation: 'SELF' },
+        { source: 'a', target: 'a', relation: 'NO_ID' },
+      ],
+    } as unknown as NeighborhoodPayload
+    const merged = mergeNeighborhood(EMPTY_SNAPSHOT, payload)
+    expect(merged.entities.map(e => e.id)).toEqual(['a'])
+    expect(merged.edges.map(e => e.id)).toEqual(['e1'])
+  })
+})
+
+describe('processGraph expanded marker', () => {
+  const lazyFilter: FilterConfig = { ...defaultFilter, skeletonOnly: false }
+
+  it('marks nodes in expandedNodeIds as expanded', () => {
+    const snapshot = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      makeNeighborhood(
+        [
+          { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+          { uuid: 'b', name: 'B', type: 'entity', properties: {} },
+        ],
+        []
+      )
+    )
+    const g = processGraph(snapshot, lazyFilter, null, new Set(['a']))
+    expect(g.nodes.find(n => n.id === 'a')?.expanded).toBe(true)
+    expect(g.nodes.find(n => n.id === 'b')?.expanded).toBeUndefined()
+  })
+
+  it('leaves nodes unmarked when no expanded set is given (back-compat)', () => {
+    const snapshot = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      makeNeighborhood([{ uuid: 'a', name: 'A', type: 'entity', properties: {} }], [])
+    )
+    const g = processGraph(snapshot, lazyFilter)
+    expect(g.nodes[0].expanded).toBeUndefined()
+  })
+
+  it('buildGraph threads expanded ids through the logical view', () => {
+    const snapshot = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      makeNeighborhood(
+        [
+          { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+          { uuid: 'b', name: 'B', type: 'entity', properties: {} },
+        ],
+        [{ id: 'e1', source: 'a', target: 'b', relation: 'RELATED_TO' }]
+      )
+    )
+    const g = buildGraph(snapshot, 'logical', lazyFilter, new Set(['b']))
+    expect(g.nodes.find(n => n.id === 'b')?.expanded).toBe(true)
+    expect(g.nodes.find(n => n.id === 'a')?.expanded).toBeUndefined()
   })
 })

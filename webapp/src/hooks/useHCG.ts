@@ -4,6 +4,7 @@
  * These hooks call Sophia's API endpoints via sophia-client.
  */
 
+import { useEffect, useState } from 'react'
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
 import { sophiaClient } from '../lib/sophia-client'
 import type {
@@ -13,11 +14,24 @@ import type {
   HCGEntity,
   HCGEdge,
   HCGGraphSnapshot,
+  HCGStats,
+  HCGTypeSummary,
+  HCGNeighborhood,
+  HCGSearchResult,
 } from '../lib/sophia-client'
 import type { Process, PlanHistory } from '../types/hcg'
 
 // Re-export types for consumers
-export type { PersonaEntryFull, HCGEntity, HCGEdge, HCGGraphSnapshot }
+export type {
+  PersonaEntryFull,
+  HCGEntity,
+  HCGEdge,
+  HCGGraphSnapshot,
+  HCGStats,
+  HCGTypeSummary,
+  HCGNeighborhood,
+  HCGSearchResult,
+}
 
 /**
  * Helper to unwrap sophia-client response and throw on error.
@@ -101,6 +115,12 @@ export interface GraphSnapshotOptions {
    * ~3MB of float data on every refetch.
    */
   includeEmbeddings?: boolean
+  /**
+   * Gate the (potentially large) snapshot fetch. Defaults to true to preserve
+   * existing callers; the lazy-load explorer sets this false so the full-graph
+   * query only fires once the user opts into "Load full graph".
+   */
+  enabled?: boolean
 }
 
 export function useHCGSnapshot(
@@ -111,6 +131,7 @@ export function useHCGSnapshot(
     limit = 200,
     refetchInterval,
     includeEmbeddings = true,
+    enabled = true,
   } = options
   return useQuery({
     // includeEmbeddings is part of the key so toggling it never serves a
@@ -126,6 +147,108 @@ export function useHCGSnapshot(
     },
     staleTime: 5000,
     refetchInterval,
+    enabled,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// HCG scoped / lazy-load hooks (seed + expand)
+//
+// These back the lazy-load explorer: stats for the header, the type layer for
+// entry chips, search for seeding, and neighborhood for on-demand expansion.
+// ---------------------------------------------------------------------------
+
+/**
+ * Hook to fetch headline HCG statistics (counts + typing coverage).
+ */
+export function useHCGStats(): UseQueryResult<HCGStats, Error> {
+  return useQuery({
+    queryKey: ['hcg', 'stats'],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGStats()
+      return unwrapResponse(response)
+    },
+    staleTime: 10000,
+  })
+}
+
+/**
+ * Hook to fetch the positional type layer (entry chips for seeding).
+ */
+export function useHCGTypes(
+  limit: number = 50
+): UseQueryResult<HCGTypeSummary[], Error> {
+  return useQuery({
+    queryKey: ['hcg', 'types', limit],
+    queryFn: async () => {
+      const response = await sophiaClient.getHCGTypes(limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 30000,
+  })
+}
+
+/**
+ * Hook to fetch the de-reified neighborhood of a node, enabled only when a
+ * uuid is provided (so it never fires for the empty initial canvas).
+ */
+export function useHCGNeighborhood(
+  uuid: string | null | undefined,
+  depth: number = 1,
+  limit: number = 50
+): UseQueryResult<HCGNeighborhood, Error> {
+  return useQuery({
+    queryKey: ['hcg', 'neighborhood', uuid, depth, limit],
+    queryFn: async () => {
+      // The enabled-guard below normally prevents this from running without a
+      // uuid, but guard explicitly so a stale/forced fetch surfaces a clear
+      // error instead of building a request against `/hcg/neighborhood/null`.
+      if (!uuid) throw new Error('useHCGNeighborhood: uuid is required')
+      const response = await sophiaClient.getHCGNeighborhood(uuid, depth, limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 30000,
+    enabled: !!uuid,
+  })
+}
+
+/** Debounce interval (ms) for the seed search query. */
+export const HCG_SEARCH_DEBOUNCE_MS = 300
+
+/**
+ * Hook to search HCG nodes for seeding.
+ *
+ * The query term is debounced ({@link HCG_SEARCH_DEBOUNCE_MS}) before it reaches
+ * react-query, so typing "entity" issues a single request once typing settles
+ * rather than one per keystroke. The enabled-guard additionally suppresses
+ * requests for an empty/blank query. `q` is tolerant of null/undefined.
+ */
+export function useHCGSearch(
+  q: string | null | undefined,
+  limit: number = 20
+): UseQueryResult<HCGSearchResult[], Error> {
+  const query = (q ?? '').trim()
+
+  // Debounce: only let the query reach react-query once it has been stable for
+  // HCG_SEARCH_DEBOUNCE_MS. The debounced value starts empty and is only ever
+  // advanced by the timer, so even the first non-empty term waits out the
+  // window -- each keystroke resets the timer, so the queryKey (and therefore
+  // the request) only changes after typing pauses.
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    if (query === debouncedQuery) return
+    const id = setTimeout(() => setDebouncedQuery(query), HCG_SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [query, debouncedQuery])
+
+  return useQuery({
+    queryKey: ['hcg', 'search', debouncedQuery, limit],
+    queryFn: async () => {
+      const response = await sophiaClient.searchHCG(debouncedQuery, limit)
+      return unwrapResponse(response)
+    },
+    staleTime: 5000,
+    enabled: debouncedQuery.length > 0,
   })
 }
 

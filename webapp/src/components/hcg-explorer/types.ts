@@ -41,6 +41,13 @@ export interface GraphNode {
   }
   embedding?: number[]
   clusterId?: string
+  /**
+   * True when this node has been expanded in the lazy-load explorer (its
+   * neighborhood has been fetched and merged into the working set). Renderers
+   * mark expanded nodes so the user can see what's already been explored.
+   * Absent / false for the full-snapshot path and existing fixtures.
+   */
+  expanded?: boolean
   properties: Record<string, unknown>
   raw: Entity
 }
@@ -145,13 +152,34 @@ export interface EmbeddingConfig {
   targetDimensions: 2 | 3
 }
 
+/**
+ * How the explorer is sourcing graph data.
+ * - 'lazy' (default): start empty, grow an accumulated working set via
+ *   seed (search) + expand (neighborhood). Scales to huge graphs.
+ * - 'full': the legacy whole-graph snapshot path, behind an explicit
+ *   "Load full graph" affordance (small graphs / back-compat).
+ */
+export type DataMode = 'lazy' | 'full'
+
 /** Explorer state */
 export interface HCGExplorerState {
   // View
   viewMode: ViewMode
   layout: LayoutType
 
-  // Data
+  // Data sourcing mode (lazy seed+expand vs full snapshot)
+  dataMode: DataMode
+
+  /**
+   * Accumulated lazy-load working set: the union of every seeded/expanded
+   * neighborhood, deduped by node id and edge id. This is what the renderers
+   * draw in 'lazy' mode (instead of currentSnapshot). Starts empty.
+   */
+  workingSet: GraphSnapshot
+  /** Node ids the user has expanded (neighborhood fetched + merged). */
+  expandedNodeIds: string[]
+
+  // Data (full-snapshot path)
   currentSnapshot: GraphSnapshot | null
   snapshotHistory: TimestampedSnapshot[]
   timelineIndex: number
@@ -176,6 +204,26 @@ export interface HCGExplorerState {
   showClusterLegend: boolean
 }
 
+/**
+ * A de-reified neighborhood payload (mirrors the shape of GET
+ * /hcg/neighborhood). Kept structural here so types.ts / graph-processor stay
+ * decoupled from sophia-client; the client's HCGNeighborhood is assignable.
+ */
+export interface NeighborhoodPayload {
+  nodes: Array<{
+    uuid: string
+    name: string
+    type: string
+    properties?: Record<string, unknown>
+  }>
+  edges: Array<{
+    id: string
+    source: string
+    target: string
+    relation: string
+  }>
+}
+
 /** Explorer actions */
 export type HCGExplorerAction =
   | { type: 'SET_VIEW_MODE'; mode: ViewMode }
@@ -192,6 +240,12 @@ export type HCGExplorerAction =
   | { type: 'TOGGLE_FILTER_PANEL' }
   | { type: 'TOGGLE_NODE_DETAILS' }
   | { type: 'TOGGLE_CLUSTER_LEGEND' }
+  // Lazy-load (seed + expand) actions
+  | { type: 'SET_DATA_MODE'; mode: DataMode }
+  /** Merge a neighborhood into the working set, marking `rootId` expanded when set. */
+  | { type: 'MERGE_NEIGHBORHOOD'; neighborhood: NeighborhoodPayload; rootId?: string | null }
+  /** Clear the lazy-load working set and expanded markers (back to empty canvas). */
+  | { type: 'RESET_WORKING_SET' }
 
 /** Props for renderer components */
 export interface RendererProps {
@@ -278,4 +332,12 @@ export const DEFAULT_EMBEDDING_CONFIG: EmbeddingConfig = {
   fields: 'embedding',
   reducer: 'umap',
   targetDimensions: 3,
+}
+
+/** Empty graph snapshot — the lazy-load working set's initial value. */
+export const EMPTY_SNAPSHOT: GraphSnapshot = {
+  entities: [],
+  edges: [],
+  timestamp: '',
+  metadata: {},
 }

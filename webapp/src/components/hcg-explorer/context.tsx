@@ -19,11 +19,15 @@ import type {
   EmbeddingConfig,
   GraphSnapshot,
   TimestampedSnapshot,
+  DataMode,
+  NeighborhoodPayload,
 } from './types'
 import {
   DEFAULT_FILTER_CONFIG,
   DEFAULT_EMBEDDING_CONFIG,
+  EMPTY_SNAPSHOT,
 } from './types'
+import { mergeNeighborhood } from './utils/graph-processor'
 
 const HISTORY_LIMIT = 50
 
@@ -31,6 +35,10 @@ const HISTORY_LIMIT = 50
 const initialState: HCGExplorerState = {
   viewMode: '3d',
   layout: 'force-3d',
+  // Lazy seed+expand is the default; the canvas starts empty.
+  dataMode: 'lazy',
+  workingSet: EMPTY_SNAPSHOT,
+  expandedNodeIds: [],
   currentSnapshot: null,
   snapshotHistory: [],
   timelineIndex: -1,
@@ -124,6 +132,34 @@ function explorerReducer(
     case 'TOGGLE_CLUSTER_LEGEND':
       return { ...state, showClusterLegend: !state.showClusterLegend }
 
+    case 'SET_DATA_MODE':
+      return { ...state, dataMode: action.mode }
+
+    case 'MERGE_NEIGHBORHOOD': {
+      // Merge the fetched neighborhood into the accumulated working set
+      // (pure dedupe by node id / edge id) and mark the expanded root so the
+      // renderers can flag explored nodes. Mode transitions are intentionally
+      // NOT performed here: this reducer never flips dataMode, so seeding while
+      // in 'full' mode can't silently replace the full graph. The component
+      // owns the lazy transition (via SET_DATA_MODE) before dispatching a seed
+      // so the switch is explicit and visible to the user.
+      const workingSet = mergeNeighborhood(state.workingSet, action.neighborhood)
+      const expandedNodeIds =
+        action.rootId && !state.expandedNodeIds.includes(action.rootId)
+          ? [...state.expandedNodeIds, action.rootId]
+          : state.expandedNodeIds
+      return { ...state, workingSet, expandedNodeIds }
+    }
+
+    case 'RESET_WORKING_SET':
+      return {
+        ...state,
+        workingSet: EMPTY_SNAPSHOT,
+        expandedNodeIds: [],
+        selectedNodeId: null,
+        hoveredNodeId: null,
+      }
+
     default:
       return state
   }
@@ -145,6 +181,13 @@ interface HCGExplorerContextValue {
   setPlaybackSpeed: (speed: number) => void
   addSnapshot: (snapshot: GraphSnapshot) => void
   setEmbeddingConfig: (config: Partial<EmbeddingConfig>) => void
+  // Lazy-load (seed + expand)
+  setDataMode: (mode: DataMode) => void
+  mergeNeighborhood: (
+    neighborhood: NeighborhoodPayload,
+    rootId?: string | null
+  ) => void
+  resetWorkingSet: () => void
 }
 
 const HCGExplorerContext = createContext<HCGExplorerContextValue | null>(null)
@@ -174,6 +217,12 @@ export function HCGExplorerProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ADD_SNAPSHOT', snapshot }),
       setEmbeddingConfig: (config: Partial<EmbeddingConfig>) =>
         dispatch({ type: 'SET_EMBEDDING_CONFIG', config }),
+      setDataMode: (mode: DataMode) => dispatch({ type: 'SET_DATA_MODE', mode }),
+      mergeNeighborhood: (
+        neighborhood: NeighborhoodPayload,
+        rootId?: string | null
+      ) => dispatch({ type: 'MERGE_NEIGHBORHOOD', neighborhood, rootId }),
+      resetWorkingSet: () => dispatch({ type: 'RESET_WORKING_SET' }),
     }),
     [dispatch]
   )
