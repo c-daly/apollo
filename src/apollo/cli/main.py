@@ -93,7 +93,6 @@ def cli(ctx: click.Context) -> None:
     ctx.obj["client"] = SophiaClient(ctx.obj["config"].sophia)
     ctx.obj["hermes"] = HermesClient(ctx.obj["config"].hermes)
     ctx.obj["persona"] = PersonaClient(ctx.obj["config"].persona_api)
-    ctx.obj["hcg"] = HCGClient(ctx.obj["config"].hcg.neo4j)
 
 
 @cli.command()
@@ -1026,6 +1025,12 @@ def _persona_api_base_url(config: PersonaApiConfig) -> str:
 # graph: interrogate the HCG directly (same scoped data the API serves; the CLI
 # imports HCGClient so it works with no API process running)
 # ---------------------------------------------------------------------------
+def _hcg(ctx: click.Context) -> HCGClient:
+    """Build the HCG client lazily — only when a graph command actually runs,
+    so non-graph commands never require Neo4j config."""
+    return HCGClient(ctx.obj["config"].hcg.neo4j)
+
+
 @cli.group()
 def graph() -> None:
     """Query the HCG graph directly (same data the API serves)."""
@@ -1035,7 +1040,7 @@ def graph() -> None:
 @click.pass_context
 def graph_stats(ctx: click.Context) -> None:
     """Graph size: content nodes vs reified edge-nodes, types, top predicates."""
-    hcg: HCGClient = ctx.obj["hcg"]
+    hcg = _hcg(ctx)
     s = hcg.get_graph_stats()
     console.print(
         f"[bold]{s['total_nodes']}[/bold] nodes = "
@@ -1062,7 +1067,7 @@ def graph_stats(ctx: click.Context) -> None:
 @click.pass_context
 def graph_types(ctx: click.Context, limit: int) -> None:
     """The positional type layer with member counts and parent type."""
-    hcg: HCGClient = ctx.obj["hcg"]
+    hcg = _hcg(ctx)
     table = Table(title="positional type layer")
     table.add_column("type")
     table.add_column("members", justify="right")
@@ -1080,7 +1085,7 @@ def graph_types(ctx: click.Context, limit: int) -> None:
 @click.pass_context
 def graph_search(ctx: click.Context, query: str, limit: int) -> None:
     """Find nodes by name (or exact uuid) — entry points for navigation."""
-    hcg: HCGClient = ctx.obj["hcg"]
+    hcg = _hcg(ctx)
     table = Table(title=f"search: {query!r}")
     table.add_column("uuid")
     table.add_column("name")
@@ -1095,7 +1100,7 @@ def graph_search(ctx: click.Context, query: str, limit: int) -> None:
 @click.pass_context
 def graph_node(ctx: click.Context, node_id: str) -> None:
     """Show a single node (by uuid) and its properties."""
-    hcg: HCGClient = ctx.obj["hcg"]
+    hcg = _hcg(ctx)
     entity = hcg.get_entity_by_id(node_id)
     if not entity:
         console.print(f"[red]not found:[/red] {node_id}")
@@ -1113,7 +1118,7 @@ def graph_node(ctx: click.Context, node_id: str) -> None:
 @click.pass_context
 def graph_neighbors(ctx: click.Context, node_id: str, depth: int, limit: int) -> None:
     """De-reified logical neighborhood of a node (src --predicate--> tgt)."""
-    hcg: HCGClient = ctx.obj["hcg"]
+    hcg = _hcg(ctx)
     snap = hcg.get_neighborhood(node_id, depth=depth, limit=limit)
     names = {e.id: e.properties.get("name", e.id[:8]) for e in snap.entities}
     console.print(
