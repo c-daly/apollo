@@ -404,3 +404,118 @@ def test_get_causal_edges_by_entity(
         session.run.assert_called_once()
         call_kwargs = session.run.call_args[1]
         assert call_kwargs.get("entity_id") == "entity_1"
+
+
+# ---------------------------------------------------------------------------
+# Scoped / de-reified graph queries
+# ---------------------------------------------------------------------------
+def _mk_node(props: dict, labels=("Node",)) -> Mock:
+    """Neo4j-node-like mock supporting ``dict(node)`` (matches patterns above)."""
+    node = Mock()
+    node.labels = list(labels)
+    node.id = props.get("_id", 1)
+    node.__getitem__ = lambda self, key: props[key]
+    node.keys = lambda: props.keys()
+    return node
+
+
+def test_search_nodes_empty_query_short_circuits(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """An empty/whitespace query returns [] without querying Neo4j."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+        client = HCGClient(neo4j_config)
+        assert client.search_nodes("   ") == []
+        session.run.assert_not_called()
+
+
+def test_get_type_summaries_shapes_rows(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """Positional type rows are shaped to {uuid, name, member_count, parent}."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+        session.run.return_value = [
+            {"uuid": "t1", "name": "cell", "member_count": 49, "parent": "entity"},
+        ]
+        client = HCGClient(neo4j_config)
+        rows = client.get_type_summaries()
+        assert rows == [
+            {"uuid": "t1", "name": "cell", "member_count": 49, "parent": "entity"}
+        ]
+
+
+def test_get_graph_stats_separates_content_and_edge_nodes(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """Stats report content vs reified edge-node counts distinctly."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+        totals = Mock()
+        totals.single.return_value = {"total": 3, "content": 2, "edges": 1}
+        types = Mock()
+        types.single.return_value = {"c": 1}
+        session.run.side_effect = [
+            totals,
+            types,
+            [{"realm": "entity", "c": 2}],
+            [{"rel": "IS_A", "c": 5}],
+        ]
+        client = HCGClient(neo4j_config)
+        stats = client.get_graph_stats()
+        assert stats["content_nodes"] == 2
+        assert stats["edge_nodes"] == 1
+        assert stats["type_definitions"] == 1
+        assert stats["by_realm"] == {"entity": 2}
+        assert stats["top_predicates"] == {"IS_A": 5}
+
+
+def test_get_neighborhood_returns_dereified_logical_edges(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """An edge-node (relation/FROM/TO) collapses to one logical src->tgt edge."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+        root = _mk_node({"uuid": "root-1", "name": "Root", "type": "entity"})
+        src = _mk_node({"uuid": "root-1", "name": "Root", "type": "entity"})
+        tgt = _mk_node({"uuid": "tgt-2", "name": "Target", "type": "entity"})
+        edge = _mk_node({"uuid": "e-1", "relation": "PART_OF"})
+        first = Mock()
+        first.single.return_value = {"root": root}
+        session.run.side_effect = [first, [{"e": edge, "src": src, "tgt": tgt}]]
+        client = HCGClient(neo4j_config)
+        snap = client.get_neighborhood("root-1", depth=1)
+        assert snap.metadata["reified"] is False
+        assert len(snap.edges) == 1
+        e = snap.edges[0]
+        assert (e.source_id, e.edge_type, e.target_id) == (
+            "root-1",
+            "PART_OF",
+            "tgt-2",
+        )
+        assert {n.id for n in snap.entities} == {"root-1", "tgt-2"}
+
+
+def test_get_neighborhood_clamps_depth(
+    neo4j_config: Neo4jConfig, mock_driver: Mock
+) -> None:
+    """Depth is clamped so a request can't accidentally walk the whole graph."""
+    with patch("apollo.data.hcg_client.GraphDatabase") as mock_gd:
+        mock_gd.driver.return_value = mock_driver
+        session = Mock()
+        mock_driver.session.return_value.__enter__.return_value = session
+        root_lookup = Mock()
+        root_lookup.single.return_value = None
+        session.run.side_effect = [root_lookup, []]
+        client = HCGClient(neo4j_config)
+        snap = client.get_neighborhood("missing", depth=99)
+        assert snap.metadata["depth"] == 4

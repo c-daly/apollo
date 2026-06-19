@@ -30,6 +30,20 @@ def _get_client_host(env_var: str, default: str = "localhost") -> str:
     return "localhost" if host == "0.0.0.0" else host
 
 
+def _resolve_token(*env_vars: str) -> Optional[str]:
+    """First non-empty value among *env_vars*, canonical name first.
+
+    The LOGOS stack standardizes on ``SOPHIA_API_TOKEN`` / ``HERMES_API_TOKEN``;
+    the legacy ``*_API_KEY`` names are accepted as back-compat fallbacks so the
+    CLI authenticates with the same env the rest of the stack already sets.
+    """
+    for name in env_vars:
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
+
+
 class SophiaConfig(BaseModel):
     """Configuration for Sophia cognitive core connection."""
 
@@ -46,8 +60,9 @@ class SophiaConfig(BaseModel):
     )
     timeout: int = Field(default=30, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
-        default_factory=lambda: os.getenv("SOPHIA_API_KEY"),
-        description="Bearer token for Sophia API access",
+        default_factory=lambda: _resolve_token("SOPHIA_API_TOKEN", "SOPHIA_API_KEY"),
+        description="Bearer token for Sophia API access "
+        "(SOPHIA_API_TOKEN, or legacy SOPHIA_API_KEY)",
     )
 
 
@@ -67,8 +82,9 @@ class HermesConfig(BaseModel):
     )
     timeout: int = Field(default=30, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
-        default_factory=lambda: os.getenv("HERMES_API_KEY"),
-        description="Bearer token for Hermes API access",
+        default_factory=lambda: _resolve_token("HERMES_API_TOKEN", "HERMES_API_KEY"),
+        description="Bearer token for Hermes API access "
+        "(HERMES_API_TOKEN, or legacy HERMES_API_KEY)",
     )
     provider: Optional[str] = Field(
         default=None, description="Preferred Hermes provider override"

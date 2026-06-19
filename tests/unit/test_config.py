@@ -30,6 +30,33 @@ def test_sophia_config_reads_env() -> None:
         assert config.port == 9999
 
 
+def test_sophia_config_reads_api_token() -> None:
+    """SophiaConfig reads the canonical SOPHIA_API_TOKEN env var."""
+    with patch.dict(os.environ, {"SOPHIA_API_TOKEN": "tok-123"}, clear=False):
+        os.environ.pop("SOPHIA_API_KEY", None)
+        assert SophiaConfig().api_key == "tok-123"
+
+
+def test_sophia_config_falls_back_to_api_key() -> None:
+    """SophiaConfig still honors the legacy SOPHIA_API_KEY var as a fallback."""
+    with patch.dict(os.environ, {"SOPHIA_API_KEY": "key-456"}, clear=False):
+        os.environ.pop("SOPHIA_API_TOKEN", None)
+        assert SophiaConfig().api_key == "key-456"
+
+
+def test_sophia_config_prefers_token_over_key() -> None:
+    """When both are set, the canonical SOPHIA_API_TOKEN wins."""
+    with patch.dict(os.environ, {"SOPHIA_API_TOKEN": "tok", "SOPHIA_API_KEY": "key"}):
+        assert SophiaConfig().api_key == "tok"
+
+
+def test_hermes_config_reads_api_token() -> None:
+    """HermesConfig reads the canonical HERMES_API_TOKEN env var."""
+    with patch.dict(os.environ, {"HERMES_API_TOKEN": "htok"}, clear=False):
+        os.environ.pop("HERMES_API_KEY", None)
+        assert HermesConfig().api_key == "htok"
+
+
 def test_neo4j_config_loads() -> None:
     """Test Neo4jConfig loads and has expected fields."""
     config = Neo4jConfig()

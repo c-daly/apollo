@@ -150,7 +150,9 @@ class HCGClient:
         """
         properties = dict(node)
         return Entity(
-            id=properties.get("id", str(node.id)),
+            # LOGOS nodes key on a stable `uuid`; fall back to a legacy `id`
+            # property, then the (unstable) internal node id as a last resort.
+            id=properties.get("id") or properties.get("uuid") or str(node.id),
             type=properties.get("type", "unknown"),
             properties=self._sanitize_props(properties),
             labels=list(node.labels),
@@ -628,6 +630,189 @@ class HCGClient:
                     "entity_types": entity_types or [],
                 },
             )
+
+    # ------------------------------------------------------------------
+    # Scoped / de-reified graph queries (CLI + explorer share this layer)
+    # ------------------------------------------------------------------
+    def get_graph_stats(self) -> Dict[str, Any]:
+        """Counts that let a client size the graph before fetching any of it.
+
+        Separates *content* nodes (the logical graph) from reified *edge-nodes*
+        (predicate/IS_A edges stored as nodes), so a UI/CLI can show real scale
+        (content) vs storage scale (all nodes) without loading the graph.
+        """
+        if not self._driver:
+            self.connect()
+        with self._driver.session() as session:  # type: ignore
+            totals = session.run(
+                """
+                MATCH (n)
+                RETURN count(n) AS total,
+                       count(CASE WHEN n.relation IS NULL THEN 1 END) AS content,
+                       count(CASE WHEN n.relation IS NOT NULL THEN 1 END) AS edges
+                """
+            ).single()
+            type_row = session.run(
+                "MATCH (n) WHERE n.type = 'type_definition' RETURN count(n) AS c"
+            ).single()
+            by_realm = {
+                r["realm"]: r["c"]
+                for r in session.run(
+                    "MATCH (n) WHERE n.relation IS NULL AND n.type IS NOT NULL "
+                    "RETURN n.type AS realm, count(n) AS c ORDER BY c DESC"
+                )
+            }
+            top_predicates = {
+                r["rel"]: r["c"]
+                for r in session.run(
+                    "MATCH (n) WHERE n.relation IS NOT NULL "
+                    "RETURN n.relation AS rel, count(n) AS c ORDER BY c DESC LIMIT 20"
+                )
+            }
+        return {
+            "total_nodes": totals["total"] if totals else 0,
+            "content_nodes": totals["content"] if totals else 0,
+            "edge_nodes": totals["edges"] if totals else 0,
+            "type_definitions": type_row["c"] if type_row else 0,
+            "by_realm": by_realm,
+            "top_predicates": top_predicates,
+        }
+
+    def get_type_summaries(self, limit: int = 500) -> List[Dict[str, Any]]:
+        """The positional type layer, computed server-side.
+
+        A type is *any node something IS_A's* (positional typing) — not a node
+        tagged ``type_definition`` — so emergent types are included. Each row
+        carries the type's member count (incoming IS_A) and its parent type.
+        """
+        if not self._driver:
+            self.connect()
+        query = """
+        MATCH (isa:Node {relation:'IS_A'})-[:TO]->(t)
+        WITH t, count(DISTINCT isa) AS member_count
+        OPTIONAL MATCH (t)<-[:FROM]-(pe:Node {relation:'IS_A'})-[:TO]->(parent)
+        RETURN t.uuid AS uuid, t.name AS name, member_count, parent.name AS parent
+        ORDER BY member_count DESC, name
+        LIMIT $limit
+        """
+        with self._driver.session() as session:  # type: ignore
+            return [
+                {
+                    "uuid": r["uuid"],
+                    "name": r["name"],
+                    "member_count": r["member_count"],
+                    "parent": r["parent"],
+                }
+                for r in session.run(query, limit=limit)
+            ]
+
+    def get_neighborhood(
+        self,
+        node_id: str,
+        depth: int = 1,
+        limit: int = 100,
+    ) -> GraphSnapshot:
+        """De-reified logical neighborhood of a node, scoped by depth + limit.
+
+        Collapses reified edge-nodes back to logical edges (src --predicate-->
+        tgt) and returns only content nodes, so a client can expand the graph one
+        neighborhood at a time instead of loading the whole thing. ``depth`` is
+        clamped to [1, 4]; expansion stops once ``limit`` nodes are collected.
+        """
+        node_id = validate_entity_id(node_id)
+        depth = max(1, min(depth, 4))
+        if not self._driver:
+            self.connect()
+
+        expand = """
+        UNWIND $roots AS rid
+        MATCH (root {uuid: rid})
+        MATCH (e)-[:FROM|TO]->(root) WHERE e.relation IS NOT NULL
+        MATCH (e)-[:FROM]->(src) MATCH (e)-[:TO]->(tgt)
+        RETURN DISTINCT e, src, tgt
+        """
+        entities: Dict[str, Entity] = {}
+        edges: Dict[str, CausalEdge] = {}
+        frontier: List[str] = [node_id]
+        seen_roots: set = set()
+
+        with self._driver.session() as session:  # type: ignore
+            root_rec = session.run(
+                "MATCH (root {uuid: $rid}) RETURN root LIMIT 1",
+                rid=node_id,
+            ).single()
+            if root_rec:
+                root = self._parse_node(root_rec["root"])
+                entities[root.id] = root
+
+            for _ in range(depth):
+                roots = [r for r in frontier if r not in seen_roots]
+                seen_roots.update(roots)
+                if not roots or len(entities) >= limit:
+                    break
+                next_frontier: List[str] = []
+                for rec in session.run(expand, roots=roots):
+                    src = self._parse_node(rec["src"])
+                    tgt = self._parse_node(rec["tgt"])
+                    props = dict(rec["e"])
+                    for node in (src, tgt):
+                        if node.id not in entities and len(entities) < limit:
+                            entities[node.id] = node
+                            next_frontier.append(node.id)
+                    edge_id = props.get("uuid", str(rec["e"].id))
+                    edges[edge_id] = CausalEdge(
+                        id=edge_id,
+                        source_id=src.id,
+                        target_id=tgt.id,
+                        edge_type=props.get("relation", "RELATED"),
+                        properties=self._sanitize_props(props),
+                        weight=props.get("weight", 1.0),
+                        created_at=self._convert_value(props.get("created_at"))
+                        or datetime.now(timezone.utc),
+                    )
+                frontier = next_frontier
+
+        node_ids = set(entities)
+        kept_edges = [
+            e
+            for e in edges.values()
+            if e.source_id in node_ids and e.target_id in node_ids
+        ]
+        return GraphSnapshot(
+            entities=list(entities.values()),
+            edges=kept_edges,
+            timestamp=datetime.now(timezone.utc),
+            metadata={
+                "root": node_id,
+                "depth": depth,
+                "entity_count": len(entities),
+                "edge_count": len(kept_edges),
+                "reified": False,
+            },
+        )
+
+    def search_nodes(self, query: str, limit: int = 25) -> List[Entity]:
+        """Find content nodes whose name contains *query* (or whose uuid equals
+        it) — entry points for navigating a large graph."""
+        if not self._driver:
+            self.connect()
+        q = (query or "").strip()
+        if not q:
+            return []
+        cypher = """
+        MATCH (n)
+        WHERE n.relation IS NULL
+          AND ((n.name IS NOT NULL AND toLower(n.name) CONTAINS toLower($q))
+               OR n.uuid = $q)
+        RETURN n
+        ORDER BY n.name
+        LIMIT $limit
+        """
+        with self._driver.session() as session:  # type: ignore
+            return [
+                self._parse_node(rec["n"])
+                for rec in session.run(cypher, q=q, limit=limit)
+            ]
 
     def health_check(self) -> bool:
         """Check if Neo4j connection is healthy.
