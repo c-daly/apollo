@@ -30,6 +30,15 @@ def _get_client_host(env_var: str, default: str = "localhost") -> str:
     return "localhost" if host == "0.0.0.0" else host
 
 
+def _resolve_sophia_token() -> Optional[str]:
+    """Resolve the Sophia bearer token from the environment.
+
+    Prefers the canonical ``SOPHIA_API_TOKEN`` and falls back to the
+    legacy ``SOPHIA_API_KEY`` when the canonical variable is unset.
+    """
+    return os.getenv("SOPHIA_API_TOKEN") or os.getenv("SOPHIA_API_KEY")
+
+
 class SophiaConfig(BaseModel):
     """Configuration for Sophia cognitive core connection."""
 
@@ -46,7 +55,7 @@ class SophiaConfig(BaseModel):
     )
     timeout: int = Field(default=30, description="Request timeout in seconds")
     api_key: Optional[str] = Field(
-        default_factory=lambda: os.getenv("SOPHIA_API_KEY"),
+        default_factory=_resolve_sophia_token,
         description="Bearer token for Sophia API access",
     )
 

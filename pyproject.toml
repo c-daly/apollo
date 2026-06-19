@@ -28,10 +28,17 @@ opentelemetry-api = {version = "^1.20.0", optional = true}
 opentelemetry-sdk = {version = "^1.20.0", optional = true}
 opentelemetry-instrumentation-fastapi = {version = "^0.41b0", optional = true}
 opentelemetry-exporter-otlp = {version = "^1.20.0", optional = true}
+# Inline graph image rendering (optional, see graph-image extra)
+term-image = {version = ">=0.7,<1.0", optional = true}
+networkx = {version = "^3.0", optional = true}
+matplotlib = {version = "^3.7", optional = true}
+pillow = {version = "^10.0", optional = true}
 
 [tool.poetry.extras]
 # OpenTelemetry observability (optional, graceful fallback when absent)
 otel = ["opentelemetry-api", "opentelemetry-sdk", "opentelemetry-instrumentation-fastapi", "opentelemetry-exporter-otlp"]
+# Inline node-link graph images for `apollo-cli graph neighbors --image`
+graph-image = ["term-image", "networkx", "matplotlib", "pillow"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.0.0"
@@ -76,6 +83,11 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["logos_config", "logos_config.*", "logos_test_utils", "logos_test_utils.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Optional graph-image extra (installed via `poetry install -E graph-image`)
+module = ["term_image", "term_image.*", "networkx", "networkx.*", "matplotlib", "matplotlib.*", "PIL", "PIL.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

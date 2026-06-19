@@ -7,9 +7,12 @@ import time
 import click
 import requests
 from rich.console import Console
+from rich.console import Group
 from rich.table import Table
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.text import Text
+from rich.tree import Tree
 import yaml
 from logos_hermes_sdk.models.llm_message import LLMMessage
 from logos_hermes_sdk.models.llm_request import LLMRequest
@@ -17,6 +20,7 @@ from logos_hermes_sdk.models.llm_request import LLMRequest
 from apollo.client.sophia_client import SophiaClient
 from apollo.client.hermes_client import HermesClient, HermesResponse
 from apollo.client.persona_client import PersonaClient
+from apollo.client.hcg_query_client import HCGQueryClient, HCGQueryError
 from apollo.config.settings import ApolloConfig, PersonaApiConfig
 
 import os
@@ -1018,6 +1022,381 @@ def _persona_api_base_url(config: PersonaApiConfig) -> str:
     if config.host.startswith(("http://", "https://")):
         return config.host.rstrip("/")
     return f"http://{config.host}:{config.port}"
+
+
+def _graph_client(ctx: click.Context) -> HCGQueryClient:
+    """Lazily build an HCGQueryClient from the loaded Apollo config.
+
+    Built per-command (not in the root group) so commands that mock a config
+    without graph support are unaffected.
+    """
+    config: ApolloConfig = ctx.obj["config"]
+    return HCGQueryClient(config.sophia)
+
+
+def _graph_error(message: str, tip: str) -> None:
+    """Print a graph command error in the standard red + dim-tip style."""
+    console.print(f"[red]✗ Error:[/red] {message}")
+    console.print(f"\n[dim]Tip: {tip}[/dim]")
+
+
+def _proportion_bar(content: int, edge: int, width: int = 40) -> Text:
+    """Build a two-tone horizontal bar splitting ``width`` between two counts."""
+    total = content + edge
+    bar = Text()
+    if total <= 0:
+        bar.append("█" * width, style="dim")
+        return bar
+    content_cells = round(width * content / total)
+    content_cells = max(0, min(width, content_cells))
+    edge_cells = width - content_cells
+    bar.append("█" * content_cells, style="cyan")
+    bar.append("█" * edge_cells, style="magenta")
+    return bar
+
+
+def _counts_bar_table(data: Dict[str, int], top: int = 10) -> Table:
+    """Render a compact label/bar/count table scaled to the max count."""
+    table = Table(show_header=False, box=None, pad_edge=False)
+    table.add_column("label", style="bold")
+    table.add_column("bar")
+    table.add_column("count", justify="right", style="dim")
+
+    items = sorted(data.items(), key=lambda kv: kv[1], reverse=True)[:top]
+    max_count = max((count for _, count in items), default=0)
+    max_width = 24
+    for label, count in items:
+        if max_count > 0:
+            cells = max(1, round(max_width * count / max_count))
+        else:
+            cells = 0
+        bar = Text("█" * cells, style="green")
+        table.add_row(str(label), bar, str(count))
+    return table
+
+
+@cli.group()
+@click.pass_context
+def graph(ctx: click.Context) -> None:
+    """Query the Hybrid Causal Graph via Sophia."""
+
+
+@graph.command("stats")
+@click.pass_context
+def graph_stats(ctx: click.Context) -> None:
+    """Show graph-wide statistics with proportion bars."""
+    client = _graph_client(ctx)
+    try:
+        data = client.stats()
+        type_rows = client.types(limit=2000)
+    except HCGQueryError as exc:
+        _graph_error(str(exc), "Ensure Sophia is running and SOPHIA_API_TOKEN is set")
+        return
+
+    # ``.get(key, default)`` returns ``None`` (not the default) when the key
+    # exists with an explicit null value, so coerce every numeric read with
+    # ``or 0`` to stay crash-safe on empty/partially-initialized graphs.
+    total = int(data.get("total_nodes") or 0)
+    content = int(data.get("content_nodes") or 0)
+    edge = int(data.get("edge_nodes") or 0)
+    classified = int(data.get("content_classified") or 0)
+    top_predicates = {
+        str(k): int(v or 0) for k, v in (data.get("top_predicates") or {}).items()
+    }
+
+    # Distribution by ACTUAL (positional) type, not the coarse realm: drop the
+    # realm roots so the bars show what the graph is about (cell, biomolecule…).
+    realms = {"entity", "concept", "process", "node", "root"}
+    by_type = {
+        str(r["name"]): int(r.get("member_count") or 0)
+        for r in type_rows
+        if r.get("name") and r["name"] not in realms
+    }
+
+    headline = Text()
+    headline.append("Total nodes: ", style="bold")
+    headline.append(str(total), style="bold white")
+    headline.append("  =  ")
+    headline.append(f"{content} content", style="cyan")
+    headline.append("  +  ")
+    headline.append(f"{edge} edge-nodes", style="magenta")
+
+    legend = Text()
+    legend.append("█ content ", style="cyan")
+    legend.append("  ")
+    legend.append("█ edge-nodes", style="magenta")
+
+    type_table = _counts_bar_table(by_type, top=12)
+    predicate_table = _counts_bar_table(top_predicates, top=10)
+
+    parked = int(data.get("content_parked") or 0)
+    untyped = max(content - classified - parked, 0)
+    coverage = Text()
+    if content:
+        pct = round(100 * classified / content)
+        coverage.append("Typing coverage: ", style="bold")
+        coverage.append(f"{classified}/{content} ({pct}%)", style="cyan")
+        coverage.append(" under a specific type · ")
+        coverage.append(f"{parked} parked under a realm", style="dim")
+        if untyped:
+            coverage.append(" · ")
+            coverage.append(f"{untyped} untyped", style="yellow")
+
+    body = Group(
+        headline,
+        Text(""),
+        _proportion_bar(content, edge),
+        legend,
+        Text(""),
+        coverage,
+        Text(""),
+        Text("Top types by membership (positional):", style="bold underline"),
+        type_table,
+        Text(""),
+        Text("Top predicates (top 10):", style="bold underline"),
+        predicate_table,
+    )
+    console.print(Panel(body, title="HCG Stats", border_style="cyan"))
+
+
+@graph.command("types")
+@click.option("--limit", default=20, show_default=True, help="Max type rows to fetch")
+@click.pass_context
+def graph_types(ctx: click.Context, limit: int) -> None:
+    """Show the positional type hierarchy as a tree."""
+    client = _graph_client(ctx)
+    try:
+        # Fetch the full (small) type layer so the tree can be rooted correctly.
+        # --limit then bounds what we DISPLAY, not what we fetch: we show the top
+        # `limit` types by membership PLUS each one's ancestor chain, so a shown
+        # type's parent is always present and children don't orphan to the root.
+        all_rows = client.types(limit=2000)
+    except HCGQueryError as exc:
+        _graph_error(str(exc), "Ensure Sophia is running and SOPHIA_API_TOKEN is set")
+        return
+
+    if not all_rows:
+        console.print("[dim]No type definitions returned[/dim]")
+        return
+
+    full_by_name: Dict[str, Dict[str, Any]] = {
+        r["name"]: r for r in all_rows if r.get("name")
+    }
+    top = sorted(all_rows, key=lambda r: -(r.get("member_count") or 0))[:limit]
+    keep: set = set()
+    for r in top:
+        nm = r.get("name")
+        while nm and nm in full_by_name and nm not in keep:
+            keep.add(nm)
+            nm = full_by_name[nm].get("parent")
+    rows = [r for r in all_rows if r.get("name") in keep]
+
+    # Index rows by name and build parent -> children adjacency.
+    by_name: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        name = row.get("name")
+        if name:
+            by_name[name] = row
+
+    children: Dict[str, List[Dict[str, Any]]] = {}
+    roots: List[Dict[str, Any]] = []
+    for row in rows:
+        parent = row.get("parent")
+        if parent and parent in by_name:
+            children.setdefault(parent, []).append(row)
+        else:
+            # parent is null OR points outside the fetched set -> treat as root
+            roots.append(row)
+
+    def _label(row: Dict[str, Any]) -> str:
+        name = str(row.get("name", "?"))
+        count = row.get("member_count")
+        if count is not None:
+            return f"{name} [dim]({count})[/dim]"
+        return name
+
+    tree = Tree("[bold]Type hierarchy[/bold]")
+
+    def _attach(parent_branch: Tree, row: Dict[str, Any], seen: set) -> None:
+        name = str(row.get("name", ""))
+        if name in seen:  # guard against cycles
+            parent_branch.add(f"{_label(row)} [red](cycle)[/red]")
+            return
+        seen = seen | {name}
+        branch = parent_branch.add(_label(row))
+        for child in sorted(
+            children.get(name, []), key=lambda r: str(r.get("name", ""))
+        ):
+            _attach(branch, child, seen)
+
+    for root in sorted(roots, key=lambda r: str(r.get("name", ""))):
+        _attach(tree, root, set())
+
+    console.print(tree)
+
+
+@graph.command("search")
+@click.argument("query")
+@click.option("--limit", default=10, show_default=True, help="Max results")
+@click.pass_context
+def graph_search(ctx: click.Context, query: str, limit: int) -> None:
+    """Search the graph for nodes matching QUERY."""
+    client = _graph_client(ctx)
+    try:
+        results = client.search(query, limit=limit)
+    except HCGQueryError as exc:
+        _graph_error(str(exc), "Ensure Sophia is running and SOPHIA_API_TOKEN is set")
+        return
+
+    if not results:
+        console.print(f"[dim]No results for '{query}'[/dim]")
+        return
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("UUID", style="dim")
+    table.add_column("Name")
+    table.add_column("Type", justify="center")
+    for hit in results:
+        table.add_row(
+            str(hit.get("uuid", "—")),
+            str(hit.get("name", "—")),
+            str(hit.get("type", "—")),
+        )
+    console.print(table)
+
+
+@graph.command("node")
+@click.argument("uuid")
+@click.pass_context
+def graph_node(ctx: click.Context, uuid: str) -> None:
+    """Show a single entity's properties as highlighted YAML."""
+    client = _graph_client(ctx)
+    try:
+        entity = client.entity(uuid)
+    except HCGQueryError as exc:
+        _graph_error(str(exc), "Check the UUID and that Sophia is running")
+        return
+
+    if not entity:
+        console.print(f"[dim]No entity found for {uuid}[/dim]")
+        return
+
+    # Use ``or`` (not the .get default) so an explicit null name still falls
+    # back to the uuid rather than rendering the literal string "None".
+    name = str(entity.get("name") or uuid)
+    # Prefer the nested properties block; otherwise dump the object minus noise.
+    if isinstance(entity.get("properties"), dict):
+        payload = entity["properties"]
+    else:
+        payload = {
+            k: v for k, v in entity.items() if k not in ("embedding", "embedding_2d")
+        }
+
+    api_url = f"{client.base_url}/hcg/entities/{uuid}"
+    link_line = Text()
+    link_line.append("uuid: ", style="dim")
+    link_line.append(uuid, style=f"link {api_url}")
+
+    entity_text = yaml.dump(payload, default_flow_style=False, sort_keys=False)
+    syntax = Syntax(entity_text, "yaml", theme="monokai", line_numbers=False)
+    body = Group(link_line, Text(""), syntax)
+    console.print(
+        Panel(
+            body,
+            title=f"Entity {name}",
+            subtitle=f"[link={api_url}]{uuid}[/link]",
+            border_style="green",
+        )
+    )
+
+
+@graph.command("neighbors")
+@click.argument("uuid")
+@click.option("--depth", default=1, show_default=True, help="Neighborhood depth")
+@click.option("--limit", default=25, show_default=True, help="Max neighbors")
+@click.option(
+    "--image/--no-image",
+    default=False,
+    help="Render an inline node-link image when the terminal supports it",
+)
+@click.pass_context
+def graph_neighbors(
+    ctx: click.Context, uuid: str, depth: int, limit: int, image: bool
+) -> None:
+    """Show a node's de-reified neighborhood as a directional tree."""
+    client = _graph_client(ctx)
+    try:
+        data = client.neighborhood(uuid, depth=depth, limit=limit)
+    except HCGQueryError as exc:
+        _graph_error(str(exc), "Check the UUID and that Sophia is running")
+        return
+
+    nodes = data.get("nodes") or []
+    edges = data.get("edges") or []
+    metadata = data.get("metadata") or {}
+    # `or uuid` (not a .get default): sophia may return {"root": null}, and a
+    # default arg only fires when the key is absent -- a null would make every
+    # `source == root_uuid` comparison miss and render the root as "None".
+    root_uuid = str(metadata.get("root") or uuid)
+
+    # Build uuid -> name map from neighbors (root is NOT in nodes).
+    name_by_uuid: Dict[str, str] = {}
+    for node in nodes:
+        nid = node.get("uuid")
+        if nid:
+            name_by_uuid[nid] = str(node.get("name") or nid)
+
+    # Best-effort root name via the entity endpoint; fall back to the uuid.
+    root_name = root_uuid
+    try:
+        root_entity = client.entity(root_uuid)
+        if root_entity.get("name"):
+            root_name = str(root_entity["name"])
+    except HCGQueryError:
+        pass
+
+    def _short(value: str) -> str:
+        return value[:8]
+
+    tree = Tree(f"[bold]{root_name}[/bold] [dim]({_short(root_uuid)})[/dim]")
+    for edge in edges:
+        source = edge.get("source")
+        target = edge.get("target")
+        relation = str(edge.get("relation", ""))
+        if source == root_uuid:
+            other = str(target)
+            label = f"─{relation}→ " f"{name_by_uuid.get(other, _short(other))}"
+        elif target == root_uuid:
+            other = str(source)
+            label = f"←{relation}─ " f"{name_by_uuid.get(other, _short(other))}"
+        else:
+            # Edge not incident to root (shouldn't normally happen); show raw.
+            label = (
+                f"{name_by_uuid.get(str(source), _short(str(source)))} "
+                f"─{relation}→ "
+                f"{name_by_uuid.get(str(target), _short(str(target)))}"
+            )
+        tree.add(label)
+
+    # The text tree is the default. When --image succeeds we show ONLY the
+    # inline image; the tree is the fallback for --no-image / unsupported
+    # terminals / a missing optional stack.
+    show_tree = True
+    if image:
+        from apollo.cli.graph_image import try_inline_neighborhood
+
+        rendered = try_inline_neighborhood(root_uuid, root_name, nodes, edges)
+        if rendered:
+            show_tree = False
+        else:
+            console.print(
+                "[dim]graph-image unavailable; showing tree "
+                "(install extra: poetry install -E graph-image, and use a "
+                "kitty/iTerm2/sixel terminal)[/dim]"
+            )
+
+    if show_tree:
+        console.print(tree)
 
 
 def main() -> None:
