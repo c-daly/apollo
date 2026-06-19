@@ -1088,6 +1088,7 @@ def graph_stats(ctx: click.Context) -> None:
     client = _graph_client(ctx)
     try:
         data = client.stats()
+        type_rows = client.types(limit=2000)
     except HCGQueryError as exc:
         _graph_error(str(exc), "Ensure Sophia is running and SOPHIA_API_TOKEN is set")
         return
@@ -1095,8 +1096,17 @@ def graph_stats(ctx: click.Context) -> None:
     total = int(data.get("total_nodes", 0))
     content = int(data.get("content_nodes", 0))
     edge = int(data.get("edge_nodes", 0))
-    by_realm = {k: int(v) for k, v in (data.get("by_realm") or {}).items()}
+    classified = int(data.get("content_classified", 0))
     top_predicates = {k: int(v) for k, v in (data.get("top_predicates") or {}).items()}
+
+    # Distribution by ACTUAL (positional) type, not the coarse realm: drop the
+    # realm roots so the bars show what the graph is about (cell, biomolecule…).
+    realms = {"entity", "concept", "process", "node", "root"}
+    by_type = {
+        str(r["name"]): int(r.get("member_count") or 0)
+        for r in type_rows
+        if r.get("name") and r["name"] not in realms
+    }
 
     headline = Text()
     headline.append("Total nodes: ", style="bold")
@@ -1111,8 +1121,21 @@ def graph_stats(ctx: click.Context) -> None:
     legend.append("  ")
     legend.append("█ edge-nodes", style="magenta")
 
-    realm_table = _counts_bar_table(by_realm, top=10)
+    type_table = _counts_bar_table(by_type, top=12)
     predicate_table = _counts_bar_table(top_predicates, top=10)
+
+    parked = int(data.get("content_parked", 0))
+    untyped = max(content - classified - parked, 0)
+    coverage = Text()
+    if content:
+        pct = round(100 * classified / content)
+        coverage.append("Typing coverage: ", style="bold")
+        coverage.append(f"{classified}/{content} ({pct}%)", style="cyan")
+        coverage.append(" under a specific type · ")
+        coverage.append(f"{parked} parked under a realm", style="dim")
+        if untyped:
+            coverage.append(" · ")
+            coverage.append(f"{untyped} untyped", style="yellow")
 
     body = Group(
         headline,
@@ -1120,8 +1143,10 @@ def graph_stats(ctx: click.Context) -> None:
         _proportion_bar(content, edge),
         legend,
         Text(""),
-        Text("By realm (top 10):", style="bold underline"),
-        realm_table,
+        coverage,
+        Text(""),
+        Text("Top types by membership (positional):", style="bold underline"),
+        type_table,
         Text(""),
         Text("Top predicates (top 10):", style="bold underline"),
         predicate_table,
