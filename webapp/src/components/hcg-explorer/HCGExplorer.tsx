@@ -208,29 +208,40 @@ function HCGExplorerInner({
   // form a stable key for one fetch result).
   const lastMergedKeyRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!neighborhood || !expandUuid) return
-    const key = `${neighborhood.metadata.root}:${neighborhood.metadata.node_count}:${neighborhood.metadata.edge_count}`
+    // Guard the whole metadata block: a malformed response missing `metadata`
+    // must not crash the merge effect (it just skips this render).
+    if (!neighborhood || !neighborhood.metadata || !expandUuid) return
+    const { root, node_count, edge_count } = neighborhood.metadata
+    const key = `${root}:${node_count}:${edge_count}`
     if (key === lastMergedKeyRef.current) return
     lastMergedKeyRef.current = key
     mergeNeighborhood(neighborhood, expandUuid)
   }, [neighborhood, expandUuid, mergeNeighborhood])
 
-  // Seed the graph with a search result (plants the node + its neighborhood).
+  // Seed the graph with a search result / type chip (plants the node + its
+  // neighborhood). Seeding is an intentional "start exploring" action, so it
+  // explicitly switches into lazy mode FIRST -- a full-graph view is never
+  // silently replaced by a merge (the mode flip is visible: the toolbar button
+  // flips to "Lazy mode" and the working-set counts appear).
   const handleSeed = useCallback(
     (uuid: string) => {
       lastMergedKeyRef.current = null
+      setDataMode('lazy')
       setExpandUuid(uuid)
     },
-    []
+    [setDataMode]
   )
 
-  // Expand the currently selected (or any) node on demand.
+  // Expand the currently selected node on demand. Only reachable from the
+  // lazy-mode detail panel, but switch explicitly too so the working set is
+  // always what grows (never the abandoned full snapshot).
   const handleExpand = useCallback(
     (uuid: string) => {
       lastMergedKeyRef.current = null
+      setDataMode('lazy')
       setExpandUuid(uuid)
     },
-    []
+    [setDataMode]
   )
 
   // Clear the working set back to an empty canvas.
@@ -526,14 +537,14 @@ function HCGExplorerInner({
           {stats ? (
             <>
               <span className="hcg-stat" title="Total nodes in the graph">
-                {stats.total_nodes.toLocaleString()} nodes
+                {(stats.total_nodes ?? 0).toLocaleString()} nodes
               </span>
               <span className="hcg-stat" title="Content nodes that have been typed">
-                {stats.content_classified.toLocaleString()}/
-                {stats.content_nodes.toLocaleString()} typed
+                {(stats.content_classified ?? 0).toLocaleString()}/
+                {(stats.content_nodes ?? 0).toLocaleString()} typed
               </span>
               <span className="hcg-stat" title="Type-definition nodes">
-                {stats.type_definitions} types
+                {stats.type_definitions ?? 0} types
               </span>
             </>
           ) : (
@@ -605,10 +616,10 @@ function HCGExplorerInner({
         {!fullMode && (
           <div className="hcg-seedbar-counts">
             <span className="hcg-stat" title="Nodes in the working set">
-              {workingSet.entities.length} nodes
+              {workingSet?.entities?.length ?? 0} nodes
             </span>
             <span className="hcg-stat" title="Edges in the working set">
-              {workingSet.edges.length} edges
+              {workingSet?.edges?.length ?? 0} edges
             </span>
             {isExpanding && <span className="hcg-stat hcg-stat--muted">expanding...</span>}
           </div>

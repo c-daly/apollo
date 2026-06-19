@@ -137,15 +137,18 @@ function explorerReducer(
 
     case 'MERGE_NEIGHBORHOOD': {
       // Merge the fetched neighborhood into the accumulated working set
-      // (pure dedupe by node id / edge id). Mark the expanded root so the
-      // renderers can flag explored nodes. Switching to lazy mode here keeps
-      // the canvas pointed at the working set after a seed/expand.
+      // (pure dedupe by node id / edge id) and mark the expanded root so the
+      // renderers can flag explored nodes. Mode transitions are intentionally
+      // NOT performed here: this reducer never flips dataMode, so seeding while
+      // in 'full' mode can't silently replace the full graph. The component
+      // owns the lazy transition (via SET_DATA_MODE) before dispatching a seed
+      // so the switch is explicit and visible to the user.
       const workingSet = mergeNeighborhood(state.workingSet, action.neighborhood)
       const expandedNodeIds =
         action.rootId && !state.expandedNodeIds.includes(action.rootId)
           ? [...state.expandedNodeIds, action.rootId]
           : state.expandedNodeIds
-      return { ...state, dataMode: 'lazy', workingSet, expandedNodeIds }
+      return { ...state, workingSet, expandedNodeIds }
     }
 
     case 'RESET_WORKING_SET':

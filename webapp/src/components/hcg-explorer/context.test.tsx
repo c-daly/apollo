@@ -134,4 +134,29 @@ describe('HCGExplorer context — lazy-load reducer', () => {
     expect(result.current.state.dataMode).toBe('full')
     expect(result.current.state.workingSet.entities).toHaveLength(1)
   })
+
+  it('merging does NOT silently flip dataMode away from full (greptile P1)', () => {
+    // Regression guard: a user in full mode whose seed/expand merges a
+    // neighborhood must not have their dataMode silently changed by the
+    // reducer. The component owns the lazy transition (via setDataMode) so the
+    // switch is explicit; the reducer itself never flips the mode.
+    const { result } = renderHook(() => useHCGExplorer(), { wrapper })
+
+    act(() => {
+      result.current.setDataMode('full')
+    })
+    expect(result.current.state.dataMode).toBe('full')
+
+    act(() => {
+      result.current.mergeNeighborhood(
+        neighborhood([{ uuid: 'a', name: 'A', type: 'entity', properties: {} }], []),
+        'a'
+      )
+    })
+
+    // Mode is unchanged by the merge; only the working set + expanded ids grew.
+    expect(result.current.state.dataMode).toBe('full')
+    expect(result.current.state.workingSet.entities).toHaveLength(1)
+    expect(result.current.state.expandedNodeIds).toEqual(['a'])
+  })
 })

@@ -85,16 +85,27 @@ export function mergeNeighborhood(
   current: GraphSnapshot,
   payload: NeighborhoodPayload
 ): GraphSnapshot {
+  // Defensive: tolerate a null/partial working set or a malformed payload
+  // (missing nodes/edges arrays, or entries without an id/uuid) so a bad API
+  // response degrades to "merge what's valid" instead of throwing.
   const nodeById = new Map<string, Entity>()
-  for (const e of current.entities) nodeById.set(e.id, e)
-  for (const n of payload.nodes) {
-    if (!nodeById.has(n.uuid)) nodeById.set(n.uuid, neighborhoodNodeToEntity(n))
+  for (const e of current?.entities ?? []) {
+    if (e?.id) nodeById.set(e.id, e)
+  }
+  for (const n of payload?.nodes ?? []) {
+    if (n?.uuid && !nodeById.has(n.uuid)) {
+      nodeById.set(n.uuid, neighborhoodNodeToEntity(n))
+    }
   }
 
   const edgeById = new Map<string, CausalEdge>()
-  for (const e of current.edges) edgeById.set(e.id, e)
-  for (const e of payload.edges) {
-    if (!edgeById.has(e.id)) edgeById.set(e.id, neighborhoodEdgeToCausalEdge(e))
+  for (const e of current?.edges ?? []) {
+    if (e?.id) edgeById.set(e.id, e)
+  }
+  for (const e of payload?.edges ?? []) {
+    if (e?.id && !edgeById.has(e.id)) {
+      edgeById.set(e.id, neighborhoodEdgeToCausalEdge(e))
+    }
   }
 
   const entities = Array.from(nodeById.values())

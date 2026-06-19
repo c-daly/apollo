@@ -503,6 +503,47 @@ describe('mergeNeighborhood', () => {
     expect(a?.name).toBe('original')
     expect(a?.type).toBe('entity')
   })
+
+  // Defensive: a null working set or a malformed neighborhood (missing arrays
+  // or entries without ids) must degrade gracefully instead of throwing.
+  it('tolerates a null/empty current working set', () => {
+    const payload = makeNeighborhood(
+      [{ uuid: 'a', name: 'A', type: 'entity', properties: {} }],
+      []
+    )
+    const merged = mergeNeighborhood(
+      null as unknown as GraphSnapshot,
+      payload
+    )
+    expect(merged.entities).toHaveLength(1)
+    expect(merged.edges).toHaveLength(0)
+  })
+
+  it('tolerates a payload missing its nodes/edges arrays', () => {
+    const merged = mergeNeighborhood(
+      EMPTY_SNAPSHOT,
+      {} as unknown as NeighborhoodPayload
+    )
+    expect(merged.entities).toHaveLength(0)
+    expect(merged.edges).toHaveLength(0)
+    expect(merged.metadata).toMatchObject({ entity_count: 0, edge_count: 0 })
+  })
+
+  it('skips payload nodes/edges that lack an id', () => {
+    const payload = {
+      nodes: [
+        { uuid: 'a', name: 'A', type: 'entity', properties: {} },
+        { name: 'no-uuid', type: 'entity', properties: {} },
+      ],
+      edges: [
+        { id: 'e1', source: 'a', target: 'a', relation: 'SELF' },
+        { source: 'a', target: 'a', relation: 'NO_ID' },
+      ],
+    } as unknown as NeighborhoodPayload
+    const merged = mergeNeighborhood(EMPTY_SNAPSHOT, payload)
+    expect(merged.entities.map(e => e.id)).toEqual(['a'])
+    expect(merged.edges.map(e => e.id)).toEqual(['e1'])
+  })
 })
 
 describe('processGraph expanded marker', () => {

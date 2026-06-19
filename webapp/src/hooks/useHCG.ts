@@ -4,6 +4,7 @@
  * These hooks call Sophia's API endpoints via sophia-client.
  */
 
+import { useEffect, useState } from 'react'
 import { useQuery, UseQueryResult } from '@tanstack/react-query'
 import { sophiaClient } from '../lib/sophia-client'
 import type {
@@ -199,7 +200,11 @@ export function useHCGNeighborhood(
   return useQuery({
     queryKey: ['hcg', 'neighborhood', uuid, depth, limit],
     queryFn: async () => {
-      const response = await sophiaClient.getHCGNeighborhood(uuid as string, depth, limit)
+      // The enabled-guard below normally prevents this from running without a
+      // uuid, but guard explicitly so a stale/forced fetch surfaces a clear
+      // error instead of building a request against `/hcg/neighborhood/null`.
+      if (!uuid) throw new Error('useHCGNeighborhood: uuid is required')
+      const response = await sophiaClient.getHCGNeighborhood(uuid, depth, limit)
       return unwrapResponse(response)
     },
     staleTime: 30000,
@@ -207,24 +212,43 @@ export function useHCGNeighborhood(
   })
 }
 
+/** Debounce interval (ms) for the seed search query. */
+export const HCG_SEARCH_DEBOUNCE_MS = 300
+
 /**
- * Hook to search HCG nodes for seeding. Enabled only when the query is
- * non-empty (the enabled-guard doubles as the debounce: an empty box issues
- * no request). Callers should pass an already-trimmed query.
+ * Hook to search HCG nodes for seeding.
+ *
+ * The query term is debounced ({@link HCG_SEARCH_DEBOUNCE_MS}) before it reaches
+ * react-query, so typing "entity" issues a single request once typing settles
+ * rather than one per keystroke. The enabled-guard additionally suppresses
+ * requests for an empty/blank query. `q` is tolerant of null/undefined.
  */
 export function useHCGSearch(
-  q: string,
+  q: string | null | undefined,
   limit: number = 20
 ): UseQueryResult<HCGSearchResult[], Error> {
-  const query = q.trim()
+  const query = (q ?? '').trim()
+
+  // Debounce: only let the query reach react-query once it has been stable for
+  // HCG_SEARCH_DEBOUNCE_MS. The debounced value starts empty and is only ever
+  // advanced by the timer, so even the first non-empty term waits out the
+  // window -- each keystroke resets the timer, so the queryKey (and therefore
+  // the request) only changes after typing pauses.
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  useEffect(() => {
+    if (query === debouncedQuery) return
+    const id = setTimeout(() => setDebouncedQuery(query), HCG_SEARCH_DEBOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [query, debouncedQuery])
+
   return useQuery({
-    queryKey: ['hcg', 'search', query, limit],
+    queryKey: ['hcg', 'search', debouncedQuery, limit],
     queryFn: async () => {
-      const response = await sophiaClient.searchHCG(query, limit)
+      const response = await sophiaClient.searchHCG(debouncedQuery, limit)
       return unwrapResponse(response)
     },
     staleTime: 5000,
-    enabled: query.length > 0,
+    enabled: debouncedQuery.length > 0,
   })
 }
 
